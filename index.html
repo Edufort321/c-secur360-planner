@@ -6787,6 +6787,7 @@
             const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
             const [showAdminLogin, setShowAdminLogin] = useState(false);
             const [adminPassword, setAdminPassword] = useState('');
+            const [showMobileMenu, setShowMobileMenu] = useState(false); // État menu hamburger
             
             // États d'authentification utilisateur
             const [utilisateurConnecte, setUtilisateurConnecte] = useState(null);
@@ -7422,153 +7423,351 @@
                     onClose: () => {} // Pas de fermeture possible sans connexion
                 }),
 
-                // Header avec bande noire
+                // HEADER RESPONSIVE AVEC MENU HAMBURGER
                 React.createElement('div', { className: "bg-gradient-to-r from-gray-900 to-black shadow-lg border-b border-gray-800" },
-                    React.createElement('div', { className: "px-4 py-4" },
-                        React.createElement('div', { className: "flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4" },
-                            React.createElement('div', null,
-                                React.createElement('div', { className: "flex items-center gap-3" },
-                                    React.createElement('img', { 
-                                        src: "C-Secur360-logo.png.png", 
-                                        alt: "C-Secur360",
-                                        className: "w-16 h-16 lg:w-20 lg:h-20 object-contain"
-                                    }),
-                                    React.createElement('h1', { className: "text-xl lg:text-3xl font-bold text-white drop-shadow-lg" }, 
-                                        isMobile ? "Planificateur C-Secur360" : "Planificateur C-Secur360"
-                                    ),
-                                    React.createElement('span', { 
-                                        className: `px-2 py-1 text-xs rounded-full ${
-                                            isMobile ? 'bg-blue-600 text-blue-100 ring-1 ring-blue-300' : 
-                                            isTablet ? 'bg-green-600 text-green-100 ring-1 ring-green-300' : 
-                                            'bg-purple-600 text-purple-100 ring-1 ring-purple-300'
-                                        }` 
-                                    }, isMobile ? 'Mobile' : isTablet ? 'Tablette' : 'Desktop')
-                                ),
-                                React.createElement('p', { className: "text-xs lg:text-sm text-gray-300 mt-1" }, 
-                                    `${jobs.length} job${jobs.length !== 1 ? 's' : ''} • ${personnel.length} technicien${personnel.length !== 1 ? 's' : ''} • ${equipements.length} équipement${equipements.length !== 1 ? 's' : ''}`
-                                ),
-                                React.createElement('div', { className: "text-xs text-gray-300 mt-1 flex flex-wrap gap-3" },
-                                    React.createElement('span', null, "🌙 Travaux de nuit"),
-                                    React.createElement('span', null, "⏰ Travaux 24h/24h"),
-                                    React.createElement('span', null, "🟡 Planning personnalisé"),
-                                    React.createElement('span', null, "🟠 Inclut fins de semaine"),
-                                    React.createElement('span', null, "🔵 Horaire nuit"),
-                                    React.createElement('span', null, "🟠 Horaire jour"),
-                                    modeVueIndividuel && travailleurSelectionne && React.createElement('span', { 
-                                        className: "text-blue-300 font-medium" 
-                                    }, `👤 Vue: ${personnel.find(p => p.id === travailleurSelectionne)?.nom}`)
+                    React.createElement('div', { className: "px-4 py-3" },
+                        // BARRE PRINCIPALE COMPACTE
+                        React.createElement('div', { className: "flex items-center justify-between" },
+                            // Logo + Titre (toujours visible)
+                            React.createElement('div', { className: "flex items-center gap-2" },
+                                React.createElement('img', { 
+                                    src: "C-Secur360-logo.png.png", 
+                                    alt: "C-Secur360",
+                                    className: isMobile ? "w-10 h-10" : "w-12 h-12 lg:w-16 lg:h-16 object-contain"
+                                }),
+                                React.createElement('div', null,
+                                    React.createElement('h1', { 
+                                        className: isMobile 
+                                            ? "text-sm font-bold text-white" 
+                                            : "text-lg lg:text-2xl font-bold text-white drop-shadow-lg" 
+                                    }, isMobile ? "C-Secur360" : "Planificateur C-Secur360"),
+                                    !isMobile && React.createElement('div', { className: "text-xs text-gray-300" }, 
+                                        `${jobs.length} jobs • ${personnel.length} techniciens • ${equipements.length} équipements`
+                                    )
                                 )
                             ),
                             
-                            // Informations utilisateur connecté
-                            utilisateurConnecte && React.createElement('div', { className: "flex items-center gap-3" },
-                                React.createElement('div', { className: "text-right" },
-                                    React.createElement('div', { className: "flex items-center gap-2" },
+                            // ACTIONS RAPIDES MOBILES
+                            React.createElement('div', { className: "flex items-center gap-2" },
+                                // Utilisateur connecté - version compacte
+                                utilisateurConnecte && React.createElement('div', { 
+                                    className: isMobile 
+                                        ? "flex items-center gap-2" 
+                                        : "hidden lg:flex items-center gap-3" 
+                                },
+                                    React.createElement('div', { className: isMobile ? "text-right" : "text-right" },
+                                        React.createElement('div', { className: "flex items-center gap-1" },
+                                            React.createElement('span', { 
+                                                className: `w-2 h-2 rounded-full ${peutModifier() ? 'bg-green-500' : 'bg-orange-500'}` 
+                                            }),
+                                            React.createElement('span', { 
+                                                className: isMobile 
+                                                    ? "text-xs font-medium text-white" 
+                                                    : "font-medium text-white" 
+                                            }, isMobile ? utilisateurConnecte.nom.split(' ')[0] : utilisateurConnecte.nom)
+                                        ),
+                                        !isMobile && React.createElement('div', { className: "text-xs text-gray-200" },
+                                            utilisateurConnecte.poste,
+                                            estCoordonnateur() && React.createElement('span', { className: "ml-2 px-2 py-1 bg-blue-600 text-blue-100 rounded-full" }, "Coord.")
+                                        )
+                                    )
+                                ),
+                                
+                                // Google Drive - version compacte pour mobile
+                                utilisateurConnecte && React.createElement('button', {
+                                    onClick: () => {
+                                        if (googleDrive.isAuthenticated) {
+                                            if (forceSync) forceSync();
+                                        } else {
+                                            googleDrive.signIn();
+                                        }
+                                    },
+                                    className: `p-2 rounded-lg transition-all ${
+                                        googleDrive.isAuthenticated 
+                                            ? 'bg-green-100 text-green-600 hover:bg-green-200' 
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    }`,
+                                    title: googleDrive.isAuthenticated ? 'Synchroniser Google Drive' : 'Se connecter à Google Drive'
+                                },
+                                    React.createElement('span', { className: 'text-lg' }, 
+                                        googleDrive.isSyncing ? '🔄' : googleDrive.isAuthenticated ? '☁️' : '📡'
+                                    )
+                                ),
+                                
+                                // MENU HAMBURGER 
+                                React.createElement('button', {
+                                    onClick: () => setShowMobileMenu(!showMobileMenu),
+                                    className: "p-2 rounded-lg hover:bg-gray-800 transition-colors",
+                                    title: "Menu"
+                                },
+                                    React.createElement('div', { className: "flex flex-col gap-1" },
+                                        React.createElement('div', { className: `w-5 h-0.5 bg-white transition-transform ${showMobileMenu ? 'rotate-45 translate-y-1.5' : ''}` }),
+                                        React.createElement('div', { className: `w-5 h-0.5 bg-white transition-opacity ${showMobileMenu ? 'opacity-0' : ''}` }),
+                                        React.createElement('div', { className: `w-5 h-0.5 bg-white transition-transform ${showMobileMenu ? '-rotate-45 -translate-y-1.5' : ''}` })
+                                    )
+                                )
+                            )
+                        ),
+                        
+                        // MENU DÉROULANT MOBILE/TABLETTE
+                        showMobileMenu && React.createElement('div', {
+                            className: "mt-4 bg-gray-800 rounded-lg border border-gray-700 overflow-hidden"
+                        },
+                            // Section Informations
+                            React.createElement('div', { className: "p-4 border-b border-gray-700" },
+                                React.createElement('h3', { className: "text-sm font-semibold text-gray-300 mb-2" }, "📊 Informations"),
+                                React.createElement('div', { className: "grid grid-cols-2 gap-3 text-xs" },
+                                    React.createElement('div', { className: "bg-gray-700 p-2 rounded" },
+                                        React.createElement('div', { className: "text-blue-400 font-medium" }, jobs.length),
+                                        React.createElement('div', { className: "text-gray-300" }, jobs.length <= 1 ? 'Job' : 'Jobs')
+                                    ),
+                                    React.createElement('div', { className: "bg-gray-700 p-2 rounded" },
+                                        React.createElement('div', { className: "text-green-400 font-medium" }, personnel.length),
+                                        React.createElement('div', { className: "text-gray-300" }, 'Techniciens')
+                                    ),
+                                    React.createElement('div', { className: "bg-gray-700 p-2 rounded" },
+                                        React.createElement('div', { className: "text-purple-400 font-medium" }, equipements.length),
+                                        React.createElement('div', { className: "text-gray-300" }, 'Équipements')
+                                    ),
+                                    React.createElement('div', { className: "bg-gray-700 p-2 rounded" },
+                                        React.createElement('div', { className: `font-medium ${
+                                            isMobile ? 'text-blue-400' : isTablet ? 'text-green-400' : 'text-purple-400'
+                                        }` }, isMobile ? 'Mobile' : isTablet ? 'Tablette' : 'Desktop'),
+                                        React.createElement('div', { className: "text-gray-300" }, 'Mode')
+                                    )
+                                )
+                            ),
+                            
+                            // Section Utilisateur (si connecté)
+                            utilisateurConnecte && React.createElement('div', { className: "p-4 border-b border-gray-700" },
+                                React.createElement('h3', { className: "text-sm font-semibold text-gray-300 mb-2" }, "👤 Compte"),
+                                React.createElement('div', { className: "bg-gray-700 p-3 rounded-lg" },
+                                    React.createElement('div', { className: "flex items-center justify-between mb-2" },
+                                        React.createElement('span', { className: "font-medium text-white" }, utilisateurConnecte.nom),
                                         React.createElement('span', { 
                                             className: `w-2 h-2 rounded-full ${peutModifier() ? 'bg-green-500' : 'bg-orange-500'}` 
-                                        }),
-                                        React.createElement('span', { className: "font-medium text-white" }, utilisateurConnecte.nom)
+                                        })
                                     ),
-                                    React.createElement('div', { className: "text-xs text-gray-200" },
-                                        utilisateurConnecte.poste,
-                                        estCoordonnateur() && React.createElement('span', { className: "ml-2 px-2 py-1 bg-blue-600 text-blue-100 rounded-full" }, "Coordonnateur")
-                                    ),
-                                    React.createElement('div', { className: "text-xs text-gray-300" },
-                                        peutModifier() ? "Peut modifier" : "Consultation seulement"
+                                    React.createElement('div', { className: "text-xs text-gray-300 mb-1" }, utilisateurConnecte.poste),
+                                    React.createElement('div', { className: "flex items-center justify-between" },
+                                        React.createElement('span', { className: "text-xs text-gray-400" }, 
+                                            peutModifier() ? "Peut modifier" : "Consultation"
+                                        ),
+                                        estCoordonnateur() && React.createElement('span', { 
+                                            className: "px-2 py-1 bg-blue-600 text-blue-100 rounded text-xs" 
+                                        }, "Coord.")
                                     )
                                 ),
                                 React.createElement('button', {
                                     onClick: handleUserLogout,
-                                    className: "text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50",
-                                    title: "Se déconnecter"
-                                },
-                                    React.createElement(Icon, { name: 'logout', size: 20 })
+                                    className: "w-full mt-2 p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                                }, "🚪 Se déconnecter")
+                            ),
+                            
+                            // Section Google Drive
+                            utilisateurConnecte && React.createElement('div', { className: "p-4 border-b border-gray-700" },
+                                React.createElement('h3', { className: "text-sm font-semibold text-gray-300 mb-2" }, "☁️ Google Drive"),
+                                React.createElement('div', { className: "bg-gray-700 p-3 rounded-lg" },
+                                    React.createElement('div', { className: "flex items-center justify-between mb-2" },
+                                        React.createElement('span', { className: "text-sm" }, 
+                                            googleDrive.isAuthenticated ? "Connecté" : "Non connecté"
+                                        ),
+                                        React.createElement('span', { 
+                                            className: `text-lg ${
+                                                googleDrive.isSyncing ? '' : 
+                                                googleDrive.isAuthenticated ? 'text-green-400' : 
+                                                'text-gray-400'
+                                            }` 
+                                        }, googleDrive.isSyncing ? '🔄' : googleDrive.isAuthenticated ? '☁️' : '📡')
+                                    ),
+                                    googleDrive.lastSync && React.createElement('div', { className: "text-xs text-gray-400 mb-2" },
+                                        `Dernière sync: ${googleDrive.lastSync.toLocaleDateString()}`
+                                    ),
+                                    React.createElement('div', { className: "flex gap-2" },
+                                        !googleDrive.isAuthenticated 
+                                            ? React.createElement('button', {
+                                                onClick: googleDrive.signIn,
+                                                className: "flex-1 p-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-xs"
+                                            }, "Se connecter")
+                                            : React.createElement('div', { className: "flex gap-2 w-full" },
+                                                React.createElement('button', {
+                                                    onClick: forceSync,
+                                                    disabled: googleDrive.isSyncing,
+                                                    className: "flex-1 p-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-xs"
+                                                }, googleDrive.isSyncing ? "Sync..." : "Sync"),
+                                                React.createElement('button', {
+                                                    onClick: googleDrive.signOut,
+                                                    className: "px-3 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 text-xs"
+                                                }, "Déco")
+                                            )
+                                    )
                                 )
                             ),
                             
-                            // Google Drive
-                            utilisateurConnecte && React.createElement(GoogleDriveButton, {
-                                googleDrive: googleDrive,
-                                forceSync: forceSync,
-                                notifications: { addNotification }
-                            }),
-                            
-                            // Actions
-                            React.createElement('div', { className: "flex flex-wrap gap-2" },
-                                // Bouton Nouveau (seulement si peut modifier)
-                                peutModifier() && React.createElement('button', {
-                                    onClick: () => {
-                                        setSelectedJob(null);
-                                        setSelectedCell(null);
-                                        setShowJobModal(true);
+                            // Section Actions
+                            React.createElement('div', { className: "p-4" },
+                                React.createElement('h3', { className: "text-sm font-semibold text-gray-300 mb-3" }, "⚡ Actions"),
+                                React.createElement('div', { className: "grid grid-cols-2 gap-3" },
+                                    // Bouton Nouveau (seulement si peut modifier)
+                                    peutModifier() && React.createElement('button', {
+                                        onClick: () => {
+                                            setSelectedJob(null);
+                                            setSelectedCell(null);
+                                            setShowJobModal(true);
+                                            setShowMobileMenu(false); // Fermer le menu
+                                        },
+                                        className: "flex items-center justify-center gap-2 p-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                                     },
-                                    className: "flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-                                },
-                                    React.createElement(Icon, { name: 'plus', size: 16 }),
-                                    React.createElement('span', { className: "hidden sm:inline" }, "Nouveau")
-                                ),
-                                
-                                // Bouton installation PWA
-                                React.createElement('button', {
-                                    onClick: handleInstallPWA,
-                                    className: `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                                        showInstallButton ? 
-                                        'bg-purple-500 text-white hover:bg-purple-600 animate-pulse' :
-                                        'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                                    }`,
-                                    title: showInstallButton ? 'Installer l\'application' : 'PWA disponible'
-                                },
-                                    React.createElement('img', { 
-                                        src: "C-Secur360-logo.png.png", 
-                                        alt: "Logo",
-                                        className: "w-4 h-4 object-contain"
-                                    }),
-                                    React.createElement('span', { className: "hidden sm:inline" }, 
-                                        showInstallButton ? 'Installer' : 'PWA'
-                                    )
-                                ),
-                                
-                                React.createElement('button', {
-                                    onClick: requireAdminAuth,
-                                    className: "flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                                },
-                                    React.createElement(Icon, { name: 'settings', size: 16 }),
-                                    React.createElement('span', { className: "hidden sm:inline" }, "Ressources")
-                                ),
-                                React.createElement('button', {
-                                    onClick: () => setModeTheme(modeTheme === 'jour' ? 'nuit' : 'jour'),
-                                    className: `flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
-                                        modeTheme === 'nuit' 
-                                            ? 'bg-yellow-500 text-white hover:bg-yellow-600' 
-                                            : 'bg-gray-800 text-white hover:bg-gray-900'
-                                    }`
-                                },
-                                    React.createElement('span', null, modeTheme === 'nuit' ? '☀️' : '🌙'),
-                                    React.createElement('span', { className: "hidden sm:inline" }, 
-                                        modeTheme === 'nuit' ? 'Jour' : 'Nuit'
-                                    )
-                                ),
-                                React.createElement('button', {
-                                    onClick: () => {
-                                        setSelectedPersonnelConges(null);
-                                        setShowCongesModal(true);
+                                        React.createElement(Icon, { name: 'plus', size: 16 }),
+                                        React.createElement('span', { className: "text-sm font-medium" }, "Nouveau Job")
+                                    ),
+                                    
+                                    // Bouton Ressources
+                                    React.createElement('button', {
+                                        onClick: () => {
+                                            requireAdminAuth();
+                                            setShowMobileMenu(false);
+                                        },
+                                        className: "flex items-center justify-center gap-2 p-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                                     },
-                                    className: "flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
-                                },
-                                    React.createElement('span', null, '🏖️'),
-                                    React.createElement('span', { className: "hidden sm:inline" }, "Congés")
-                                ),
-                                !isMobile && React.createElement('button', {
-                                    onClick: exportData,
-                                    className: "flex items-center gap-2 px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-                                },
-                                    React.createElement(Icon, { name: 'download', size: 16 }),
-                                    React.createElement('span', { className: "hidden lg:inline" }, "Export")
+                                        React.createElement(Icon, { name: 'settings', size: 16 }),
+                                        React.createElement('span', { className: "text-sm font-medium" }, "Ressources")
+                                    ),
+                                    
+                                    // Toggle Mode Jour/Nuit
+                                    React.createElement('button', {
+                                        onClick: () => {
+                                            setModeTheme(modeTheme === 'jour' ? 'nuit' : 'jour');
+                                            setShowMobileMenu(false);
+                                        },
+                                        className: `flex items-center justify-center gap-2 p-3 rounded-lg transition-colors ${
+                                            modeTheme === 'nuit' 
+                                                ? 'bg-yellow-600 text-white hover:bg-yellow-700' 
+                                                : 'bg-gray-700 text-white hover:bg-gray-800'
+                                        }`
+                                    },
+                                        React.createElement('span', { className: "text-lg" }, modeTheme === 'nuit' ? '☀️' : '🌙'),
+                                        React.createElement('span', { className: "text-sm font-medium" }, 
+                                            modeTheme === 'nuit' ? 'Mode Jour' : 'Mode Nuit'
+                                        )
+                                    ),
+                                    
+                                    // Bouton Congés
+                                    React.createElement('button', {
+                                        onClick: () => {
+                                            setSelectedPersonnelConges(null);
+                                            setShowCongesModal(true);
+                                            setShowMobileMenu(false);
+                                        },
+                                        className: "flex items-center justify-center gap-2 p-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                                    },
+                                        React.createElement('span', { className: "text-lg" }, '🏖️'),
+                                        React.createElement('span', { className: "text-sm font-medium" }, "Congés")
+                                    ),
+                                    
+                                    // PWA Install
+                                    React.createElement('button', {
+                                        onClick: () => {
+                                            handleInstallPWA();
+                                            setShowMobileMenu(false);
+                                        },
+                                        className: `flex items-center justify-center gap-2 p-3 rounded-lg transition-colors ${
+                                            showInstallButton ? 
+                                            'bg-purple-600 text-white hover:bg-purple-700 animate-pulse' :
+                                            'bg-gray-600 text-white hover:bg-gray-700'
+                                        }`
+                                    },
+                                        React.createElement('span', { className: "text-lg" }, '📱'),
+                                        React.createElement('span', { className: "text-sm font-medium" }, 
+                                            showInstallButton ? 'Installer App' : 'PWA'
+                                        )
+                                    ),
+                                    
+                                    // Export Data
+                                    React.createElement('button', {
+                                        onClick: () => {
+                                            exportData();
+                                            setShowMobileMenu(false);
+                                        },
+                                        className: "flex items-center justify-center gap-2 p-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                                    },
+                                        React.createElement(Icon, { name: 'download', size: 16 }),
+                                        React.createElement('span', { className: "text-sm font-medium" }, "Export")
                                 )
                             )
                         ),
+                        
+                        // ACTIONS DESKTOP - Visible uniquement sur desktop
+                        !isMobile && !showMobileMenu && React.createElement('div', { className: "hidden lg:flex lg:items-center lg:gap-2 mt-4" },
+                            // Bouton Nouveau (seulement si peut modifier)
+                            peutModifier() && React.createElement('button', {
+                                onClick: () => {
+                                    setSelectedJob(null);
+                                    setSelectedCell(null);
+                                    setShowJobModal(true);
+                                },
+                                className: "flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                            },
+                                React.createElement(Icon, { name: 'plus', size: 16 }),
+                                React.createElement('span', null, "Nouveau")
+                            ),
+                            
+                            // Bouton installation PWA
+                            React.createElement('button', {
+                                onClick: handleInstallPWA,
+                                className: `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                                    showInstallButton ? 
+                                    'bg-purple-500 text-white hover:bg-purple-600 animate-pulse' :
+                                    'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                }`,
+                                title: showInstallButton ? 'Installer l\'application' : 'PWA disponible'
+                            },
+                                React.createElement('span', null, '📱'),
+                                React.createElement('span', null, showInstallButton ? 'Installer' : 'PWA')
+                            ),
+                            
+                            React.createElement('button', {
+                                onClick: requireAdminAuth,
+                                className: "flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                            },
+                                React.createElement(Icon, { name: 'settings', size: 16 }),
+                                React.createElement('span', null, "Ressources")
+                            ),
+                            
+                            React.createElement('button', {
+                                onClick: () => setModeTheme(modeTheme === 'jour' ? 'nuit' : 'jour'),
+                                className: `flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
+                                    modeTheme === 'nuit' 
+                                        ? 'bg-yellow-500 text-white hover:bg-yellow-600' 
+                                        : 'bg-gray-800 text-white hover:bg-gray-900'
+                                }`
+                            },
+                                React.createElement('span', null, modeTheme === 'nuit' ? '☀️' : '🌙'),
+                                React.createElement('span', null, modeTheme === 'nuit' ? 'Jour' : 'Nuit')
+                            ),
+                            
+                            React.createElement('button', {
+                                onClick: () => {
+                                    setSelectedPersonnelConges(null);
+                                    setShowCongesModal(true);
+                                },
+                                className: "flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors"
+                            },
+                                React.createElement('span', null, '🏖️'),
+                                React.createElement('span', null, "Congés")
+                            ),
+                            
+                            React.createElement('button', {
+                                onClick: exportData,
+                                className: "flex items-center gap-2 px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                            },
+                                React.createElement(Icon, { name: 'download', size: 16 }),
+                                React.createElement('span', null, "Export")
+                            )
+                        )
+                    ),
 
-                        // Navigation et recherche
+                    // Navigation et recherche
                         React.createElement('div', { className: "flex flex-col lg:flex-row gap-4 mt-4" },
                             // Recherche et filtres
                             React.createElement('div', { className: "flex flex-1 gap-2" },
