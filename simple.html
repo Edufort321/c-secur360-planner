@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C-Secur360 - Version Simple</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            color: white;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        h1 {
+            color: #333;
+            margin: 0;
+        }
+        .status {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .success { background: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border-color: #bee5eb; color: #0c5460; }
+        .btn {
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+        #tests {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">CS</div>
+            <h1>Planificateur C-Secur360</h1>
+            <p>Version simple pour diagnostic</p>
+        </div>
+        
+        <div class="status info" id="initial-status">
+            🔍 Initialisation des tests...
+        </div>
+        
+        <div id="tests"></div>
+        
+        <div style="text-align: center; margin-top: 30px;">
+            <button class="btn" onclick="loadMainApp()">
+                🚀 Charger l'Application Complète
+            </button>
+            <button class="btn" onclick="runTests()">
+                🧪 Relancer les Tests
+            </button>
+        </div>
+    </div>
+
+    <script>
+        console.log('🔍 Version Simple - Début des tests');
+        
+        const testsDiv = document.getElementById('tests');
+        const initialStatus = document.getElementById('initial-status');
+        
+        function addTest(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            testsDiv.appendChild(div);
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function runTests() {
+            testsDiv.innerHTML = '';
+            
+            // Test 1: JavaScript de base
+            try {
+                addTest('✅ JavaScript fonctionne correctement', 'success');
+            } catch (error) {
+                addTest('❌ Erreur JavaScript: ' + error.message, 'error');
+            }
+
+            // Test 2: DOM
+            setTimeout(() => {
+                addTest('✅ Manipulation DOM réussie', 'success');
+                
+                // Test 3: Console
+                console.log('🧪 Test console - Ceci devrait apparaître dans DevTools');
+                addTest('✅ Console.log exécuté (vérifiez F12)', 'success');
+                
+                // Test 4: Fetch API
+                fetch('./index.html')
+                    .then(response => {
+                        if (response.ok) {
+                            addTest('✅ Fetch API fonctionne - Fichier principal accessible', 'success');
+                        } else {
+                            addTest('❌ Fetch API - Erreur HTTP ' + response.status, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        addTest('❌ Fetch API échoué: ' + error.message, 'error');
+                    });
+                
+                // Test 5: Scripts externes
+                const testScript = document.createElement('script');
+                testScript.src = 'https://unpkg.com/react@18/umd/react.production.min.js';
+                testScript.onload = () => {
+                    addTest('✅ Script externe React chargé avec succès', 'success');
+                };
+                testScript.onerror = () => {
+                    addTest('❌ Impossible de charger React depuis CDN', 'error');
+                };
+                document.head.appendChild(testScript);
+                
+            }, 500);
+        }
+
+        function loadMainApp() {
+            addTest('🔄 Redirection vers l\'application principale...', 'info');
+            setTimeout(() => {
+                window.location.href = './index.html';
+            }, 1000);
+        }
+
+        // Test d'erreur global
+        window.onerror = function(msg, url, line, col, error) {
+            addTest(`❌ ERREUR GLOBALE: ${msg} (Ligne ${line})`, 'error');
+            console.error('Erreur globale capturée:', error);
+            return false;
+        };
+
+        // Démarrer les tests automatiquement
+        initialStatus.innerHTML = '✅ JavaScript initialisé - Lancement des tests...';
+        setTimeout(runTests, 100);
+    </script>
+</body>
+</html>
