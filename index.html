@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planificateur de Projet - C-Secur360 V6.5 - Événements en Attente</title>
+    <title>Planificateur de Projet - C-Secur360 V6.4 - Version Complète</title>
     <link rel="icon" type="image/png" href="C-Secur360-logo.png.png">
     
     <!-- PWA Configuration -->
@@ -5095,148 +5095,7 @@
                     // Sélection des ressources
                     React.createElement('div', null,
                         React.createElement('h3', { className: "text-lg font-semibold mb-4" }, "Assignation des ressources"),
-                        
-                        // V6.5: Nombre de personnel requis (pour tous les événements)
-                        React.createElement('div', { className: "mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg" },
-                            React.createElement('div', { className: "flex items-center justify-between mb-2" },
-                                React.createElement('label', { className: "font-medium text-blue-800" }, "👨‍🔧 Personnel requis pour cet événement"),
-                                React.createElement('div', { className: "flex items-center gap-2" },
-                                    React.createElement('input', {
-                                        type: "number",
-                                        min: "1",
-                                        max: "50",
-                                        value: formData.personnelRequis || '',
-                                        onChange: (e) => updateField('personnelRequis', parseInt(e.target.value) || 0),
-                                        className: "w-20 p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-center font-bold",
-                                        placeholder: "Ex: 5"
-                                    }),
-                                    React.createElement('span', { className: "text-blue-700 font-medium" }, "technicien(s)")
-                                )
-                            ),
-                            
-                            // Indicateur de statut d'assignation
-                            formData.personnelRequis > 0 && React.createElement('div', { className: "flex items-center justify-between text-sm" },
-                                React.createElement('span', { className: "text-blue-700" }, "Statut d'assignation :"),
-                                React.createElement('div', { className: "flex items-center gap-2" },
-                                    React.createElement('span', { 
-                                        className: `px-2 py-1 rounded-full text-xs font-bold ${
-                                            (formData.personnel?.length || 0) >= formData.personnelRequis 
-                                                ? 'bg-green-100 text-green-800' 
-                                                : (formData.personnel?.length || 0) > 0
-                                                ? 'bg-orange-100 text-orange-800'
-                                                : 'bg-red-100 text-red-800'
-                                        }`
-                                    }, 
-                                        `${formData.personnel?.length || 0}/${formData.personnelRequis}`
-                                    ),
-                                    (formData.personnel?.length || 0) >= formData.personnelRequis 
-                                        ? React.createElement('span', { className: "text-green-600 font-bold" }, "✅ COMPLET")
-                                        : (formData.personnel?.length || 0) > 0
-                                        ? React.createElement('span', { className: "text-orange-600 font-bold" }, "⏳ PARTIEL")
-                                        : React.createElement('span', { className: "text-red-600 font-bold" }, "🚨 EN ATTENTE")
-                                )
-                            )
-                        ),
-                        
-                        // V6.5: Mode "Événement en Attente" 
-                        React.createElement('div', { className: "mb-6 p-4 border-2 border-dashed border-orange-300 rounded-lg bg-orange-50" },
-                            React.createElement('div', { className: "flex items-center gap-3 mb-3" },
-                                React.createElement('input', {
-                                    type: "checkbox",
-                                    id: "evenementEnAttente",
-                                    checked: formData.modeAttenteAssignation || false,
-                                    onChange: (e) => {
-                                        updateField('modeAttenteAssignation', e.target.checked);
-                                        if (e.target.checked) {
-                                            // Réinitialiser les assignations spécifiques
-                                            updateField('personnel', []);
-                                            updateField('equipements', []);
-                                            updateField('sousTraitants', []);
-                                        }
-                                    },
-                                    className: "rounded focus:ring-orange-500 text-orange-600"
-                                }),
-                                React.createElement('label', { 
-                                    htmlFor: "evenementEnAttente", 
-                                    className: "font-medium text-orange-800 cursor-pointer"
-                                }, "⏳ Créer en attente d'assignation"),
-                                React.createElement('div', { 
-                                    className: "text-xs text-orange-700 bg-orange-100 px-2 py-1 rounded-full"
-                                }, "Nouveau !")
-                            ),
-                            
-                            formData.modeAttenteAssignation && React.createElement('div', { className: "space-y-3" },
-                                React.createElement('div', { className: "text-sm text-orange-700 mb-3" },
-                                    "🎯 Définissez le nombre de ressources nécessaires sans les assigner maintenant"
-                                ),
-                                
-                                // Nombre de techniciens requis
-                                React.createElement('div', { className: "grid grid-cols-1 sm:grid-cols-3 gap-4" },
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: "block text-sm font-medium text-orange-800 mb-1" },
-                                            "👨‍🔧 Techniciens requis"
-                                        ),
-                                        React.createElement('input', {
-                                            type: "number",
-                                            min: "0",
-                                            max: "20",
-                                            value: formData.techniciensRequis || 0,
-                                            onChange: (e) => updateField('techniciensRequis', parseInt(e.target.value) || 0),
-                                            className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500"
-                                        })
-                                    ),
-                                    
-                                    // Équipements requis
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: "block text-sm font-medium text-orange-800 mb-1" },
-                                            "🛠️ Équipements requis"
-                                        ),
-                                        React.createElement('input', {
-                                            type: "number",
-                                            min: "0",
-                                            max: "10",
-                                            value: formData.equipementsRequis || 0,
-                                            onChange: (e) => updateField('equipementsRequis', parseInt(e.target.value) || 0),
-                                            className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500"
-                                        })
-                                    ),
-                                    
-                                    // Sous-traitants requis
-                                    React.createElement('div', null,
-                                        React.createElement('label', { className: "block text-sm font-medium text-orange-800 mb-1" },
-                                            "🏢 Sous-traitants requis"
-                                        ),
-                                        React.createElement('input', {
-                                            type: "number",
-                                            min: "0",
-                                            max: "5",
-                                            value: formData.sousTraitantsRequis || 0,
-                                            onChange: (e) => updateField('sousTraitantsRequis', parseInt(e.target.value) || 0),
-                                            className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-orange-500"
-                                        })
-                                    )
-                                ),
-                                
-                                // Résumé visuel
-                                React.createElement('div', { className: "bg-orange-100 rounded-lg p-3 border border-orange-200" },
-                                    React.createElement('div', { className: "text-sm font-medium text-orange-800 mb-2" }, "📋 Résumé des besoins :"),
-                                    React.createElement('div', { className: "flex flex-wrap gap-2 text-xs" },
-                                        (formData.techniciensRequis > 0) && React.createElement('span', { 
-                                            className: "bg-blue-100 text-blue-800 px-2 py-1 rounded-full"
-                                        }, `👨‍🔧 ${formData.techniciensRequis} technicien${formData.techniciensRequis > 1 ? 's' : ''}`),
-                                        (formData.equipementsRequis > 0) && React.createElement('span', { 
-                                            className: "bg-green-100 text-green-800 px-2 py-1 rounded-full"
-                                        }, `🛠️ ${formData.equipementsRequis} équipement${formData.equipementsRequis > 1 ? 's' : ''}`),
-                                        (formData.sousTraitantsRequis > 0) && React.createElement('span', { 
-                                            className: "bg-purple-100 text-purple-800 px-2 py-1 rounded-full"
-                                        }, `🏢 ${formData.sousTraitantsRequis} sous-traitant${formData.sousTraitantsRequis > 1 ? 's' : ''}`)
-                                    )
-                                )
-                            )
-                        ),
-                        
-                        // Afficher le sélecteur de ressources seulement si pas en mode attente
-                        !formData.modeAttenteAssignation && React.createElement(ResourceSelector, {
+                        React.createElement(ResourceSelector, {
                             selectedPersonnel: formData.personnel,
                             selectedEquipements: formData.equipements,
                             selectedSousTraitants: formData.sousTraitants,
@@ -6025,7 +5884,6 @@
             const [searchTerm, setSearchTerm] = useState('');
             const [filterBureau, setFilterBureau] = useState('tous');
             const [filterType, setFilterType] = useState('personnel'); // 'personnel', 'equipements' ou 'global'
-            const [showPendingEvents, setShowPendingEvents] = useState(true); // V6.5: Filtre événements en attente
             const [showDateNavigator, setShowDateNavigator] = useState(false);
             const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
             const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -6794,26 +6652,6 @@
                                     React.createElement('span', null, '🏖️'),
                                     React.createElement('span', { className: "hidden sm:inline" }, "Congés")
                                 ),
-                                
-                                // V6.5: Toggle événements en attente
-                                React.createElement('button', {
-                                    onClick: () => setShowPendingEvents(!showPendingEvents),
-                                    className: `flex items-center gap-2 px-3 py-2 rounded-lg transition-colors border-2 ${
-                                        showPendingEvents 
-                                            ? 'bg-orange-500 text-white border-orange-500 hover:bg-orange-600' 
-                                            : 'bg-white text-orange-500 border-orange-300 hover:bg-orange-50'
-                                    }`,
-                                    title: showPendingEvents ? "Masquer les événements en attente" : "Afficher les événements en attente"
-                                },
-                                    React.createElement('span', null, showPendingEvents ? '⏳' : '👁️‍🗨️'),
-                                    React.createElement('span', { className: "hidden sm:inline font-medium" }, 
-                                        showPendingEvents ? 'Attente ON' : 'Attente OFF'
-                                    ),
-                                    // Badge du nombre d'événements en attente
-                                    React.createElement('span', { 
-                                        className: `ml-1 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full font-bold ${!showPendingEvents ? 'opacity-50' : ''}` 
-                                    }, jobs.filter(job => job.modeAttenteAssignation).length || 0)
-                                ),
                                 !isMobile && React.createElement('button', {
                                     onClick: exportData,
                                     className: "flex items-center gap-2 px-3 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
@@ -7003,118 +6841,6 @@
                                 ),
                                 
                                 React.createElement('tbody', null,
-                                    // V6.5: Ligne spéciale pour les événements en attente (conditionnelle)
-                                    showPendingEvents && React.createElement('tr', {
-                                        className: "bg-gradient-to-r from-orange-100 to-red-100 border-2 border-orange-300 hover:from-orange-200 hover:to-red-200 transition-all"
-                                    },
-                                        React.createElement('td', { 
-                                            className: `px-3 py-3 font-bold sticky left-0 bg-gradient-to-r from-orange-100 to-red-100 z-10 border-r ${isMobile ? 'w-[120px]' : 'w-[160px]'}` 
-                                        },
-                                            React.createElement('div', { className: `${isMobile ? 'text-xs' : 'text-sm'} font-bold flex items-center gap-2` }, 
-                                                React.createElement(Icon, { 
-                                                    name: 'clock', 
-                                                    size: 16,
-                                                    className: 'text-orange-600 animate-pulse'
-                                                }),
-                                                "⏳ EN ATTENTE"
-                                            ),
-                                            React.createElement('div', { className: "text-xs text-orange-700 font-medium" }, 
-                                                "Assignation requise"
-                                            )
-                                        ),
-                                        !isMobile && React.createElement('td', { 
-                                            className: "px-2 py-3 text-xs sticky left-[160px] bg-gradient-to-r from-orange-100 to-red-100 z-10 border-r font-medium text-orange-700" 
-                                        }, "Événements"),
-                                        
-                                        // Cellules pour chaque jour - afficher les événements en attente
-                                        ...continuousDays.map((day, dayIndex) => {
-                                            // V6.5: Événements en attente = Mode attente OU assignation partielle
-                                            const evenementsEnAttente = jobs.filter(job => {
-                                                const estDansLaPeriode = day.dateString >= job.dateDebut && 
-                                                                       day.dateString <= (job.dateFin || job.dateDebut) &&
-                                                                       (!job.includeWeekendsInDuration ? !day.isWeekend : true);
-                                                
-                                                if (!estDansLaPeriode) return false;
-                                                
-                                                // Mode attente classique
-                                                if (job.modeAttenteAssignation) return true;
-                                                
-                                                // Assignation partielle : a un nombre requis mais pas assez assigné
-                                                const personnelRequis = job.personnelRequis || 0;
-                                                const personnelAssigne = (job.personnel || []).length;
-                                                
-                                                return personnelRequis > 0 && personnelAssigne < personnelRequis;
-                                            });
-                                            
-                                            return React.createElement('td', {
-                                                key: `pending-${dayIndex}`,
-                                                className: `px-1 py-1 border-r cursor-pointer hover:bg-orange-200 transition-colors relative h-12 ${day.isWeekend ? 'bg-orange-50' : 'bg-white'} border-orange-200`,
-                                                onClick: (e) => {
-                                                    // Permettre de cliquer pour assigner les ressources plus tard
-                                                    if (evenementsEnAttente.length > 0) {
-                                                        setSelectedJob(evenementsEnAttente[0]);
-                                                        setSelectedCell({ resourceId: 'pending', day, resourceType: 'pending' });
-                                                        setShowJobModal(true);
-                                                    }
-                                                }
-                                            },
-                                                evenementsEnAttente.length > 0 ? 
-                                                    // Afficher les événements en attente
-                                                    React.createElement('div', { 
-                                                        className: "w-full h-full flex flex-col gap-0.5 p-0.5 overflow-hidden" 
-                                                    },
-                                                        ...evenementsEnAttente.slice(0, 2).map((job, jobIndex) => {
-                                                            // Différencier mode attente vs assignation partielle
-                                                            const estModeAttente = job.modeAttenteAssignation;
-                                                            const personnelRequis = job.personnelRequis || job.techniciensRequis || 0;
-                                                            const personnelAssigne = (job.personnel || []).length;
-                                                            const manquants = personnelRequis - personnelAssigne;
-                                                            
-                                                            const titre = estModeAttente 
-                                                                ? `${job.numeroJob} - ${job.nom}\nRessources nécessaires:\n👨‍🔧 ${job.techniciensRequis || 0} technicien(s)\n🛠️ ${job.equipementsRequis || 0} équipement(s)\n🏢 ${job.sousTraitantsRequis || 0} sous-traitant(s)\n\n📅 Du ${job.dateDebut} au ${job.dateFin || job.dateDebut}\n\n⚠️ CLIQUEZ POUR ASSIGNER`
-                                                                : `${job.numeroJob} - ${job.nom}\nASSIGNATION PARTIELLE:\n👨‍🔧 ${personnelAssigne}/${personnelRequis} assignés\n📊 Il manque ${manquants} technicien${manquants > 1 ? 's' : ''}\n\n📅 Du ${job.dateDebut} au ${job.dateFin || job.dateDebut}\n\n⚠️ CLIQUEZ POUR COMPLÉTER`;
-                                                            
-                                                            return React.createElement('div', {
-                                                                key: job.id,
-                                                                className: `flex-1 text-xs rounded border-2 ${estModeAttente ? 'border-orange-400 bg-gradient-to-r from-orange-200 to-red-200 animate-pulse' : 'border-yellow-400 bg-gradient-to-r from-yellow-200 to-orange-200 animate-bounce'} flex items-center justify-center relative transition-all hover:shadow-lg`,
-                                                                title: titre
-                                                            },
-                                                                React.createElement('div', { className: "text-center truncate px-1 flex-1 text-orange-900" },
-                                                                    React.createElement('div', { className: "font-bold", style: { fontSize: '9px', lineHeight: '1' } },
-                                                                        `#${job.numeroJob}`
-                                                                    ),
-                                                                    evenementsEnAttente.length === 1 && React.createElement('div', { 
-                                                                        className: "truncate font-medium", 
-                                                                        style: { fontSize: '8px', lineHeight: '1' }
-                                                                    }, job.nom.length > 8 ? job.nom.substring(0, 8) + '...' : job.nom)
-                                                                ),
-                                                                
-                                                                // Badge différencié selon le type
-                                                                React.createElement('div', {
-                                                                    className: `absolute -top-1 -right-1 w-4 h-4 rounded-full text-white text-xs flex items-center justify-center font-bold shadow-lg ${estModeAttente ? 'bg-red-600' : 'bg-orange-600'}`,
-                                                                    title: estModeAttente ? "Nombre total de ressources requises" : "Nombre de techniciens manquants"
-                                                                }, estModeAttente 
-                                                                    ? (job.techniciensRequis || 0) + (job.equipementsRequis || 0) + (job.sousTraitantsRequis || 0)
-                                                                    : manquants
-                                                                ),
-                                                                
-                                                                // Icône d'alerte clignotante
-                                                                React.createElement('div', {
-                                                                    className: "absolute top-0 left-0 w-2 h-2 rounded-full bg-red-500 animate-ping"
-                                                                })
-                                                            )
-                                                        ),
-                                                        evenementsEnAttente.length > 2 && React.createElement('div', {
-                                                            className: "text-center text-xs text-orange-800 bg-orange-200 rounded border font-bold",
-                                                            style: { fontSize: '8px', lineHeight: '12px' }
-                                                        }, `+${evenementsEnAttente.length - 2}`)
-                                                    ) :
-                                                    // Cellule vide pour les événements en attente
-                                                    null
-                                            );
-                                        })
-                                    ),
-                                    
                                     ...filteredResources.map((resource) => 
                                         React.createElement('tr', {
                                             key: resource.id,
@@ -7169,41 +6895,22 @@
                                                             )
                                                         )
                                                     ) : job ? React.createElement('div', {
-                                                        className: (() => {
-                                                            // V6.5: Couleur différente si assignation partielle
-                                                            const personnelRequis = job.personnelRequis || 0;
-                                                            const personnelAssigne = (job.personnel || []).length;
-                                                            const estPartiel = personnelRequis > 0 && personnelAssigne < personnelRequis && personnelAssigne > 0;
-                                                            
-                                                            return estPartiel 
-                                                                ? `w-full h-full flex items-center justify-center text-xs rounded border-2 border-orange-400 bg-gradient-to-r from-yellow-100 to-orange-100`
-                                                                : `w-full h-full flex items-center justify-center text-xs rounded border-2 ${getPriorityAndBureauColor(job)}`;
-                                                        })(),
-                                                        title: (() => {
-                                                            const personnelRequis = job.personnelRequis || 0;
-                                                            const personnelAssigne = (job.personnel || []).length;
-                                                            const estPartiel = personnelRequis > 0 && personnelAssigne < personnelRequis && personnelAssigne > 0;
-                                                            
-                                                            const baseTitle = `${job.numeroJob} - ${job.nom}\nBureau: ${job.bureau || 'Non assigné'}\nClient: ${job.client || 'N/A'}\n${
-                                                                job.planningsIndividuels?.[resource.id] 
-                                                                    ? `Planning personnalisé: ${job.planningsIndividuels[resource.id].dateDebut} au ${job.planningsIndividuels[resource.id].dateFin}` 
-                                                                    : `Du ${job.dateDebut} au ${job.dateFin || job.dateDebut}`
-                                                            }\nType: ${
-                                                                job.typeHoraire === 'nuit' ? 'Travaux de nuit 🌙' : 
-                                                                job.typeHoraire === '24h' ? 'Travaux 24h/24h ⏰' : 
-                                                                'Travaux de jour ☀️'
-                                                            }${
-                                                                job.typeHoraire === '24h' && job.horairesIndividuels?.[resource.id] 
-                                                                    ? `\nHoraire personnel: ${job.horairesIndividuels[resource.id] === 'nuit' ? 'Nuit 🌙' : 'Jour ☀️'}`
-                                                                    : ''
-                                                            }${
-                                                                job.includeWeekendsInDuration ? '\nInclut les fins de semaine' : ''
-                                                            }\nÉquipements: ${jobEquipments.map(eq => eq.nom).join(', ') || 'Aucun'}`;
-                                                            
-                                                            return estPartiel 
-                                                                ? `${baseTitle}\n\n⚠️ ASSIGNATION PARTIELLE: ${personnelAssigne}/${personnelRequis} techniciens`
-                                                                : baseTitle;
-                                                        })()`
+                                                        className: `w-full h-full flex items-center justify-center text-xs rounded border-2 ${getPriorityAndBureauColor(job)}`,
+                                                        title: `${job.numeroJob} - ${job.nom}\nBureau: ${job.bureau || 'Non assigné'}\nClient: ${job.client || 'N/A'}\n${
+                                                            job.planningsIndividuels?.[resource.id] 
+                                                                ? `Planning personnalisé: ${job.planningsIndividuels[resource.id].dateDebut} au ${job.planningsIndividuels[resource.id].dateFin}` 
+                                                                : `Du ${job.dateDebut} au ${job.dateFin || job.dateDebut}`
+                                                        }\nType: ${
+                                                            job.typeHoraire === 'nuit' ? 'Travaux de nuit 🌙' : 
+                                                            job.typeHoraire === '24h' ? 'Travaux 24h/24h ⏰' : 
+                                                            'Travaux de jour ☀️'
+                                                        }${
+                                                            job.typeHoraire === '24h' && job.horairesIndividuels?.[resource.id] 
+                                                                ? `\nHoraire personnel: ${job.horairesIndividuels[resource.id] === 'nuit' ? 'Nuit 🌙' : 'Jour ☀️'}`
+                                                                : ''
+                                                        }${
+                                                            job.includeWeekendsInDuration ? '\nInclut les fins de semaine' : ''
+                                                        }\nÉquipements: ${jobEquipments.map(eq => eq.nom).join(', ') || 'Aucun'}`
                                                     },
                                                         React.createElement('div', { className: "text-center truncate px-1" },
                                                             React.createElement('div', { className: `font-medium ${isMobile ? 'text-[10px]' : 'text-[12px]'}` }, `#${job.numeroJob}`),
@@ -7357,7 +7064,7 @@
             console.log('🚀 Démarrage du rendu React...');
             const root = ReactDOM.createRoot(rootElement);
             root.render(React.createElement(PlanificateurFinal));
-            console.log('%c🎉 SUCCÈS ! V6.5 ULTRA chargé avec succès - Événements en Attente', 'background: #4CAF50; color: white; padding: 10px; font-size: 16px;');
+            console.log('%c🎉 SUCCÈS ! V6.7 chargé avec succès - Version Complète', 'background: #4CAF50; color: white; padding: 10px; font-size: 16px;');
             
         } catch (error) {
             console.error('%c💥 ERREUR LORS DU RENDU:', 'background: #f44336; color: white; padding: 5px;', error);
