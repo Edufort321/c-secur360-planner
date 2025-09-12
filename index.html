@@ -1056,27 +1056,56 @@
             const [lastSync, setLastSync] = useState(null);
             const [error, setError] = useState(null);
 
-            // Configuration Google Drive
-            const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'votre-client-id.apps.googleusercontent.com';
-            const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'votre-api-key';
+            // Configuration Google Drive - avec fallbacks sécurisés
+            const GOOGLE_CLIENT_ID = (typeof process !== 'undefined' && process.env?.GOOGLE_CLIENT_ID) || 'demo-mode';
+            const GOOGLE_API_KEY = (typeof process !== 'undefined' && process.env?.GOOGLE_API_KEY) || 'demo-mode';
             const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
             const SCOPES = 'https://www.googleapis.com/auth/drive.file';
             const DATA_FILE_NAME = 'c-secur360-planificateur-data.json';
+            
+            // Vérifier si Google Drive est disponible
+            const isGoogleDriveAvailable = GOOGLE_CLIENT_ID !== 'demo-mode' && GOOGLE_API_KEY !== 'demo-mode';
 
-            // Initialisation Google API
+            // Initialisation Google API avec gestion d'erreur robuste
             const initializeGoogleAPI = async () => {
+                // Si Google Drive n'est pas configuré, ne pas essayer d'initialiser
+                if (!isGoogleDriveAvailable) {
+                    console.log('ℹ️ Google Drive en mode démo - credentials non configurés');
+                    setError('Configuration Google Drive requise');
+                    setIsInitialized(true); // Marquer comme initialisé pour éviter les boucles
+                    return;
+                }
+                
+                // Vérifier que les APIs Google sont chargées
+                if (typeof gapi === 'undefined' || typeof google === 'undefined') {
+                    console.warn('⚠️ APIs Google non disponibles');
+                    setError('APIs Google non disponibles');
+                    setIsInitialized(true);
+                    return;
+                }
+
                 try {
                     console.log('🚀 Initialisation Google Drive API...');
                     
-                    // Initialiser gapi
-                    await new Promise((resolve) => {
-                        gapi.load('client', resolve);
-                    });
+                    // Initialiser gapi avec timeout
+                    const gapiLoaded = await Promise.race([
+                        new Promise((resolve) => {
+                            gapi.load('client', resolve);
+                        }),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Timeout gapi.load')), 5000)
+                        )
+                    ]);
 
-                    await gapi.client.init({
-                        apiKey: GOOGLE_API_KEY,
-                        discoveryDocs: [DISCOVERY_DOC],
-                    });
+                    await Promise.race([
+                        gapi.client.init({
+                            apiKey: GOOGLE_API_KEY,
+                            discoveryDocs: [DISCOVERY_DOC],
+                        }),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Timeout gapi.client.init')), 5000)
+                        )
+                    ]);
 
                     // Initialiser Google Identity Services
                     const tokenClient = google.accounts.oauth2.initTokenClient({
@@ -1102,12 +1131,18 @@
 
                 } catch (error) {
                     console.error('❌ Erreur initialisation Google Drive:', error);
-                    setError('Erreur d\'initialisation Google Drive');
+                    setError('Google Drive indisponible');
+                    setIsInitialized(true); // Marquer comme initialisé même en cas d'erreur
                 }
             };
 
             // Connexion Google Drive
             const signIn = () => {
+                if (!isGoogleDriveAvailable) {
+                    setError('Configuration Google Drive requise');
+                    return;
+                }
+                
                 if (!isInitialized) {
                     setError('Google Drive pas encore initialisé');
                     return;
@@ -1115,7 +1150,11 @@
                 
                 try {
                     console.log('🔐 Demande de connexion Google Drive...');
-                    window.googleTokenClient.requestAccessToken();
+                    if (window.googleTokenClient) {
+                        window.googleTokenClient.requestAccessToken();
+                    } else {
+                        throw new Error('Token client non disponible');
+                    }
                 } catch (error) {
                     console.error('❌ Erreur connexion Google Drive:', error);
                     setError('Erreur de connexion');
@@ -1259,11 +1298,38 @@
 
             // Initialisation au montage du composant
             React.useEffect(() => {
-                if (typeof gapi !== 'undefined' && typeof google !== 'undefined') {
-                    initializeGoogleAPI();
-                } else {
-                    console.warn('⚠️ APIs Google non disponibles');
-                }
+                // Approche défensive pour l'initialisation Google Drive
+                const safeInitialize = async () => {
+                    try {
+                        // Vérification approfondie de la disponibilité des APIs
+                        if (typeof gapi === 'undefined' || typeof google === 'undefined') {
+                            console.warn('⚠️ APIs Google non disponibles - fonctionnement en mode local');
+                            setError('APIs Google non chargées');
+                            setIsInitialized(true);
+                            return;
+                        }
+
+                        // Vérifier que les objects gapi et google sont complètement chargés
+                        if (!gapi.load || !google.accounts) {
+                            console.warn('⚠️ APIs Google incomplètement chargées');
+                            setError('APIs Google non prêtes');
+                            setIsInitialized(true);
+                            return;
+                        }
+
+                        // Si tout est OK, initialiser
+                        await initializeGoogleAPI();
+                    } catch (error) {
+                        console.error('❌ Erreur lors de l\'initialisation sécurisée:', error);
+                        setError('Erreur d\'initialisation Google Drive');
+                        setIsInitialized(true);
+                    }
+                };
+
+                // Délai pour s'assurer que les scripts Google sont complètement chargés
+                const initTimer = setTimeout(safeInitialize, 100);
+                
+                return () => clearTimeout(initTimer);
             }, []);
 
             return {
