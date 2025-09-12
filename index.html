@@ -19,6 +19,10 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Google Drive API Scripts -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    
     <!-- Génération du favicon dynamique -->
     <script>
         // Créer un favicon avec les initiales CS
@@ -1040,6 +1044,345 @@
                 typesEquipements, addTypeEquipement,
                 demandesConges, setDemandesConges,
                 modeTheme, setModeTheme
+            };
+        };
+
+        // ============== SERVICE GOOGLE DRIVE ==============
+
+        const useGoogleDrive = () => {
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [isInitialized, setIsInitialized] = useState(false);
+            const [isSyncing, setIsSyncing] = useState(false);
+            const [lastSync, setLastSync] = useState(null);
+            const [error, setError] = useState(null);
+
+            // Configuration Google Drive
+            const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'votre-client-id.apps.googleusercontent.com';
+            const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'votre-api-key';
+            const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+            const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+            const DATA_FILE_NAME = 'c-secur360-planificateur-data.json';
+
+            // Initialisation Google API
+            const initializeGoogleAPI = async () => {
+                try {
+                    console.log('🚀 Initialisation Google Drive API...');
+                    
+                    // Initialiser gapi
+                    await new Promise((resolve) => {
+                        gapi.load('client', resolve);
+                    });
+
+                    await gapi.client.init({
+                        apiKey: GOOGLE_API_KEY,
+                        discoveryDocs: [DISCOVERY_DOC],
+                    });
+
+                    // Initialiser Google Identity Services
+                    const tokenClient = google.accounts.oauth2.initTokenClient({
+                        client_id: GOOGLE_CLIENT_ID,
+                        scope: SCOPES,
+                        callback: (tokenResponse) => {
+                            if (tokenResponse.access_token) {
+                                setIsAuthenticated(true);
+                                setError(null);
+                                console.log('✅ Authentification Google Drive réussie');
+                            }
+                        },
+                    });
+
+                    window.googleTokenClient = tokenClient;
+                    setIsInitialized(true);
+                    console.log('✅ Google Drive API initialisée');
+                    
+                    // Vérifier si l'utilisateur est déjà connecté
+                    if (gapi.client.getToken()) {
+                        setIsAuthenticated(true);
+                    }
+
+                } catch (error) {
+                    console.error('❌ Erreur initialisation Google Drive:', error);
+                    setError('Erreur d\'initialisation Google Drive');
+                }
+            };
+
+            // Connexion Google Drive
+            const signIn = () => {
+                if (!isInitialized) {
+                    setError('Google Drive pas encore initialisé');
+                    return;
+                }
+                
+                try {
+                    console.log('🔐 Demande de connexion Google Drive...');
+                    window.googleTokenClient.requestAccessToken();
+                } catch (error) {
+                    console.error('❌ Erreur connexion Google Drive:', error);
+                    setError('Erreur de connexion');
+                }
+            };
+
+            // Déconnexion Google Drive
+            const signOut = () => {
+                try {
+                    const token = gapi.client.getToken();
+                    if (token !== null) {
+                        google.accounts.oauth2.revoke(token.access_token, () => {
+                            console.log('🚪 Déconnexion Google Drive');
+                        });
+                        gapi.client.setToken(null);
+                    }
+                    setIsAuthenticated(false);
+                    setLastSync(null);
+                } catch (error) {
+                    console.error('❌ Erreur déconnexion Google Drive:', error);
+                }
+            };
+
+            // Rechercher le fichier de données
+            const findDataFile = async () => {
+                try {
+                    const response = await gapi.client.drive.files.list({
+                        q: `name='${DATA_FILE_NAME}' and trashed=false`,
+                        spaces: 'drive',
+                        fields: 'files(id, name, modifiedTime)',
+                    });
+
+                    const files = response.result.files;
+                    return files && files.length > 0 ? files[0] : null;
+                } catch (error) {
+                    console.error('❌ Erreur recherche fichier:', error);
+                    throw error;
+                }
+            };
+
+            // Sauvegarder les données sur Google Drive
+            const saveToGoogleDrive = async (data) => {
+                if (!isAuthenticated) {
+                    throw new Error('Non connecté à Google Drive');
+                }
+
+                setIsSyncing(true);
+                setError(null);
+
+                try {
+                    console.log('💾 Sauvegarde vers Google Drive...');
+
+                    const dataToSave = {
+                        ...data,
+                        lastModified: new Date().toISOString(),
+                        version: '1.0'
+                    };
+
+                    const existingFile = await findDataFile();
+
+                    const metadata = {
+                        name: DATA_FILE_NAME,
+                        parents: ['appDataFolder']
+                    };
+
+                    const multipart = 
+                        '--314159265358979323846\n' +
+                        'Content-Type: application/json\n\n' +
+                        JSON.stringify(metadata) + '\n' +
+                        '--314159265358979323846\n' +
+                        'Content-Type: application/json\n\n' +
+                        JSON.stringify(dataToSave) + '\n' +
+                        '--314159265358979323846--';
+
+                    const request = existingFile
+                        ? gapi.client.request({
+                            path: `https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}`,
+                            method: 'PATCH',
+                            params: { uploadType: 'multipart' },
+                            headers: { 'Content-Type': 'multipart/related; boundary="314159265358979323846"' },
+                            body: multipart
+                        })
+                        : gapi.client.request({
+                            path: 'https://www.googleapis.com/upload/drive/v3/files',
+                            method: 'POST',
+                            params: { uploadType: 'multipart' },
+                            headers: { 'Content-Type': 'multipart/related; boundary="314159265358979323846"' },
+                            body: multipart
+                        });
+
+                    await request;
+                    setLastSync(new Date());
+                    console.log('✅ Sauvegarde Google Drive réussie');
+
+                } catch (error) {
+                    console.error('❌ Erreur sauvegarde Google Drive:', error);
+                    setError('Erreur de sauvegarde');
+                    throw error;
+                } finally {
+                    setIsSyncing(false);
+                }
+            };
+
+            // Charger les données depuis Google Drive
+            const loadFromGoogleDrive = async () => {
+                if (!isAuthenticated) {
+                    return null;
+                }
+
+                setIsSyncing(true);
+                setError(null);
+
+                try {
+                    console.log('📥 Chargement depuis Google Drive...');
+                    
+                    const file = await findDataFile();
+                    if (!file) {
+                        console.log('ℹ️ Aucun fichier de données trouvé');
+                        return null;
+                    }
+
+                    const response = await gapi.client.drive.files.get({
+                        fileId: file.id,
+                        alt: 'media'
+                    });
+
+                    const data = JSON.parse(response.body);
+                    setLastSync(new Date(file.modifiedTime));
+                    console.log('✅ Chargement Google Drive réussi');
+                    
+                    return data;
+
+                } catch (error) {
+                    console.error('❌ Erreur chargement Google Drive:', error);
+                    setError('Erreur de chargement');
+                    return null;
+                } finally {
+                    setIsSyncing(false);
+                }
+            };
+
+            // Initialisation au montage du composant
+            React.useEffect(() => {
+                if (typeof gapi !== 'undefined' && typeof google !== 'undefined') {
+                    initializeGoogleAPI();
+                } else {
+                    console.warn('⚠️ APIs Google non disponibles');
+                }
+            }, []);
+
+            return {
+                isAuthenticated,
+                isInitialized,
+                isSyncing,
+                lastSync,
+                error,
+                signIn,
+                signOut,
+                saveToGoogleDrive,
+                loadFromGoogleDrive
+            };
+        };
+
+        // ============== HOOK DONNÉES AVEC GOOGLE DRIVE ==============
+
+        const useAppDataWithSync = () => {
+            const appData = useAppData();
+            const googleDrive = useGoogleDrive();
+            const [syncTimeout, setSyncTimeout] = useState(null);
+
+            // Sauvegarde automatique après 2 secondes d'inactivité
+            const scheduleAutoSave = React.useCallback(() => {
+                if (syncTimeout) {
+                    clearTimeout(syncTimeout);
+                }
+
+                const timeout = setTimeout(async () => {
+                    if (googleDrive.isAuthenticated) {
+                        try {
+                            const dataToSave = {
+                                jobs: appData.jobs,
+                                personnel: appData.personnel,
+                                equipements: appData.equipements,
+                                sousTraitants: appData.sousTraitants,
+                                typesEquipements: appData.typesEquipements,
+                                demandesConges: appData.demandesConges,
+                                modeTheme: appData.modeTheme
+                            };
+                            
+                            await googleDrive.saveToGoogleDrive(dataToSave);
+                            console.log('💾 Sauvegarde automatique effectuée');
+                        } catch (error) {
+                            console.error('❌ Erreur sauvegarde automatique:', error);
+                        }
+                    }
+                }, 2000);
+
+                setSyncTimeout(timeout);
+            }, [appData, googleDrive, syncTimeout]);
+
+            // Déclencher la sauvegarde lors des modifications
+            React.useEffect(() => {
+                scheduleAutoSave();
+            }, [appData.jobs, appData.personnel, appData.equipements, appData.sousTraitants, scheduleAutoSave]);
+
+            // Chargement automatique au démarrage si connecté
+            React.useEffect(() => {
+                const loadInitialData = async () => {
+                    if (googleDrive.isAuthenticated && !googleDrive.isSyncing) {
+                        try {
+                            const cloudData = await googleDrive.loadFromGoogleDrive();
+                            if (cloudData) {
+                                // Comparer avec localStorage et prendre le plus récent
+                                const localData = localStorage.getItem('planificateurData');
+                                const localTimestamp = localData ? JSON.parse(localData).lastModified : null;
+                                const cloudTimestamp = cloudData.lastModified;
+
+                                if (!localTimestamp || new Date(cloudTimestamp) > new Date(localTimestamp)) {
+                                    console.log('📥 Application des données cloud');
+                                    if (cloudData.jobs) appData.setJobs(cloudData.jobs);
+                                    if (cloudData.personnel) appData.setPersonnel(cloudData.personnel);
+                                    if (cloudData.equipements) appData.setEquipements(cloudData.equipements);
+                                    if (cloudData.sousTraitants) appData.setSousTraitants(cloudData.sousTraitants);
+                                    if (cloudData.typesEquipements) appData.setTypesEquipements(cloudData.typesEquipements);
+                                    if (cloudData.demandesConges) appData.setDemandesConges(cloudData.demandesConges);
+                                    if (cloudData.modeTheme) appData.setModeTheme(cloudData.modeTheme);
+                                } else {
+                                    console.log('💾 Données locales plus récentes');
+                                }
+                            }
+                        } catch (error) {
+                            console.error('❌ Erreur chargement initial:', error);
+                        }
+                    }
+                };
+
+                if (googleDrive.isInitialized) {
+                    loadInitialData();
+                }
+            }, [googleDrive.isAuthenticated, googleDrive.isInitialized]);
+
+            // Nettoyage
+            React.useEffect(() => {
+                return () => {
+                    if (syncTimeout) {
+                        clearTimeout(syncTimeout);
+                    }
+                };
+            }, [syncTimeout]);
+
+            return {
+                ...appData,
+                googleDrive,
+                forceSync: async () => {
+                    if (googleDrive.isAuthenticated) {
+                        const dataToSave = {
+                            jobs: appData.jobs,
+                            personnel: appData.personnel,
+                            equipements: appData.equipements,
+                            sousTraitants: appData.sousTraitants,
+                            typesEquipements: appData.typesEquipements,
+                            demandesConges: appData.demandesConges,
+                            modeTheme: appData.modeTheme
+                        };
+                        await googleDrive.saveToGoogleDrive(dataToSave);
+                    }
+                }
             };
         };
 
@@ -6280,6 +6623,135 @@
             );
         };
 
+        // ============== COMPOSANT GOOGLE DRIVE ==============
+
+        const GoogleDriveButton = ({ googleDrive, forceSync, notifications }) => {
+            const [showDetails, setShowDetails] = useState(false);
+
+            const formatLastSync = (date) => {
+                if (!date) return 'Jamais';
+                const now = new Date();
+                const diffMs = now - date;
+                const diffMins = Math.floor(diffMs / 60000);
+                
+                if (diffMins < 1) return 'À l\'instant';
+                if (diffMins < 60) return `Il y a ${diffMins} min`;
+                if (diffMins < 1440) return `Il y a ${Math.floor(diffMins / 60)}h`;
+                return date.toLocaleDateString();
+            };
+
+            const handleSync = async () => {
+                try {
+                    await forceSync();
+                    if (notifications?.addNotification) {
+                        notifications.addNotification('✅ Synchronisation Google Drive réussie', 'success');
+                    }
+                } catch (error) {
+                    if (notifications?.addNotification) {
+                        notifications.addNotification('❌ Erreur de synchronisation', 'error');
+                    }
+                }
+            };
+
+            const getStatusIcon = () => {
+                if (googleDrive.isSyncing) return '🔄';
+                if (googleDrive.error) return '⚠️';
+                if (googleDrive.isAuthenticated) return '☁️';
+                return '📡';
+            };
+
+            const getStatusText = () => {
+                if (googleDrive.isSyncing) return 'Synchronisation...';
+                if (googleDrive.error) return googleDrive.error;
+                if (googleDrive.isAuthenticated) return 'Connecté';
+                return 'Non connecté';
+            };
+
+            const getStatusColor = () => {
+                if (googleDrive.isSyncing) return 'text-blue-600';
+                if (googleDrive.error) return 'text-red-600';
+                if (googleDrive.isAuthenticated) return 'text-green-600';
+                return 'text-gray-600';
+            };
+
+            return React.createElement('div', { className: 'relative' },
+                React.createElement('button', {
+                    onClick: () => setShowDetails(!showDetails),
+                    className: `flex items-center gap-2 px-3 py-2 rounded-lg border transition-all ${
+                        googleDrive.isAuthenticated 
+                            ? 'bg-green-50 border-green-200 hover:bg-green-100' 
+                            : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                    }`,
+                    title: `Google Drive - ${getStatusText()}`
+                },
+                    React.createElement('span', { className: 'text-lg' }, getStatusIcon()),
+                    React.createElement('div', { className: 'flex flex-col items-start' },
+                        React.createElement('span', { className: 'text-sm font-medium' }, 'Google Drive'),
+                        React.createElement('span', { className: `text-xs ${getStatusColor()}` }, getStatusText())
+                    )
+                ),
+
+                // Menu déroulant détaillé
+                showDetails && React.createElement('div', {
+                    className: 'absolute top-full right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-xl z-50'
+                },
+                    React.createElement('div', { className: 'p-4' },
+                        // En-tête
+                        React.createElement('div', { className: 'flex items-center justify-between mb-3' },
+                            React.createElement('h3', { className: 'font-semibold text-gray-800' }, '☁️ Google Drive'),
+                            React.createElement('button', {
+                                onClick: () => setShowDetails(false),
+                                className: 'text-gray-400 hover:text-gray-600'
+                            }, '✕')
+                        ),
+
+                        // État de connexion
+                        React.createElement('div', { className: 'mb-4 p-3 bg-gray-50 rounded-lg' },
+                            React.createElement('div', { className: 'flex items-center justify-between mb-2' },
+                                React.createElement('span', { className: 'text-sm text-gray-600' }, 'État:'),
+                                React.createElement('span', { className: `text-sm font-medium ${getStatusColor()}` }, 
+                                    getStatusText()
+                                )
+                            ),
+                            googleDrive.lastSync && React.createElement('div', { className: 'flex items-center justify-between' },
+                                React.createElement('span', { className: 'text-sm text-gray-600' }, 'Dernière sync:'),
+                                React.createElement('span', { className: 'text-sm' }, formatLastSync(googleDrive.lastSync))
+                            )
+                        ),
+
+                        // Actions
+                        React.createElement('div', { className: 'space-y-2' },
+                            !googleDrive.isAuthenticated 
+                                ? React.createElement('button', {
+                                    onClick: googleDrive.signIn,
+                                    disabled: !googleDrive.isInitialized,
+                                    className: 'w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                                }, '🔐 Se connecter à Google Drive')
+                                : React.createElement('div', { className: 'space-y-2' },
+                                    React.createElement('button', {
+                                        onClick: handleSync,
+                                        disabled: googleDrive.isSyncing,
+                                        className: 'w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                                    }, googleDrive.isSyncing ? '⏳ Synchronisation...' : '🔄 Synchroniser maintenant'),
+                                    
+                                    React.createElement('button', {
+                                        onClick: googleDrive.signOut,
+                                        className: 'w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700'
+                                    }, '🚪 Se déconnecter')
+                                )
+                        ),
+
+                        // Informations
+                        React.createElement('div', { className: 'mt-4 pt-3 border-t border-gray-200 text-xs text-gray-500' },
+                            React.createElement('p', { className: 'mb-1' }, '• Sauvegarde automatique après 2s d\'inactivité'),
+                            React.createElement('p', { className: 'mb-1' }, '• Synchronisation entre tous vos appareils'),
+                            React.createElement('p', null, '• LocalStorage utilisé comme backup')
+                        )
+                    )
+                )
+            );
+        };
+
         // ============== COMPOSANT PRINCIPAL ==============
         
         const PlanificateurFinal = () => {
@@ -6290,8 +6762,10 @@
                 sousTraitants, setSousTraitants, addSousTraitant,
                 typesEquipements, addTypeEquipement,
                 demandesConges, setDemandesConges,
-                modeTheme, setModeTheme
-            } = useAppData();
+                modeTheme, setModeTheme,
+                googleDrive, // Service Google Drive
+                forceSync    // Fonction de synchronisation manuelle
+            } = useAppDataWithSync(); // Utiliser le hook avec synchronisation
 
             const { isMobile, isTablet } = useScreenSize();
             const { notifications, addNotification } = useNotifications();
@@ -7011,6 +7485,13 @@
                                     React.createElement(Icon, { name: 'logout', size: 20 })
                                 )
                             ),
+                            
+                            // Google Drive
+                            utilisateurConnecte && React.createElement(GoogleDriveButton, {
+                                googleDrive: googleDrive,
+                                forceSync: forceSync,
+                                notifications: { addNotification }
+                            }),
                             
                             // Actions
                             React.createElement('div', { className: "flex flex-wrap gap-2" },
