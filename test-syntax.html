@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Syntaxe</title>
+</head>
+<body>
+    <div id="test">Chargement...</div>
+    <script>
+        try {
+            // Tester si le fichier principal se charge sans erreur
+            fetch('calendrier-partage-v6.7.html')
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('test').innerHTML = 'Fichier HTML lisible ✅';
+                    
+                    // Vérifier s'il y a des erreurs de syntaxe évidentes
+                    const scriptMatch = html.match(/<script type="text\/babel">([\s\S]*?)<\/script>/);
+                    if (scriptMatch) {
+                        try {
+                            // Test basique de parsing
+                            const scriptContent = scriptMatch[1];
+                            if (scriptContent.includes('React.createElement')) {
+                                document.getElementById('test').innerHTML += '<br>Code React trouvé ✅';
+                            }
+                            if (scriptContent.includes('setParallelToStep')) {
+                                document.getElementById('test').innerHTML += '<br>Fonction setParallelToStep trouvée ✅';
+                            }
+                        } catch (e) {
+                            document.getElementById('test').innerHTML += '<br>Erreur de syntaxe: ' + e.message;
+                        }
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('test').innerHTML = 'Erreur de lecture: ' + error.message;
+                });
+        } catch (error) {
+            document.getElementById('test').innerHTML = 'Erreur: ' + error.message;
+        }
+    </script>
+</body>
+</html>

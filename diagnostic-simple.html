@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Diagnostic Simple</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Diagnostic Application C-Secur360</h1>
+    <div id="results"></div>
+
+    <script>
+        const results = document.getElementById('results');
+        
+        function addResult(message, type = 'success') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+        }
+
+        // Test 1: Chargement de base
+        try {
+            addResult('✅ JavaScript fonctionne', 'success');
+        } catch (e) {
+            addResult('❌ Erreur JavaScript: ' + e.message, 'error');
+        }
+
+        // Test 2: Accès au fichier principal
+        fetch('./c-secur360-planner-main/index.html')
+            .then(response => {
+                if (response.ok) {
+                    addResult('✅ Fichier principal accessible', 'success');
+                    return response.text();
+                } else {
+                    addResult('❌ Fichier principal inaccessible (HTTP ' + response.status + ')', 'error');
+                }
+            })
+            .then(content => {
+                if (content && content.includes('PlanificateurFinal')) {
+                    addResult('✅ Contenu principal trouvé', 'success');
+                } else {
+                    addResult('❌ Contenu principal manquant', 'error');
+                }
+            })
+            .catch(error => {
+                addResult('❌ Erreur lecture fichier: ' + error.message, 'error');
+            });
+
+        // Test 3: Ouverture dans iframe pour tester l'exécution
+        setTimeout(() => {
+            const iframe = document.createElement('iframe');
+            iframe.src = './c-secur360-planner-main/index.html';
+            iframe.style.width = '100px';
+            iframe.style.height = '100px';
+            iframe.style.border = '1px solid #ccc';
+            iframe.onload = () => {
+                addResult('✅ Application se charge dans iframe', 'success');
+            };
+            iframe.onerror = (e) => {
+                addResult('❌ Erreur chargement iframe: ' + e.message, 'error');
+            };
+            
+            const container = document.createElement('div');
+            container.innerHTML = '<h3>Test de chargement:</h3>';
+            container.appendChild(iframe);
+            results.appendChild(container);
+        }, 2000);
+    </script>
+</body>
+</html>

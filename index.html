@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planificateur C-Secur360 V6.7 - Version Fonctionnelle</title>
+    <link rel="icon" type="image/png" href="C-Secur360-logo.png.png">
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .etape-numero {
+            background: linear-gradient(45deg, #3b82f6, #1d4ed8);
+            color: white;
+            font-weight: bold;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        .etape-parallele {
+            background: linear-gradient(45deg, #f59e0b, #d97706);
+        }
+        .parallel-selector {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root">Chargement de l'application...</div>
+
+    <script>
+        console.log('🚀 Planificateur C-Secur360 V6.7 - Démarrage');
+        
+        // Vérification des dépendances
+        if (typeof React === 'undefined' || typeof ReactDOM === 'undefined') {
+            document.getElementById('root').innerHTML = `
+                <div style="padding: 20px; background: #fee; border: 2px solid #f00; margin: 20px; border-radius: 10px;">
+                    <h1 style="color: #d00;">🚨 Erreur de chargement</h1>
+                    <p>React ou ReactDOM n'est pas chargé correctement.</p>
+                </div>
+            `;
+            throw new Error('Dependencies not loaded');
+        }
+        
+        // Utilisation de React en JavaScript pur
+        const { useState, useCallback, useEffect } = React;
+        const h = React.createElement;
+        
+        // Composant principal
+        function PlanificateurApp() {
+            const [etapes, setEtapes] = useState([
+                { id: 1, text: 'Préparation du matériel', duration: 2, personnelRequis: 2, personnel: [], isParallel: false },
+                { id: 2, text: 'Installation équipement', duration: 4, personnelRequis: 3, personnel: [], isParallel: false },
+                { id: 3, text: 'Tests et configuration', duration: 1, personnelRequis: 1, personnel: [], isParallel: false }
+            ]);
+            
+            const [showParallelSelector, setShowParallelSelector] = useState(null);
+            const [showEventModal, setShowEventModal] = useState(false);
+            
+            // Fonction pour réorganiser les étapes
+            const reorderEtapes = useCallback((etapesArray) => {
+                return etapesArray.map((etape, index) => ({
+                    ...etape,
+                    numero: index + 1
+                }));
+            }, []);
+            
+            // Déplacer une étape vers le haut
+            const moveEtapeUp = useCallback((index) => {
+                if (index > 0) {
+                    const newEtapes = [...etapes];
+                    [newEtapes[index - 1], newEtapes[index]] = [newEtapes[index], newEtapes[index - 1]];
+                    setEtapes(reorderEtapes(newEtapes));
+                }
+            }, [etapes, reorderEtapes]);
+            
+            // Déplacer une étape vers le bas
+            const moveEtapeDown = useCallback((index) => {
+                if (index < etapes.length - 1) {
+                    const newEtapes = [...etapes];
+                    [newEtapes[index], newEtapes[index + 1]] = [newEtapes[index + 1], newEtapes[index]];
+                    setEtapes(reorderEtapes(newEtapes));
+                }
+            }, [etapes, reorderEtapes]);
+            
+            // Toggle mode parallèle
+            const toggleParallel = useCallback((index) => {
+                const newEtapes = [...etapes];
+                const etape = newEtapes[index];
+                
+                if (etape.isParallel) {
+                    etape.isParallel = false;
+                    delete etape.parallelToStep;
+                    setShowParallelSelector(null);
+                } else {
+                    setShowParallelSelector(index);
+                }
+                
+                setEtapes(newEtapes);
+            }, [etapes]);
+            
+            // Définir l'étape parallèle
+            const setParallelToStep = useCallback((etapeIndex, parallelToStepNumber) => {
+                const newEtapes = [...etapes];
+                newEtapes[etapeIndex].isParallel = true;
+                newEtapes[etapeIndex].parallelToStep = parallelToStepNumber;
+                setEtapes(newEtapes);
+                setShowParallelSelector(null);
+            }, [etapes]);
+            
+            // Ajouter une nouvelle étape
+            const ajouterEtape = () => {
+                const nouvelleEtape = {
+                    id: Date.now(),
+                    text: '',
+                    duration: 1,
+                    personnelRequis: 1,
+                    personnel: [],
+                    isParallel: false
+                };
+                setEtapes(prev => reorderEtapes([...prev, nouvelleEtape]));
+            };
+            
+            return h('div', { className: 'min-h-screen bg-gray-50 p-6' },
+                // Header
+                h('div', { className: 'max-w-6xl mx-auto' },
+                    h('div', { className: 'bg-white rounded-lg shadow-lg p-6 mb-6' },
+                        h('h1', { className: 'text-2xl font-bold text-gray-800 mb-2' }, 
+                            '🎯 Planificateur C-Secur360 V6.7'
+                        ),
+                        h('p', { className: 'text-gray-600 mb-4' },
+                            'Système de gestion des étapes avec numérotation automatique et mode parallèle'
+                        ),
+                        h('button', {
+                            onClick: () => setShowEventModal(true),
+                            className: 'bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium'
+                        }, '➕ Nouveau Événement')
+                    ),
+                    
+                    // Modal Événement
+                    showEventModal && h('div', { 
+                        className: 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50',
+                        onClick: () => setShowEventModal(false)
+                    },
+                        h('div', { 
+                            className: 'bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto',
+                            onClick: (e) => e.stopPropagation()
+                        },
+                            h('div', { className: 'flex justify-between items-center mb-6' },
+                                h('h2', { className: 'text-xl font-semibold text-gray-800' }, 'Nouveau Événement'),
+                                h('button', {
+                                    onClick: () => setShowEventModal(false),
+                                    className: 'text-gray-500 hover:text-gray-700 text-2xl'
+                                }, '×')
+                            ),
+                            
+                            // Section Étapes avec interface intuitive
+                            h('div', { className: 'bg-blue-50 rounded-lg p-4 mb-6' },
+                                h('h3', { className: 'text-lg font-semibold text-blue-800 mb-4' }, 
+                                    '📋 Étapes du Projet'
+                                ),
+                                
+                                // Guide d'utilisation
+                                h('div', { className: 'bg-blue-50 p-3 rounded-lg border border-blue-200 mb-4 text-sm' },
+                                    h('p', { className: 'font-medium text-blue-800 mb-1' }, '💡 Comment utiliser :'),
+                                    h('ul', { className: 'text-blue-700 space-y-1 text-xs' },
+                                        h('li', null, '• Numérotation automatique 1, 2, 3...'),
+                                        h('li', null, '• ⬆️⬇️ pour réorganiser l\'ordre'),
+                                        h('li', null, '• Cocher "Parallèle" puis choisir l\'étape de référence'),
+                                        h('li', null, '• Durée en heures pour calcul automatique du planning')
+                                    )
+                                ),
+                                
+                                // Liste des étapes
+                                h('div', { className: 'space-y-3 mb-4' },
+                                    etapes.map((etape, index) => 
+                                        h('div', {
+                                            key: etape.id,
+                                            className: 'border border-gray-200 rounded-lg p-3 bg-white'
+                                        },
+                                            h('div', { className: 'flex items-start gap-3' },
+                                                // Numéro d'étape visuel
+                                                h('div', { 
+                                                    className: `etape-numero ${etape.isParallel ? 'etape-parallele' : ''}`,
+                                                    title: etape.isParallel ? `Parallèle à l'étape ${etape.parallelToStep}` : `Étape séquentielle ${index + 1}`
+                                                }, index + 1),
+
+                                                // Contenu principal
+                                                h('div', { className: 'flex-1 space-y-2' },
+                                                    h('input', {
+                                                        type: 'text',
+                                                        value: etape.text || '',
+                                                        onChange: (e) => {
+                                                            const newEtapes = [...etapes];
+                                                            newEtapes[index].text = e.target.value;
+                                                            setEtapes(newEtapes);
+                                                        },
+                                                        placeholder: `Description de l'étape ${index + 1}`,
+                                                        className: 'w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 text-sm'
+                                                    }),
+
+                                                    h('div', { className: 'grid grid-cols-2 gap-2 text-xs' },
+                                                        h('div', { className: 'flex items-center gap-2' },
+                                                            h('label', { className: 'text-gray-600' }, 'Durée (h):'),
+                                                            h('input', {
+                                                                type: 'number',
+                                                                step: '0.5',
+                                                                min: '0.5',
+                                                                value: etape.duration || '',
+                                                                onChange: (e) => {
+                                                                    const newEtapes = [...etapes];
+                                                                    newEtapes[index].duration = parseFloat(e.target.value) || 1;
+                                                                    setEtapes(newEtapes);
+                                                                },
+                                                                className: 'w-16 p-1 border border-gray-300 rounded text-center'
+                                                            })
+                                                        ),
+
+                                                        h('div', { className: 'flex items-center gap-2' },
+                                                            h('label', { className: 'text-gray-600' }, 'Personnel:'),
+                                                            h('input', {
+                                                                type: 'number',
+                                                                min: '0',
+                                                                max: '10',
+                                                                value: etape.personnelRequis || 0,
+                                                                onChange: (e) => {
+                                                                    const newEtapes = [...etapes];
+                                                                    newEtapes[index].personnelRequis = parseInt(e.target.value) || 0;
+                                                                    setEtapes(newEtapes);
+                                                                },
+                                                                className: 'w-12 p-1 border border-gray-300 rounded text-center'
+                                                            }),
+                                                            h('span', {
+                                                                className: 'text-xs px-2 py-1 rounded-full bg-green-100 text-green-700'
+                                                            }, `${etape.personnelRequis || 0}`)
+                                                        )
+                                                    ),
+
+                                                    h('div', { className: 'flex items-center gap-3 text-xs' },
+                                                        h('label', { className: 'flex items-center gap-2' },
+                                                            h('input', {
+                                                                type: 'checkbox',
+                                                                checked: etape.isParallel || false,
+                                                                onChange: () => toggleParallel(index),
+                                                                className: 'rounded'
+                                                            }),
+                                                            h('span', { className: 'text-gray-700' }, 'Parallèle')
+                                                        ),
+                                                        etape.isParallel && h('span', { 
+                                                            className: 'bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full' 
+                                                        }, `→ Étape ${etape.parallelToStep}`)
+                                                    ),
+
+                                                    // Sélecteur d'étape parallèle
+                                                    showParallelSelector === index && h('div', { className: 'parallel-selector' },
+                                                        h('p', { className: 'font-medium text-amber-800 mb-2 text-sm' }, 
+                                                            '🔄 En parallèle de quelle étape ?'
+                                                        ),
+                                                        h('div', { className: 'flex flex-wrap gap-2 mb-2' },
+                                                            etapes.map((_, etapeIndex) => {
+                                                                if (etapeIndex === index) return null;
+                                                                return h('button', {
+                                                                    key: etapeIndex,
+                                                                    onClick: () => setParallelToStep(index, etapeIndex + 1),
+                                                                    className: 'px-3 py-1 bg-amber-200 hover:bg-amber-300 text-amber-800 rounded-full text-xs font-medium'
+                                                                }, `Étape ${etapeIndex + 1}`);
+                                                            })
+                                                        ),
+                                                        h('button', {
+                                                            onClick: () => setShowParallelSelector(null),
+                                                            className: 'text-xs text-gray-500 hover:text-gray-700'
+                                                        }, 'Annuler')
+                                                    )
+                                                ),
+
+                                                // Contrôles de réorganisation
+                                                h('div', { className: 'flex flex-col gap-1' },
+                                                    h('button', {
+                                                        onClick: () => moveEtapeUp(index),
+                                                        disabled: index === 0,
+                                                        className: 'w-8 h-8 text-blue-600 hover:bg-blue-100 rounded disabled:text-gray-300 disabled:cursor-not-allowed text-sm',
+                                                        title: 'Monter'
+                                                    }, '⬆️'),
+                                                    h('button', {
+                                                        onClick: () => moveEtapeDown(index),
+                                                        disabled: index === etapes.length - 1,
+                                                        className: 'w-8 h-8 text-blue-600 hover:bg-blue-100 rounded disabled:text-gray-300 disabled:cursor-not-allowed text-sm',
+                                                        title: 'Descendre'
+                                                    }, '⬇️'),
+                                                    h('button', {
+                                                        onClick: () => {
+                                                            const newEtapes = etapes.filter((_, i) => i !== index);
+                                                            setEtapes(reorderEtapes(newEtapes));
+                                                        },
+                                                        className: 'w-8 h-8 text-red-600 hover:bg-red-100 rounded text-sm',
+                                                        title: 'Supprimer'
+                                                    }, '🗑️')
+                                                )
+                                            )
+                                        )
+                                    )
+                                ),
+
+                                // Bouton Ajouter étape
+                                h('button', {
+                                    onClick: ajouterEtape,
+                                    className: 'w-full p-3 border-2 border-dashed border-blue-300 rounded-lg text-blue-600 hover:bg-blue-100 transition-colors flex items-center justify-center gap-2 font-medium'
+                                },
+                                    h('span', null, '➕'),
+                                    'Ajouter une étape'
+                                )
+                            ),
+                            
+                            // Boutons d'action
+                            h('div', { className: 'flex justify-end gap-3' },
+                                h('button', {
+                                    onClick: () => setShowEventModal(false),
+                                    className: 'px-4 py-2 text-gray-600 hover:text-gray-800'
+                                }, 'Annuler'),
+                                h('button', {
+                                    onClick: () => {
+                                        alert('Événement sauvegardé ! (Fonctionnalité de sauvegarde à implémenter)');
+                                        setShowEventModal(false);
+                                    },
+                                    className: 'bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium'
+                                }, 'Sauvegarder')
+                            )
+                        )
+                    )
+                )
+            );
+        }
+        
+        // Rendu de l'application
+        try {
+            console.log('✅ Rendu de l\'application...');
+            const root = ReactDOM.createRoot(document.getElementById('root'));
+            root.render(h(PlanificateurApp));
+            console.log('🎉 Application chargée avec succès !');
+        } catch (error) {
+            console.error('❌ Erreur lors du rendu:', error);
+            document.getElementById('root').innerHTML = `
+                <div style="padding: 20px; background: #fee; border: 2px solid #f00; margin: 20px; border-radius: 10px; font-family: Arial;">
+                    <h1 style="color: #d00;">🚨 Erreur de rendu</h1>
+                    <p><strong>Problème:</strong> ${error.message}</p>
+                    <pre style="background: #f8f8f8; padding: 10px; border-radius: 5px; overflow: auto; font-size: 12px;">${error.stack}</pre>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

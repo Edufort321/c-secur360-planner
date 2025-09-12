@@ -1,0 +1,1433 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planificateur Job d'Huile - Version Améliorée</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        /* Gantt specific styles */
+        .gantt-bar {
+            position: absolute;
+            height: 28px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            z-index: 5;
+        }
+
+        .gantt-bar:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .gantt-cell {
+            position: relative;
+            border-right: 1px solid #e5e7eb;
+            min-height: 40px;
+        }
+
+        .resource-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 2px 8px;
+            margin: 2px;
+            font-size: 11px;
+        }
+
+        .available-resource {
+            border-color: #10b981;
+            background-color: #d1fae5;
+            color: #047857;
+        }
+
+        .busy-resource {
+            border-color: #ef4444;
+            background-color: #fee2e2;
+            color: #dc2626;
+        }
+
+        /* Responsive optimizations */
+        @media (max-width: 768px) {
+            .gantt-bar {
+                height: 24px;
+                font-size: 10px;
+            }
+            
+            .resource-badge {
+                padding: 1px 6px;
+                font-size: 10px;
+            }
+
+            /* Mobile calendar view */
+            .mobile-calendar-row {
+                min-height: 60px;
+            }
+
+            .mobile-job-card {
+                min-height: 50px;
+                font-size: 11px;
+            }
+
+            /* Compact headers for mobile */
+            .mobile-header {
+                padding: 8px 4px;
+                font-size: 10px;
+            }
+
+            /* Mobile Gantt view */
+            .mobile-gantt-person {
+                width: 140px;
+                font-size: 11px;
+            }
+
+            .mobile-gantt-day {
+                width: 40px;
+                font-size: 9px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .gantt-bar {
+                height: 20px;
+                font-size: 9px;
+            }
+
+            .mobile-gantt-person {
+                width: 120px;
+                font-size: 10px;
+            }
+
+            .mobile-gantt-day {
+                width: 32px;
+                font-size: 8px;
+            }
+        }
+
+        /* Touch-friendly interactions */
+        @media (pointer: coarse) {
+            .gantt-cell,
+            .gantt-bar {
+                min-height: 44px;
+            }
+
+            button {
+                min-height: 44px;
+                min-width: 44px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useCallback } = React;
+        
+        // Créer les icônes Lucide
+        const createIcon = (iconName) => {
+            return (props = {}) => {
+                const { size = 24, className = '', ...otherProps } = props;
+                return React.createElement('i', {
+                    'data-lucide': iconName.toLowerCase().replace(/([A-Z])/g, '-$1').substring(1),
+                    className: className,
+                    style: { width: size, height: size },
+                    ...otherProps
+                });
+            };
+        };
+
+        // Créer les icônes
+        const Calendar = createIcon('Calendar');
+        const Users = createIcon('Users');
+        const Settings = createIcon('Settings');
+        const Plus = createIcon('Plus');
+        const Edit2 = createIcon('Edit2');
+        const Trash2 = createIcon('Trash2');
+        const Clock = createIcon('Clock');
+        const MapPin = createIcon('MapPin');
+        const X = createIcon('X');
+        const Save = createIcon('Save');
+        const AlertCircle = createIcon('AlertCircle');
+        const ChevronLeft = createIcon('ChevronLeft');
+        const ChevronRight = createIcon('ChevronRight');
+        const Download = createIcon('Download');
+        const Upload = createIcon('Upload');
+        const UserPlus = createIcon('UserPlus');
+        const Wrench = createIcon('Wrench');
+        const Copy = createIcon('Copy');
+        const FileText = createIcon('FileText');
+        const Search = createIcon('Search');
+        const Filter = createIcon('Filter');
+        const Eye = createIcon('Eye');
+        const EyeOff = createIcon('EyeOff');
+        const BarChart3 = createIcon('BarChart3');
+        const Smartphone = createIcon('Smartphone');
+        const Monitor = createIcon('Monitor');
+        const Tablet = createIcon('Tablet');
+        const User = createIcon('User');
+        const Tool = createIcon('Tool');
+        const Building = createIcon('Building');
+
+        // Initialiser Lucide après le rendu
+        const initializeLucide = () => {
+            if (window.lucide && window.lucide.createIcons) {
+                window.lucide.createIcons();
+            }
+        };
+
+        // ============== COMPOSANTS UTILITAIRES ==============
+        
+        const Modal = ({ isOpen, onClose, title, children, size = "lg" }) => {
+            if (!isOpen) return null;
+
+            const sizeClasses = {
+                sm: "max-w-md",
+                lg: "max-w-2xl",
+                xl: "max-w-4xl",
+                full: "max-w-full mx-4"
+            };
+
+            return React.createElement('div', {
+                className: "fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4",
+                onClick: onClose
+            },
+                React.createElement('div', {
+                    className: `bg-white rounded-lg shadow-xl ${sizeClasses[size]} w-full max-h-[90vh] overflow-hidden`,
+                    onClick: (e) => e.stopPropagation()
+                },
+                    React.createElement('div', { className: "flex items-center justify-between p-4 border-b" },
+                        React.createElement('h2', { className: "text-xl font-semibold" }, title),
+                        React.createElement('button', {
+                            onClick: onClose,
+                            className: "p-2 hover:bg-gray-100 rounded-lg"
+                        }, React.createElement(X, { size: 20 }))
+                    ),
+                    React.createElement('div', { className: "overflow-y-auto max-h-[calc(90vh-80px)]" }, children)
+                )
+            );
+        };
+
+        const ResourceBadge = ({ resource, type, available = true, onRemove }) => {
+            const icon = type === 'personnel' ? User : type === 'equipement' ? Tool : Building;
+            return React.createElement('span', {
+                className: `resource-badge ${available ? 'available-resource' : 'busy-resource'}`
+            },
+                React.createElement(icon, { size: 12 }),
+                React.createElement('span', null, resource.nom || resource.name),
+                onRemove && React.createElement('button', {
+                    onClick: () => onRemove(resource.id),
+                    className: "ml-1 hover:bg-red-200 rounded-full p-0.5"
+                }, React.createElement(X, { size: 10 }))
+            );
+        };
+
+        // ============== HOOK PERSONNALISÉ POUR LA DÉTECTION D'ÉCRAN ==============
+        
+        const useScreenSize = () => {
+            const [screenSize, setScreenSize] = useState({
+                width: window.innerWidth,
+                height: window.innerHeight,
+                isMobile: window.innerWidth < 768,
+                isTablet: window.innerWidth >= 768 && window.innerWidth < 1024,
+                isDesktop: window.innerWidth >= 1024
+            });
+
+            useEffect(() => {
+                const handleResize = () => {
+                    const width = window.innerWidth;
+                    const height = window.innerHeight;
+                    setScreenSize({
+                        width,
+                        height,
+                        isMobile: width < 768,
+                        isTablet: width >= 768 && width < 1024,
+                        isDesktop: width >= 1024
+                    });
+                };
+
+                window.addEventListener('resize', handleResize);
+                return () => window.removeEventListener('resize', handleResize);
+            }, []);
+
+            return screenSize;
+        };
+
+        // ============== HOOK PERSONNALISÉ POUR LES DONNÉES ==============
+        
+        const useAppData = () => {
+            const [jobs, setJobs] = useState([]);
+            const [personnel, setPersonnel] = useState([
+                { id: 1, nom: "Éric Dufort", poste: "1.1 -TECH", succursale: "MDL - Sherbrooke", disponible: true, email: "eric@mdl.com", telephone: "450-123-4567", type: "interne" },
+                { id: 2, nom: "Carl Lévesque", poste: "1.2 - ING.", succursale: "MDL - Terrebonne", disponible: true, email: "carl@mdl.com", telephone: "450-123-4568", type: "interne" },
+                { id: 3, nom: "Miguel Morin", poste: "1.3 - CPI", succursale: "MDL - Québec", disponible: true, email: "miguel@mdl.com", telephone: "418-123-4567", type: "interne" },
+                { id: 4, nom: "Chad Rodrigue", poste: "1.4 - COORD.", succursale: "DUAL - Sherbrooke", disponible: true, email: "chad@dual.com", telephone: "819-123-4567", type: "interne" },
+                { id: 5, nom: "Alexandre Gariépy-Gauvin", poste: "1.5 - D.T.", succursale: "CFM - St-Jean-sur-le-Richelieu", disponible: true, email: "alex@cfm.com", telephone: "450-123-4569", type: "interne" }
+            ]);
+
+            const [equipements, setEquipements] = useState([
+                { id: 1, nom: "DOBLE M4000", type: "Instrument", succursale: "MDL - Sherbrooke", disponible: true, numeroSerie: "DM4000-001", derniereMaintenance: "2025-08-15" },
+                { id: 2, nom: "DOBLE SFRA", type: "Instrument", succursale: "MDL - Terrebonne", disponible: true, numeroSerie: "SFRA-002", derniereMaintenance: "2025-08-10" },
+                { id: 3, nom: "TTR", type: "Test", succursale: "MDL - Québec", disponible: true, numeroSerie: "TTR-003", derniereMaintenance: "2025-07-20" },
+                { id: 4, nom: "WINDING", type: "Bobinage", succursale: "DUAL - Sherbrooke", disponible: true, numeroSerie: "WIN-004", derniereMaintenance: "2025-08-01" }
+            ]);
+
+            const [sousTraitants, setSousTraitants] = useState([
+                { id: 1, nom: "TechElec Solutions", specialite: "Maintenance préventive", telephone: "514-555-0001", email: "contact@techelec.com", disponible: true, tarif: "75$/h" },
+                { id: 2, nom: "Électro Services Plus", specialite: "Diagnostic avancé", telephone: "450-555-0002", email: "info@electroplus.com", disponible: true, tarif: "85$/h" }
+            ]);
+
+            // Sauvegarde automatique
+            useEffect(() => {
+                const timer = setTimeout(() => {
+                    localStorage.setItem('planificateur-data-v2', JSON.stringify({ 
+                        jobs, personnel, equipements, sousTraitants
+                    }));
+                }, 1000);
+                return () => clearTimeout(timer);
+            }, [jobs, personnel, equipements, sousTraitants]);
+
+            // Chargement des données
+            useEffect(() => {
+                const saved = localStorage.getItem('planificateur-data-v2');
+                if (saved) {
+                    try {
+                        const data = JSON.parse(saved);
+                        if (data.jobs) setJobs(data.jobs);
+                        if (data.personnel) setPersonnel(data.personnel);
+                        if (data.equipements) setEquipements(data.equipements);
+                        if (data.sousTraitants) setSousTraitants(data.sousTraitants);
+                    } catch (error) {
+                        console.error('Erreur lors du chargement des données:', error);
+                    }
+                }
+            }, []);
+
+            return {
+                jobs, setJobs,
+                personnel, setPersonnel,
+                equipements, setEquipements,
+                sousTraitants, setSousTraitants
+            };
+        };
+
+        // ============== COMPOSANT SÉLECTEUR DE RESSOURCES ==============
+        
+        const ResourceSelector = ({ 
+            selectedPersonnel = [], 
+            selectedEquipements = [], 
+            selectedSousTraitants = [],
+            onPersonnelChange, 
+            onEquipementsChange, 
+            onSousTraitantsChange,
+            personnel, 
+            equipements, 
+            sousTraitants,
+            dateDebut,
+            dateFin,
+            jobs
+        }) => {
+            // Vérifier la disponibilité des ressources pour la période
+            const isResourceAvailable = useCallback((resourceId, type) => {
+                if (!dateDebut || !dateFin) return true;
+                
+                return !jobs.some(job => {
+                    const jobStart = new Date(job.dateDebut);
+                    const jobEnd = new Date(job.dateFin);
+                    const periodStart = new Date(dateDebut);
+                    const periodEnd = new Date(dateFin);
+                    
+                    const isOverlapping = jobStart <= periodEnd && jobEnd >= periodStart;
+                    
+                    if (!isOverlapping) return false;
+                    
+                    if (type === 'personnel') return job.personnel?.includes(resourceId);
+                    if (type === 'equipement') return job.equipements?.includes(resourceId);
+                    if (type === 'sousTraitant') return job.sousTraitants?.includes(resourceId);
+                    
+                    return false;
+                });
+            }, [dateDebut, dateFin, jobs]);
+
+            const togglePersonnel = (id) => {
+                const updated = selectedPersonnel.includes(id) 
+                    ? selectedPersonnel.filter(p => p !== id)
+                    : [...selectedPersonnel, id];
+                onPersonnelChange(updated);
+            };
+
+            const toggleEquipement = (id) => {
+                const updated = selectedEquipements.includes(id) 
+                    ? selectedEquipements.filter(e => e !== id)
+                    : [...selectedEquipements, id];
+                onEquipementsChange(updated);
+            };
+
+            const toggleSousTraitant = (id) => {
+                const updated = selectedSousTraitants.includes(id) 
+                    ? selectedSousTraitants.filter(s => s !== id)
+                    : [...selectedSousTraitants, id];
+                onSousTraitantsChange(updated);
+            };
+
+            return React.createElement('div', { className: "space-y-6" },
+                // Personnel
+                React.createElement('div', null,
+                    React.createElement('h3', { className: "text-lg font-semibold mb-3 flex items-center gap-2" },
+                        React.createElement(User, { size: 20 }),
+                        "Personnel"
+                    ),
+                    React.createElement('div', { className: "grid grid-cols-1 sm:grid-cols-2 gap-2" },
+                        ...personnel.map(person => {
+                            const available = isResourceAvailable(person.id, 'personnel');
+                            const selected = selectedPersonnel.includes(person.id);
+                            
+                            return React.createElement('div', {
+                                key: person.id,
+                                className: `p-3 border rounded-lg cursor-pointer transition-all ${
+                                    selected ? 'border-blue-500 bg-blue-50' : 
+                                    available ? 'border-green-300 bg-green-50 hover:bg-green-100' : 
+                                    'border-red-300 bg-red-50 opacity-60'
+                                }`,
+                                onClick: available ? () => togglePersonnel(person.id) : undefined
+                            },
+                                React.createElement('div', { className: "flex items-center justify-between" },
+                                    React.createElement('div', null,
+                                        React.createElement('div', { className: "font-medium text-sm" }, person.nom),
+                                        React.createElement('div', { className: "text-xs text-gray-600" }, person.poste),
+                                        React.createElement('div', { className: "text-xs text-gray-500" }, person.succursale)
+                                    ),
+                                    React.createElement('div', {
+                                        className: `w-4 h-4 rounded-full border-2 ${
+                                            selected ? 'bg-blue-500 border-blue-500' : 
+                                            available ? 'border-green-400' : 'border-red-400'
+                                        }`
+                                    })
+                                ),
+                                !available && React.createElement('div', { 
+                                    className: "text-xs text-red-600 mt-1" 
+                                }, "Non disponible pour cette période")
+                            );
+                        })
+                    )
+                ),
+
+                // Équipements
+                React.createElement('div', null,
+                    React.createElement('h3', { className: "text-lg font-semibold mb-3 flex items-center gap-2" },
+                        React.createElement(Tool, { size: 20 }),
+                        "Équipements"
+                    ),
+                    React.createElement('div', { className: "grid grid-cols-1 sm:grid-cols-2 gap-2" },
+                        ...equipements.map(equipement => {
+                            const available = isResourceAvailable(equipement.id, 'equipement');
+                            const selected = selectedEquipements.includes(equipement.id);
+                            
+                            return React.createElement('div', {
+                                key: equipement.id,
+                                className: `p-3 border rounded-lg cursor-pointer transition-all ${
+                                    selected ? 'border-blue-500 bg-blue-50' : 
+                                    available ? 'border-green-300 bg-green-50 hover:bg-green-100' : 
+                                    'border-red-300 bg-red-50 opacity-60'
+                                }`,
+                                onClick: available ? () => toggleEquipement(equipement.id) : undefined
+                            },
+                                React.createElement('div', { className: "flex items-center justify-between" },
+                                    React.createElement('div', null,
+                                        React.createElement('div', { className: "font-medium text-sm" }, equipement.nom),
+                                        React.createElement('div', { className: "text-xs text-gray-600" }, equipement.type),
+                                        React.createElement('div', { className: "text-xs text-gray-500" }, equipement.numeroSerie)
+                                    ),
+                                    React.createElement('div', {
+                                        className: `w-4 h-4 rounded-full border-2 ${
+                                            selected ? 'bg-blue-500 border-blue-500' : 
+                                            available ? 'border-green-400' : 'border-red-400'
+                                        }`
+                                    })
+                                ),
+                                !available && React.createElement('div', { 
+                                    className: "text-xs text-red-600 mt-1" 
+                                }, "Non disponible pour cette période")
+                            );
+                        })
+                    )
+                ),
+
+                // Sous-traitants
+                React.createElement('div', null,
+                    React.createElement('h3', { className: "text-lg font-semibold mb-3 flex items-center gap-2" },
+                        React.createElement(Building, { size: 20 }),
+                        "Sous-traitants"
+                    ),
+                    React.createElement('div', { className: "grid grid-cols-1 sm:grid-cols-2 gap-2" },
+                        ...sousTraitants.map(sousTraitant => {
+                            const available = isResourceAvailable(sousTraitant.id, 'sousTraitant');
+                            const selected = selectedSousTraitants.includes(sousTraitant.id);
+                            
+                            return React.createElement('div', {
+                                key: sousTraitant.id,
+                                className: `p-3 border rounded-lg cursor-pointer transition-all ${
+                                    selected ? 'border-blue-500 bg-blue-50' : 
+                                    available ? 'border-green-300 bg-green-50 hover:bg-green-100' : 
+                                    'border-red-300 bg-red-50 opacity-60'
+                                }`,
+                                onClick: available ? () => toggleSousTraitant(sousTraitant.id) : undefined
+                            },
+                                React.createElement('div', { className: "flex items-center justify-between" },
+                                    React.createElement('div', null,
+                                        React.createElement('div', { className: "font-medium text-sm" }, sousTraitant.nom),
+                                        React.createElement('div', { className: "text-xs text-gray-600" }, sousTraitant.specialite),
+                                        React.createElement('div', { className: "text-xs text-gray-500" }, sousTraitant.tarif)
+                                    ),
+                                    React.createElement('div', {
+                                        className: `w-4 h-4 rounded-full border-2 ${
+                                            selected ? 'bg-blue-500 border-blue-500' : 
+                                            available ? 'border-green-400' : 'border-red-400'
+                                        }`
+                                    })
+                                ),
+                                !available && React.createElement('div', { 
+                                    className: "text-xs text-red-600 mt-1" 
+                                }, "Non disponible pour cette période")
+                            );
+                        })
+                    )
+                )
+            );
+        };
+
+        // ============== COMPOSANT MODAL DE JOB ==============
+        
+        const JobModal = ({ 
+            isOpen, 
+            onClose, 
+            job, 
+            onSave, 
+            onDelete,
+            personnel,
+            equipements,
+            sousTraitants,
+            jobs,
+            selectedCell
+        }) => {
+            const [formData, setFormData] = useState({
+                numeroJob: '',
+                nom: '',
+                description: '',
+                dateDebut: '',
+                heureDebut: '08:00',
+                dateFin: '',
+                heureFin: '17:00',
+                personnel: [],
+                equipements: [],
+                sousTraitants: [],
+                lieu: '',
+                priorite: 'normale',
+                statut: 'planifie',
+                client: '',
+                budget: '',
+                notes: ''
+            });
+
+            // Générer un numéro de job automatique
+            const generateJobNumber = useCallback(() => {
+                const year = new Date().getFullYear();
+                const month = String(new Date().getMonth() + 1).padStart(2, '0');
+                const existingNumbers = jobs
+                    .filter(j => j.numeroJob?.startsWith(`G${year.toString().slice(-2)}-${month}`))
+                    .map(j => parseInt(j.numeroJob.split('-')[1]) || 0);
+                const nextNumber = Math.max(0, ...existingNumbers) + 1;
+                return `G${year.toString().slice(-2)}-${month}${String(nextNumber).padStart(2, '0')}`;
+            }, [jobs]);
+
+            // Initialiser le formulaire
+            useEffect(() => {
+                if (isOpen) {
+                    if (job) {
+                        setFormData({...job});
+                    } else {
+                        const today = new Date().toISOString().split('T')[0];
+                        setFormData({
+                            numeroJob: generateJobNumber(),
+                            nom: '',
+                            description: '',
+                            dateDebut: selectedCell?.date || today,
+                            heureDebut: '08:00',
+                            dateFin: selectedCell?.date || today,
+                            heureFin: '17:00',
+                            personnel: selectedCell?.personnelId ? [selectedCell.personnelId] : [],
+                            equipements: [],
+                            sousTraitants: [],
+                            lieu: '',
+                            priorite: 'normale',
+                            statut: 'planifie',
+                            client: '',
+                            budget: '',
+                            notes: ''
+                        });
+                    }
+                }
+            }, [isOpen, job, generateJobNumber, selectedCell]);
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (!formData.numeroJob || !formData.nom || !formData.dateDebut) {
+                    alert('Veuillez remplir les champs obligatoires');
+                    return;
+                }
+
+                const jobData = {
+                    ...formData,
+                    id: job ? job.id : Date.now(),
+                    dateCreation: job ? job.dateCreation : new Date().toISOString()
+                };
+
+                onSave(jobData);
+                onClose();
+            };
+
+            const updateField = (field, value) => {
+                setFormData(prev => ({
+                    ...prev,
+                    [field]: value
+                }));
+            };
+
+            const getPriorityColor = (priorite) => {
+                switch (priorite) {
+                    case 'urgent': return 'border-red-500 bg-red-50';
+                    case 'haute': return 'border-orange-500 bg-orange-50';
+                    case 'normale': return 'border-blue-500 bg-blue-50';
+                    case 'faible': return 'border-gray-500 bg-gray-50';
+                    default: return 'border-blue-500 bg-blue-50';
+                }
+            };
+
+            if (!isOpen) return null;
+
+            return React.createElement(Modal, {
+                isOpen,
+                onClose,
+                title: job ? 'Modifier le Job' : 'Nouveau Job',
+                size: 'xl'
+            },
+                React.createElement('form', { onSubmit: handleSubmit, className: "p-6 space-y-6" },
+                    // Informations de base
+                    React.createElement('div', { className: "grid grid-cols-1 lg:grid-cols-2 gap-6" },
+                        React.createElement('div', { className: "space-y-4" },
+                            React.createElement('h3', { className: "text-lg font-semibold border-b pb-2" }, "Informations de base"),
+                            
+                            React.createElement('div', null,
+                                React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Numéro de Job *"),
+                                React.createElement('input', {
+                                    type: "text",
+                                    value: formData.numeroJob,
+                                    onChange: (e) => updateField('numeroJob', e.target.value),
+                                    className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500",
+                                    required: true
+                                })
+                            ),
+
+                            React.createElement('div', null,
+                                React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Nom du Job *"),
+                                React.createElement('input', {
+                                    type: "text",
+                                    value: formData.nom,
+                                    onChange: (e) => updateField('nom', e.target.value),
+                                    className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500",
+                                    required: true
+                                })
+                            ),
+
+                            React.createElement('div', null,
+                                React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Description"),
+                                React.createElement('textarea', {
+                                    value: formData.description,
+                                    onChange: (e) => updateField('description', e.target.value),
+                                    className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500",
+                                    rows: 3
+                                })
+                            ),
+
+                            React.createElement('div', { className: "grid grid-cols-2 gap-4" },
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Client"),
+                                    React.createElement('input', {
+                                        type: "text",
+                                        value: formData.client,
+                                        onChange: (e) => updateField('client', e.target.value),
+                                        className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    })
+                                ),
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Budget"),
+                                    React.createElement('input', {
+                                        type: "text",
+                                        value: formData.budget,
+                                        onChange: (e) => updateField('budget', e.target.value),
+                                        className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500",
+                                        placeholder: "Ex: 5000$"
+                                    })
+                                )
+                            ),
+
+                            React.createElement('div', null,
+                                React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Lieu"),
+                                React.createElement('input', {
+                                    type: "text",
+                                    value: formData.lieu,
+                                    onChange: (e) => updateField('lieu', e.target.value),
+                                    className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                })
+                            )
+                        ),
+
+                        React.createElement('div', { className: "space-y-4" },
+                            React.createElement('h3', { className: "text-lg font-semibold border-b pb-2" }, "Planification"),
+                            
+                            React.createElement('div', { className: "grid grid-cols-2 gap-4" },
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Date début *"),
+                                    React.createElement('input', {
+                                        type: "date",
+                                        value: formData.dateDebut,
+                                        onChange: (e) => updateField('dateDebut', e.target.value),
+                                        className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500",
+                                        required: true
+                                    })
+                                ),
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Heure début"),
+                                    React.createElement('input', {
+                                        type: "time",
+                                        value: formData.heureDebut,
+                                        onChange: (e) => updateField('heureDebut', e.target.value),
+                                        className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    })
+                                )
+                            ),
+
+                            React.createElement('div', { className: "grid grid-cols-2 gap-4" },
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Date fin"),
+                                    React.createElement('input', {
+                                        type: "date",
+                                        value: formData.dateFin,
+                                        onChange: (e) => updateField('dateFin', e.target.value),
+                                        className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    })
+                                ),
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Heure fin"),
+                                    React.createElement('input', {
+                                        type: "time",
+                                        value: formData.heureFin,
+                                        onChange: (e) => updateField('heureFin', e.target.value),
+                                        className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    })
+                                )
+                            ),
+
+                            React.createElement('div', { className: "grid grid-cols-2 gap-4" },
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Priorité"),
+                                    React.createElement('select', {
+                                        value: formData.priorite,
+                                        onChange: (e) => updateField('priorite', e.target.value),
+                                        className: `w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${getPriorityColor(formData.priorite)}`
+                                    },
+                                        React.createElement('option', { value: "faible" }, "Faible"),
+                                        React.createElement('option', { value: "normale" }, "Normale"),
+                                        React.createElement('option', { value: "haute" }, "Haute"),
+                                        React.createElement('option', { value: "urgent" }, "Urgent")
+                                    )
+                                ),
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Statut"),
+                                    React.createElement('select', {
+                                        value: formData.statut,
+                                        onChange: (e) => updateField('statut', e.target.value),
+                                        className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    },
+                                        React.createElement('option', { value: "planifie" }, "Planifié"),
+                                        React.createElement('option', { value: "en_cours" }, "En cours"),
+                                        React.createElement('option', { value: "termine" }, "Terminé"),
+                                        React.createElement('option', { value: "annule" }, "Annulé")
+                                    )
+                                )
+                            ),
+
+                            React.createElement('div', null,
+                                React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Notes"),
+                                React.createElement('textarea', {
+                                    value: formData.notes,
+                                    onChange: (e) => updateField('notes', e.target.value),
+                                    className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500",
+                                    rows: 3,
+                                    placeholder: "Notes supplémentaires..."
+                                })
+                            )
+                        )
+                    ),
+
+                    // Sélection des ressources
+                    React.createElement('div', null,
+                        React.createElement('h3', { className: "text-lg font-semibold mb-4" }, "Ressources assignées"),
+                        React.createElement(ResourceSelector, {
+                            selectedPersonnel: formData.personnel,
+                            selectedEquipements: formData.equipements,
+                            selectedSousTraitants: formData.sousTraitants,
+                            onPersonnelChange: (personnel) => updateField('personnel', personnel),
+                            onEquipementsChange: (equipements) => updateField('equipements', equipements),
+                            onSousTraitantsChange: (sousTraitants) => updateField('sousTraitants', sousTraitants),
+                            personnel,
+                            equipements,
+                            sousTraitants,
+                            dateDebut: formData.dateDebut,
+                            dateFin: formData.dateFin,
+                            jobs: jobs.filter(j => j.id !== job?.id) // Exclure le job actuel
+                        })
+                    ),
+
+                    // Boutons d'action
+                    React.createElement('div', { className: "flex justify-between pt-6 border-t" },
+                        React.createElement('div', null,
+                            job && React.createElement('button', {
+                                type: "button",
+                                onClick: () => {
+                                    if (window.confirm('Êtes-vous sûr de vouloir supprimer ce job ?')) {
+                                        onDelete(job.id);
+                                        onClose();
+                                    }
+                                },
+                                className: "flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                            },
+                                React.createElement(Trash2, { size: 16 }),
+                                "Supprimer"
+                            )
+                        ),
+                        React.createElement('div', { className: "flex gap-3" },
+                            React.createElement('button', {
+                                type: "button",
+                                onClick: onClose,
+                                className: "px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                            }, "Annuler"),
+                            React.createElement('button', {
+                                type: "submit",
+                                className: "flex items-center gap-2 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                            },
+                                React.createElement(Save, { size: 16 }),
+                                job ? "Modifier" : "Créer"
+                            )
+                        )
+                    )
+                )
+            );
+        };
+
+        // ============== COMPOSANT VUE GANTT ==============
+        
+        const GanttView = ({ jobs, personnel, continuousDays, onJobClick, onCellClick, getPriorityColor }) => {
+            const { isMobile, isTablet } = useScreenSize();
+            // Calculer la position et la largeur des barres Gantt
+            const calculateGanttBar = (job, personnelId) => {
+                const startDate = new Date(job.dateDebut);
+                const endDate = new Date(job.dateFin || job.dateDebut);
+                
+                // Trouver l'index de début et de fin dans continuousDays
+                const startIndex = continuousDays.findIndex(day => 
+                    day.dateString === job.dateDebut
+                );
+                const endIndex = continuousDays.findIndex(day => 
+                    day.dateString === (job.dateFin || job.dateDebut)
+                );
+                
+                if (startIndex === -1) return null;
+                
+                const width = endIndex === -1 ? 1 : (endIndex - startIndex + 1);
+                const dayWidth = isMobile ? 32 : isTablet ? 40 : 64; // Largeur adaptative
+                const leftOffset = startIndex * dayWidth;
+                
+                return {
+                    left: leftOffset,
+                    width: width * dayWidth - 4, // -4px pour les bordures
+                    job
+                };
+            };
+
+            // Obtenir tous les jobs pour une personne avec leurs positions
+            const getPersonJobs = (personnelId) => {
+                return jobs
+                    .filter(job => job.personnel?.includes(personnelId))
+                    .map(job => calculateGanttBar(job, personnelId))
+                    .filter(bar => bar !== null)
+                    .sort((a, b) => a.left - b.left);
+            };
+
+            return React.createElement('div', { className: "bg-white rounded-lg shadow-sm overflow-hidden" },
+                React.createElement('div', { className: "overflow-x-auto" },
+                    React.createElement('div', { className: "min-w-max" },
+                        // En-tête Gantt
+                        React.createElement('div', { className: "bg-gray-50 border-b sticky top-0 z-30" },
+                            React.createElement('div', { className: "flex" },
+                                React.createElement('div', { 
+                                    className: `${isMobile ? 'mobile-gantt-person' : 'w-60'} px-4 py-3 font-semibold text-gray-700 border-r bg-gray-50 sticky left-0 z-40` 
+                                }, "Technicien"),
+                                React.createElement('div', { className: "flex" },
+                                    ...continuousDays.map((day, index) => {
+                                        const showMonth = index === 0 || day.date.getDate() === 1;
+                                        return React.createElement('div', {
+                                            key: index,
+                                            className: `${isMobile ? 'mobile-gantt-day' : 'w-16'} px-1 py-1 text-center border-r ${day.isWeekend ? 'bg-gray-100' : 'bg-gray-50'}`
+                                        },
+                                            showMonth && React.createElement('div', { 
+                                                className: "text-xs text-gray-500 font-normal" 
+                                            }, day.monthName),
+                                            React.createElement('div', { 
+                                                className: `text-xs font-medium ${day.isToday ? 'text-blue-600 font-bold' : 'text-gray-600'}` 
+                                            }, day.dayName),
+                                            React.createElement('div', { 
+                                                className: `text-sm ${day.isToday ? 'font-bold text-blue-600' : ''}` 
+                                            }, day.dayNumber)
+                                        );
+                                    })
+                                )
+                            )
+                        ),
+                        
+                        // Lignes du personnel avec barres Gantt
+                        React.createElement('div', null,
+                            ...personnel.map((person, personIndex) => {
+                                const personJobs = getPersonJobs(person.id);
+                                
+                                return React.createElement('div', {
+                                    key: person.id,
+                                    className: `border-b hover:bg-gray-50 transition-colors ${personIndex % 2 === 0 ? 'bg-white' : 'bg-gray-25'}`
+                                },
+                                    React.createElement('div', { className: "flex items-center" },
+                                        // Info personnel
+                                        React.createElement('div', { 
+                                            className: `${isMobile ? 'mobile-gantt-person' : 'w-60'} px-4 py-4 border-r sticky left-0 bg-white z-20` 
+                                        },
+                                            React.createElement('div', { className: "font-semibold text-sm" }, person.nom),
+                                            React.createElement('div', { className: "text-xs text-gray-600" }, person.poste),
+                                            React.createElement('div', { className: "text-xs text-gray-500" }, person.succursale)
+                                        ),
+                                        
+                                        // Zone Gantt
+                                        React.createElement('div', { className: "relative flex-1 h-16" },
+                                            // Grille de fond
+                                            React.createElement('div', { className: "absolute inset-0 flex" },
+                                                ...continuousDays.map((day, dayIndex) => 
+                                                    React.createElement('div', {
+                                                        key: dayIndex,
+                                                        className: `${isMobile ? 'mobile-gantt-day' : 'w-16'} border-r cursor-pointer hover:bg-blue-50 transition-colors ${day.isWeekend ? 'bg-gray-50' : ''}`,
+                                                        onClick: () => onCellClick(person.id, day)
+                                                    })
+                                                )
+                                            ),
+                                            
+                                            // Barres de jobs
+                                            ...personJobs.map((jobBar, jobIndex) => {
+                                                const overlappingJobs = personJobs.filter(otherBar => 
+                                                    otherBar.left < jobBar.left + jobBar.width && 
+                                                    otherBar.left + otherBar.width > jobBar.left
+                                                );
+                                                const stackLevel = overlappingJobs.indexOf(jobBar);
+                                                const topOffset = stackLevel * 32; // Décalage vertical pour les jobs qui se chevauchent
+                                                
+                                                return React.createElement('div', {
+                                                    key: jobIndex,
+                                                    className: `gantt-bar ${getPriorityColor(jobBar.job.priorite)}`,
+                                                    style: {
+                                                        left: `${jobBar.left + 2}px`,
+                                                        width: `${Math.max(jobBar.width, 60)}px`,
+                                                        top: `${8 + topOffset}px`
+                                                    },
+                                                    onClick: (e) => {
+                                                        e.stopPropagation();
+                                                        onJobClick(jobBar.job);
+                                                    },
+                                                    title: `${jobBar.job.numeroJob} - ${jobBar.job.nom}\n${jobBar.job.dateDebut} ${jobBar.job.dateFin ? 'au ' + jobBar.job.dateFin : ''}\nClient: ${jobBar.job.client || 'N/A'}`
+                                                },
+                                                    React.createElement('div', { className: "truncate px-2" },
+                                                        React.createElement('div', { className: "font-semibold text-xs" }, `#${jobBar.job.numeroJob}`),
+                                                        React.createElement('div', { className: "text-xs truncate" }, jobBar.job.nom)
+                                                    ),
+                                                    // Indicateur de durée
+                                                    jobBar.job.dateFin && jobBar.job.dateFin !== jobBar.job.dateDebut && 
+                                                    React.createElement('div', { 
+                                                        className: "absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full border-2 border-current flex items-center justify-center" 
+                                                    },
+                                                        React.createElement('div', { className: "w-1 h-1 bg-current rounded-full" })
+                                                    )
+                                                );
+                                            })
+                                        )
+                                    )
+                                );
+                            })
+                        )
+                    )
+                ),
+                
+                // Légende
+                React.createElement('div', { className: "bg-gray-50 px-4 py-3 border-t" },
+                    React.createElement('div', { className: "flex flex-wrap items-center gap-4 text-xs" },
+                        React.createElement('span', { className: "font-semibold text-gray-700" }, "Priorités:"),
+                        React.createElement('div', { className: "flex items-center gap-1" },
+                            React.createElement('div', { className: "w-3 h-3 bg-red-500 rounded" }),
+                            React.createElement('span', null, "Urgent")
+                        ),
+                        React.createElement('div', { className: "flex items-center gap-1" },
+                            React.createElement('div', { className: "w-3 h-3 bg-orange-500 rounded" }),
+                            React.createElement('span', null, "Haute")
+                        ),
+                        React.createElement('div', { className: "flex items-center gap-1" },
+                            React.createElement('div', { className: "w-3 h-3 bg-blue-500 rounded" }),
+                            React.createElement('span', null, "Normale")
+                        ),
+                        React.createElement('div', { className: "flex items-center gap-1" },
+                            React.createElement('div', { className: "w-3 h-3 bg-gray-500 rounded" }),
+                            React.createElement('span', null, "Faible")
+                        ),
+                        React.createElement('span', { className: "ml-4 text-gray-600" }, "Cliquez sur une barre pour modifier • Cliquez sur une cellule vide pour créer")
+                    )
+                )
+            );
+        };
+
+        // ============== COMPOSANT PRINCIPAL ==============
+        
+        const PlanificateurAmeliore = () => {
+            const {
+                jobs, setJobs,
+                personnel, setPersonnel,
+                equipements, setEquipements,
+                sousTraitants, setSousTraitants
+            } = useAppData();
+
+            const { isMobile, isTablet, isDesktop } = useScreenSize();
+
+            const [activeTab, setActiveTab] = useState('calendrier');
+            const [viewMode, setViewMode] = useState('calendar'); // calendar, gantt
+            const [selectedJob, setSelectedJob] = useState(null);
+            const [showJobModal, setShowJobModal] = useState(false);
+            const [selectedCell, setSelectedCell] = useState(null);
+            const [startDate, setStartDate] = useState(new Date(2025, 8, 1));
+            const [numberOfDays, setNumberOfDays] = useState(isMobile ? 14 : 30);
+            const [searchTerm, setSearchTerm] = useState('');
+            const [filterPoste, setFilterPoste] = useState('tous');
+
+            // Générer les jours continus
+            const generateContinuousDays = useCallback(() => {
+                const days = [];
+                const current = new Date(startDate);
+                
+                for (let i = 0; i < numberOfDays; i++) {
+                    days.push({
+                        date: new Date(current),
+                        dayNumber: current.getDate(),
+                        dayName: current.toLocaleDateString('fr-FR', { weekday: 'short' }).toUpperCase(),
+                        monthName: current.toLocaleDateString('fr-FR', { month: 'short' }),
+                        isWeekend: current.getDay() === 0 || current.getDay() === 6,
+                        isToday: current.toDateString() === new Date().toDateString(),
+                        dateString: current.toISOString().split('T')[0]
+                    });
+                    current.setDate(current.getDate() + 1);
+                }
+                
+                return days;
+            }, [startDate, numberOfDays]);
+
+            const continuousDays = generateContinuousDays();
+
+            // Filtrer le personnel
+            const filteredPersonnel = useMemo(() => {
+                return personnel.filter(person => {
+                    const matchesSearch = person.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                         person.poste.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                         person.succursale.toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchesFilter = filterPoste === 'tous' || person.poste.includes(filterPoste);
+                    return matchesSearch && matchesFilter;
+                });
+            }, [personnel, searchTerm, filterPoste]);
+
+            // Gestionnaires d'événements
+            const handleSaveJob = (jobData) => {
+                if (jobData.id && jobs.find(j => j.id === jobData.id)) {
+                    setJobs(jobs.map(j => j.id === jobData.id ? jobData : j));
+                } else {
+                    setJobs([...jobs, jobData]);
+                }
+            };
+
+            const handleDeleteJob = (jobId) => {
+                setJobs(jobs.filter(j => j.id !== jobId));
+            };
+
+            const handleCellClick = (personnelId, day) => {
+                // Chercher un job existant pour cette cellule
+                const existingJob = jobs.find(job => 
+                    job.personnel?.includes(personnelId) && 
+                    day.dateString >= job.dateDebut && 
+                    day.dateString <= job.dateFin
+                );
+
+                if (existingJob) {
+                    setSelectedJob(existingJob);
+                } else {
+                    setSelectedJob(null);
+                    setSelectedCell({ 
+                        personnelId, 
+                        date: day.dateString 
+                    });
+                }
+                setShowJobModal(true);
+            };
+
+            const getJobForCell = (personnelId, day) => {
+                return jobs.find(job => 
+                    job.personnel?.includes(personnelId) && 
+                    day.dateString >= job.dateDebut && 
+                    day.dateString <= job.dateFin
+                );
+            };
+
+            const getPriorityColor = (priorite) => {
+                switch (priorite) {
+                    case 'urgent': return 'bg-red-500 border-red-600 text-white';
+                    case 'haute': return 'bg-orange-500 border-orange-600 text-white';
+                    case 'normale': return 'bg-blue-500 border-blue-600 text-white';
+                    case 'faible': return 'bg-gray-500 border-gray-600 text-white';
+                    default: return 'bg-blue-500 border-blue-600 text-white';
+                }
+            };
+
+            // Navigation
+            const navigateWeeks = (direction) => {
+                const newDate = new Date(startDate);
+                newDate.setDate(newDate.getDate() + (direction * 7));
+                setStartDate(newDate);
+            };
+
+            const navigateMonths = (direction) => {
+                const newDate = new Date(startDate);
+                newDate.setMonth(newDate.getMonth() + direction);
+                setStartDate(newDate);
+            };
+
+            const goToToday = () => {
+                setStartDate(new Date());
+            };
+
+            return React.createElement('div', { className: "min-h-screen bg-gray-50" },
+                // Header responsive
+                React.createElement('div', { className: "bg-white shadow-sm border-b" },
+                    React.createElement('div', { className: "px-4 py-4" },
+                        React.createElement('div', { className: "flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4" },
+                            React.createElement('div', null,
+                                React.createElement('div', { className: "flex items-center gap-2" },
+                                    React.createElement('h1', { className: "text-xl lg:text-3xl font-bold text-gray-900" }, 
+                                        isMobile ? "Planificateur" : "Planificateur Job d'Huile"
+                                    ),
+                                    // Indicateur d'écran (debug/info)
+                                    React.createElement('span', { 
+                                        className: `px-2 py-1 text-xs rounded-full ${
+                                            isMobile ? 'bg-blue-100 text-blue-800' : 
+                                            isTablet ? 'bg-green-100 text-green-800' : 
+                                            'bg-purple-100 text-purple-800'
+                                        }` 
+                                    }, isMobile ? 'Mobile' : isTablet ? 'Tablette' : 'Desktop')
+                                ),
+                                React.createElement('p', { className: "text-xs lg:text-sm text-gray-600 mt-1" }, 
+                                    isMobile ? 
+                                        `${jobs.length} jobs • ${personnel.length} tech.` :
+                                        `${jobs.length} job${jobs.length !== 1 ? 's' : ''} • ${personnel.length} technicien${personnel.length !== 1 ? 's' : ''} • ${equipements.length} équipement${equipements.length !== 1 ? 's' : ''}`
+                                )
+                            ),
+                            
+                            // Actions rapides
+                            React.createElement('div', { className: "flex flex-wrap gap-2" },
+                                React.createElement('button', {
+                                    onClick: () => {
+                                        setSelectedJob(null);
+                                        setSelectedCell(null);
+                                        setShowJobModal(true);
+                                    },
+                                    className: "flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors"
+                                },
+                                    React.createElement(Plus, { size: 16 }),
+                                    React.createElement('span', { className: "hidden sm:inline" }, "Nouveau Job")
+                                ),
+                                React.createElement('button', {
+                                    onClick: () => setViewMode(viewMode === 'calendar' ? 'gantt' : 'calendar'),
+                                    className: `flex items-center gap-2 px-4 py-2 border rounded-lg transition-colors ${viewMode === 'gantt' ? 'bg-blue-500 text-white' : 'bg-white hover:bg-gray-50'}`
+                                },
+                                    React.createElement(BarChart3, { size: 16 }),
+                                    React.createElement('span', { className: "hidden sm:inline" }, viewMode === 'calendar' ? 'Vue Gantt' : 'Vue Calendrier')
+                                ),
+                                // Boutons d'export/import adaptés pour mobile
+                                !isMobile && React.createElement('button', {
+                                    onClick: () => {
+                                        const data = { jobs, personnel, equipements, sousTraitants, exportDate: new Date().toISOString(), version: '2.0' };
+                                        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                                        const url = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = url;
+                                        a.download = `planificateur-${new Date().toISOString().split('T')[0]}.json`;
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                        URL.revokeObjectURL(url);
+                                    },
+                                    className: "flex items-center gap-2 px-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                                },
+                                    React.createElement(Download, { size: 16 }),
+                                    React.createElement('span', { className: "hidden lg:inline" }, "Export")
+                                )
+                            )
+                        ),
+
+                        // Navigation et filtres
+                        React.createElement('div', { className: "flex flex-col lg:flex-row gap-4 mt-4" },
+                            // Recherche et filtres
+                            React.createElement('div', { className: "flex flex-1 gap-2" },
+                                React.createElement('div', { className: "relative flex-1 max-w-md" },
+                                    React.createElement(Search, { 
+                                        size: 18, 
+                                        className: "absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" 
+                                    }),
+                                    React.createElement('input', {
+                                        type: "text",
+                                        placeholder: "Rechercher...",
+                                        value: searchTerm,
+                                        onChange: (e) => setSearchTerm(e.target.value),
+                                        className: "w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    })
+                                ),
+                                React.createElement('select', {
+                                    value: filterPoste,
+                                    onChange: (e) => setFilterPoste(e.target.value),
+                                    className: "px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                },
+                                    React.createElement('option', { value: "tous" }, "Tous"),
+                                    React.createElement('option', { value: "TECH" }, "TECH"),
+                                    React.createElement('option', { value: "ING" }, "ING"),
+                                    React.createElement('option', { value: "COORD" }, "COORD")
+                                )
+                            ),
+
+                            // Navigation temporelle
+                            React.createElement('div', { className: "flex items-center gap-2" },
+                                React.createElement('button', {
+                                    onClick: () => navigateMonths(-1),
+                                    className: "p-2 hover:bg-gray-100 rounded-lg",
+                                    title: "Mois précédent"
+                                }, React.createElement(ChevronLeft, { size: 20 })),
+                                React.createElement('button', {
+                                    onClick: () => navigateWeeks(-1),
+                                    className: "px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded"
+                                }, "-1S"),
+                                React.createElement('button', {
+                                    onClick: goToToday,
+                                    className: "px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 rounded text-blue-600"
+                                }, "Aujourd'hui"),
+                                React.createElement('span', { 
+                                    className: "text-sm font-semibold min-w-[100px] text-center hidden sm:inline" 
+                                }, startDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })),
+                                React.createElement('button', {
+                                    onClick: () => navigateWeeks(1),
+                                    className: "px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded"
+                                }, "+1S"),
+                                React.createElement('button', {
+                                    onClick: () => navigateMonths(1),
+                                    className: "p-2 hover:bg-gray-100 rounded-lg",
+                                    title: "Mois suivant"
+                                }, React.createElement(ChevronRight, { size: 20 })),
+                                React.createElement('select', {
+                                    value: numberOfDays,
+                                    onChange: (e) => setNumberOfDays(parseInt(e.target.value)),
+                                    className: "px-2 py-1 text-sm border rounded-lg"
+                                },
+                                    React.createElement('option', { value: 14 }, "2S"),
+                                    React.createElement('option', { value: 30 }, "1M"),
+                                    React.createElement('option', { value: 60 }, "2M")
+                                )
+                            )
+                        )
+                    )
+                ),
+
+                // Contenu principal
+                React.createElement('div', { className: "p-4" },
+                    viewMode === 'calendar' ? 
+                        // Vue calendrier
+                        React.createElement('div', { className: "bg-white rounded-lg shadow-sm overflow-hidden" },
+                            React.createElement('div', { className: "overflow-x-auto" },
+                                React.createElement('table', { className: "w-full min-w-max" },
+                                    React.createElement('thead', { className: "bg-gray-50 sticky top-0" },
+                                        // En-tête avec mois
+                                        React.createElement('tr', null,
+                                            React.createElement('th', { 
+                                                className: `px-3 py-2 text-left font-semibold text-gray-700 sticky left-0 bg-gray-50 z-20 border-r ${isMobile ? 'min-w-[120px]' : 'min-w-[160px]'}` 
+                                            }, isMobile ? "Tech." : "Technicien"),
+                                            !isMobile && React.createElement('th', { 
+                                                className: "px-2 py-2 text-left font-semibold text-gray-700 sticky left-[160px] bg-gray-50 z-20 border-r w-20" 
+                                            }, "Poste"),
+                                            ...continuousDays.map((day, index) => {
+                                                const showMonth = index === 0 || day.date.getDate() === 1;
+                                                return React.createElement('th', {
+                                                    key: index,
+                                                    className: `px-1 py-2 text-center font-semibold text-gray-700 ${isMobile ? 'w-10' : 'w-16'} border-r ${day.isWeekend ? 'bg-gray-100' : ''}`
+                                                }, showMonth && React.createElement('div', { 
+                                                    className: "text-xs text-gray-500 font-normal" 
+                                                }, isMobile ? day.monthName.substr(0, 3) : day.monthName));
+                                            })
+                                        ),
+                                        
+                                        // En-tête avec jours
+                                        React.createElement('tr', null,
+                                            React.createElement('th', { className: `px-3 py-2 sticky left-0 bg-gray-50 z-20 border-r ${isMobile ? 'w-[120px]' : 'w-[160px]'}` }),
+                                            !isMobile && React.createElement('th', { className: "px-2 py-2 sticky left-[160px] bg-gray-50 z-20 border-r" }),
+                                            ...continuousDays.map((day, index) => 
+                                                React.createElement('th', {
+                                                    key: index,
+                                                    className: `px-1 py-2 text-center text-xs border-r ${day.isWeekend ? 'bg-gray-100' : 'bg-gray-50'} ${day.isToday ? 'bg-blue-100 text-blue-600 font-bold' : 'text-gray-600'}`
+                                                },
+                                                    React.createElement('div', { className: "font-medium" }, 
+                                                        isMobile ? day.dayName.substr(0, 1) : day.dayName
+                                                    ),
+                                                    React.createElement('div', { 
+                                                        className: `${isMobile ? 'text-xs' : 'text-sm'} ${day.isToday ? 'font-bold' : ''}` 
+                                                    }, day.dayNumber)
+                                                )
+                                            )
+                                        )
+                                    ),
+                                    
+                                    React.createElement('tbody', null,
+                                        ...filteredPersonnel.map((person) => 
+                                            React.createElement('tr', {
+                                                key: person.id,
+                                                className: "border-b hover:bg-gray-50"
+                                            },
+                                                React.createElement('td', { 
+                                                    className: `px-3 py-3 font-medium sticky left-0 bg-white z-10 border-r ${isMobile ? 'w-[120px]' : 'w-[160px]'}` 
+                                                },
+                                                    React.createElement('div', { className: `${isMobile ? 'text-xs' : 'text-sm'} font-semibold` }, 
+                                                        isMobile ? person.nom.split(' ')[0] : person.nom
+                                                    ),
+                                                    !isMobile && React.createElement('div', { className: "text-xs text-gray-500" }, person.succursale),
+                                                    isMobile && React.createElement('div', { className: "text-xs text-gray-500" }, person.poste)
+                                                ),
+                                                !isMobile && React.createElement('td', { 
+                                                    className: "px-2 py-3 text-xs sticky left-[160px] bg-white z-10 border-r" 
+                                                }, person.poste),
+                                                ...continuousDays.map((day, dayIndex) => {
+                                                    const job = getJobForCell(person.id, day);
+                                                    return React.createElement('td', {
+                                                        key: dayIndex,
+                                                        className: `px-1 py-1 border-r cursor-pointer hover:bg-blue-50 transition-colors relative ${isMobile ? 'h-12 mobile-calendar-row' : 'h-10'} ${day.isWeekend ? 'bg-gray-50' : 'bg-white'}`,
+                                                        onClick: () => handleCellClick(person.id, day)
+                                                    },
+                                                        job ? React.createElement('div', {
+                                                            className: `w-full h-full flex items-center justify-center ${isMobile ? 'text-xs mobile-job-card' : 'text-xs'} rounded border ${getPriorityColor(job.priorite)}`
+                                                        },
+                                                            React.createElement('div', { className: "text-center truncate px-1" },
+                                                                React.createElement('div', { className: `font-medium ${isMobile ? 'text-[9px]' : 'text-[10px]'}` }, `#${job.numeroJob}`),
+                                                                React.createElement('div', { className: `truncate ${isMobile ? 'text-[8px]' : 'text-[9px]'}` }, 
+                                                                    isMobile && job.nom.length > 8 ? job.nom.substring(0, 8) + '...' : job.nom
+                                                                )
+                                                            )
+                                                        ) : React.createElement('div', {
+                                                            className: "w-full h-full flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                                                        }, React.createElement(Plus, { size: isMobile ? 8 : 10, className: "text-gray-400" }))
+                                                    );
+                                                })
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        ) :
+                        // Vue Gantt
+                        React.createElement(GanttView, {
+                            jobs,
+                            personnel: filteredPersonnel,
+                            continuousDays,
+                            onJobClick: (job) => {
+                                setSelectedJob(job);
+                                setShowJobModal(true);
+                            },
+                            onCellClick: handleCellClick,
+                            getPriorityColor
+                        })
+                ),
+
+                // Modal de job
+                React.createElement(JobModal, {
+                    isOpen: showJobModal,
+                    onClose: () => {
+                        setShowJobModal(false);
+                        setSelectedJob(null);
+                        setSelectedCell(null);
+                    },
+                    job: selectedJob,
+                    onSave: handleSaveJob,
+                    onDelete: handleDeleteJob,
+                    personnel,
+                    equipements,
+                    sousTraitants,
+                    jobs,
+                    selectedCell
+                })
+            );
+        };
+
+        // Rendu de l'application
+        ReactDOM.render(React.createElement(PlanificateurAmeliore), document.getElementById('root'));
+        
+        // Initialiser Lucide après le rendu
+        setTimeout(initializeLucide, 100);
+    </script>
+</body>
+</html>

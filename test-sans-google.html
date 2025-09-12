@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test - Planificateur sans Google API</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root">Chargement...</div>
+    
+    <script>
+        console.log('🔍 Test sans Google API');
+        
+        // Test React de base
+        const { useState, useEffect } = React;
+        
+        function TestApp() {
+            const [status, setStatus] = useState('Initialisation...');
+            
+            useEffect(() => {
+                setTimeout(() => setStatus('✅ Application fonctionnelle sans Google API'), 1000);
+            }, []);
+            
+            return React.createElement('div', { className: 'p-6 max-w-md mx-auto bg-white rounded-lg shadow-lg' },
+                React.createElement('h1', { className: 'text-2xl font-bold text-green-600 mb-4' }, '🧪 Test de Compatibilité'),
+                React.createElement('p', { className: 'text-gray-700 mb-4' }, status),
+                React.createElement('div', { className: 'space-y-2' },
+                    React.createElement('div', null, '✅ React:', React.version),
+                    React.createElement('div', null, '✅ ReactDOM: Fonctionnel'),
+                    React.createElement('div', null, '✅ Tailwind CSS: Fonctionnel'),
+                    React.createElement('div', null, '❌ Google API: Désactivé (test)')
+                )
+            );
+        }
+        
+        // Rendu de l'application de test
+        try {
+            const root = ReactDOM.createRoot(document.getElementById('root'));
+            root.render(React.createElement(TestApp));
+            console.log('✅ Rendu réussi');
+        } catch (error) {
+            console.error('❌ Erreur de rendu:', error);
+            document.getElementById('root').innerHTML = `
+                <div style="padding: 20px; color: red;">
+                    <h1>❌ Erreur</h1>
+                    <p>${error.message}</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>

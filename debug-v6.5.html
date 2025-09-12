@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Debug v6.5</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+</head>
+<body>
+    <div id="root">Chargement debug...</div>
+    <div id="errors" style="background: red; color: white; padding: 10px; margin: 10px; display: none;"></div>
+
+    <script>
+        console.log('🔍 DEBUG v6.5 - Test de base');
+        
+        window.onerror = function(msg, url, line, col, error) {
+            const errorDiv = document.getElementById('errors');
+            errorDiv.style.display = 'block';
+            errorDiv.innerHTML = `❌ ERREUR: ${msg}<br>Ligne: ${line}<br>${error?.stack || ''}`;
+            return false;
+        };
+
+        try {
+            console.log('React:', typeof React, React.version);
+            console.log('ReactDOM:', typeof ReactDOM);
+            
+            if (typeof React !== 'undefined' && typeof ReactDOM !== 'undefined') {
+                const root = ReactDOM.createRoot(document.getElementById('root'));
+                root.render(React.createElement('div', null, 
+                    React.createElement('h1', null, '✅ React 18 fonctionne'),
+                    React.createElement('p', null, 'Le problème vient du code v6.5, pas de React')
+                ));
+                console.log('✅ Test réussi - React 18 fonctionne');
+            }
+        } catch (error) {
+            document.getElementById('errors').style.display = 'block';
+            document.getElementById('errors').innerHTML = `❌ ERREUR: ${error.message}<br>${error.stack}`;
+            console.error('❌ Erreur:', error);
+        }
+    </script>
+</body>
+</html>

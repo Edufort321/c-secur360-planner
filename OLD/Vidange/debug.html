@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnostiqueur de Problèmes JavaScript</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .error { background: #fee; border: 1px solid #fcc; padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .success { background: #efe; border: 1px solid #cfc; padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .info { background: #eef; border: 1px solid #ccf; padding: 10px; margin: 10px 0; border-radius: 4px; }
+        pre { background: #f8f8f8; padding: 10px; border-radius: 4px; overflow-x: auto; max-height: 300px; overflow-y: auto; }
+        button { background: #007cba; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #005a87; }
+        .line-numbers { color: #999; margin-right: 10px; }
+        .highlight-error { background-color: #ffcccc; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Diagnostiqueur de Problèmes JavaScript</h1>
+        <p>Cet outil va analyser le fichier calendrier-partage.html pour identifier les erreurs de syntaxe.</p>
+        
+        <div class="info">
+            <strong>Erreur rapportée par Babel:</strong><br>
+            <code>SyntaxError: Unexpected token, expected "," (5979:13)</code>
+        </div>
+        
+        <button onclick="analyzeFile()">🔍 Analyser le fichier</button>
+        <button onclick="checkParentheses()">🔗 Vérifier les parenthèses</button>
+        <button onclick="checkCommas()">📝 Vérifier les virgules</button>
+        <button onclick="extractFunction()">⚙️ Extraire la fonction problématique</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        let fileContent = '';
+        
+        function displayResults(title, content, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = `<h3>${title}</h3><pre>${content}</pre>`;
+            resultsDiv.appendChild(div);
+        }
+        
+        function loadFile() {
+            return fetch('./calendrier-partage.html')
+                .then(response => response.text())
+                .then(content => {
+                    fileContent = content;
+                    return content;
+                })
+                .catch(error => {
+                    displayResults('Erreur de chargement', `Impossible de charger le fichier: ${error.message}`, 'error');
+                    throw error;
+                });
+        }
+        
+        function analyzeFile() {
+            document.getElementById('results').innerHTML = '<div class="info">Analyse en cours...</div>';
+            
+            loadFile().then(content => {
+                const lines = content.split('\n');
+                const errorLine = 5979;
+                
+                // Afficher les lignes autour de l'erreur
+                let contextLines = [];
+                for (let i = Math.max(0, errorLine - 10); i < Math.min(lines.length, errorLine + 10); i++) {
+                    const lineNum = i + 1;
+                    const isErrorLine = lineNum === errorLine;
+                    const lineContent = lines[i] || '';
+                    contextLines.push(`${String(lineNum).padStart(4, ' ')}: ${lineContent}`);
+                }
+                
+                displayResults(`Contexte autour de la ligne ${errorLine}`, contextLines.join('\n'));
+                
+                // Chercher les caractères problématiques
+                const errorLineContent = lines[errorLine - 1] || '';
+                displayResults('Contenu de la ligne d\\'erreur', 
+                    `Ligne ${errorLine}: "${errorLineContent}"
+Longueur: ${errorLineContent.length} caractères
+Caractère à la position 13: "${errorLineContent.charAt(12) || 'N/A'}"
+Codes de caractères: ${Array.from(errorLineContent).map((c, i) => i + ':' + c.charCodeAt(0)).join(', ')}`);
+                
+            }).catch(() => {});
+        }
+        
+        function checkParentheses() {
+            loadFile().then(content => {
+                const lines = content.split('\n');
+                let openParens = 0;
+                let openBrackets = 0;
+                let openBraces = 0;
+                let errors = [];
+                
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    for (let j = 0; j < line.length; j++) {
+                        const char = line[j];
+                        switch (char) {
+                            case '(':
+                                openParens++;
+                                break;
+                            case ')':
+                                openParens--;
+                                if (openParens < 0) {
+                                    errors.push(`Ligne ${i + 1}, col ${j + 1}: Parenthèse fermante sans ouverture`);
+                                }
+                                break;
+                            case '[':
+                                openBrackets++;
+                                break;
+                            case ']':
+                                openBrackets--;
+                                if (openBrackets < 0) {
+                                    errors.push(`Ligne ${i + 1}, col ${j + 1}: Crochet fermant sans ouverture`);
+                                }
+                                break;
+                            case '{':
+                                openBraces++;
+                                break;
+                            case '}':
+                                openBraces--;
+                                if (openBraces < 0) {
+                                    errors.push(`Ligne ${i + 1}, col ${j + 1}: Accolade fermante sans ouverture`);
+                                }
+                                break;
+                        }
+                        
+                        // Arrêter à la ligne d'erreur + quelques lignes
+                        if (i > 5985) break;
+                    }
+                    if (i > 5985) break;
+                }
+                
+                const summary = `Parenthèses ouvertes non fermées: ${Math.max(0, openParens)}
+Crochets ouverts non fermés: ${Math.max(0, openBrackets)}
+Accolades ouvertes non fermées: ${Math.max(0, openBraces)}
+
+Erreurs détectées: ${errors.length}
+${errors.join('\n')}`;
+                
+                displayResults('Analyse des parenthèses/crochets/accolades', summary, errors.length > 0 ? 'error' : 'success');
+            }).catch(() => {});
+        }
+        
+        function checkCommas() {
+            loadFile().then(content => {
+                const lines = content.split('\n');
+                let issues = [];
+                
+                for (let i = Math.max(0, 5970); i < Math.min(lines.length, 5990); i++) {
+                    const line = lines[i];
+                    const nextLine = lines[i + 1] || '';
+                    
+                    // Vérifier les patterns problématiques
+                    if (line.trim().endsWith(')') && !line.trim().endsWith('),') && !line.trim().endsWith(');')) {
+                        if (nextLine.trim() && !nextLine.trim().startsWith(')') && !nextLine.trim().startsWith('},') && !nextLine.trim().startsWith('};')) {
+                            issues.push(`Ligne ${i + 1}: Possible virgule manquante après ")" - ligne suivante: "${nextLine.trim().substring(0, 50)}..."`);
+                        }
+                    }
+                    
+                    // Chercher des React.createElement sans virgule avant
+                    if (line.includes('React.createElement') && i > 5970) {
+                        const prevLine = lines[i - 1] || '';
+                        if (prevLine.trim() && !prevLine.trim().endsWith(',') && !prevLine.trim().endsWith('{') && !prevLine.includes('//')) {
+                            issues.push(`Ligne ${i + 1}: React.createElement possible sans virgule avant - ligne précédente: "${prevLine.trim()}"`);
+                        }
+                    }
+                }
+                
+                displayResults('Analyse des virgules manquantes', 
+                    issues.length > 0 ? issues.join('\n') : 'Aucun problème de virgule détecté',
+                    issues.length > 0 ? 'error' : 'success');
+            }).catch(() => {});
+        }
+        
+        function extractFunction() {
+            loadFile().then(content => {
+                // Trouver la fonction PlanificateurFinal
+                const startPattern = 'const PlanificateurFinal = () => {';
+                const startIndex = content.indexOf(startPattern);
+                
+                if (startIndex === -1) {
+                    displayResults('Fonction non trouvée', 'Impossible de trouver la fonction PlanificateurFinal', 'error');
+                    return;
+                }
+                
+                // Extraire une partie de la fonction autour de la ligne d'erreur
+                const lines = content.split('\n');
+                const startLine = content.substring(0, startIndex).split('\n').length;
+                
+                let functionLines = [];
+                for (let i = Math.max(0, 5970); i < Math.min(lines.length, 5990); i++) {
+                    functionLines.push(`${i + 1}: ${lines[i]}`);
+                }
+                
+                displayResults('Extrait de la fonction PlanificateurFinal (lignes 5970-5990)', 
+                    functionLines.join('\n'));
+                    
+                // Essayer de valider la syntaxe JavaScript de cette section
+                try {
+                    const testCode = lines.slice(5970, 5990).join('\n');
+                    // Note: eval n'est pas sûr mais pour le debug local c'est acceptable
+                    displayResults('Validation syntaxe', 'Section extraite (test limité effectué)');
+                } catch (e) {
+                    displayResults('Erreur de syntaxe détectée', e.message, 'error');
+                }
+                
+            }).catch(() => {});
+        }
+        
+        // Auto-analyser au chargement
+        window.onload = function() {
+            analyzeFile();
+        };
+    </script>
+</body>
+</html>

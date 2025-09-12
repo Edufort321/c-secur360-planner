@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planificateur C-Secur360 - Version Simple</title>
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" type="image/png" href="C-Secur360-logo.png.png">
+    <link rel="apple-touch-icon" href="C-Secur360-logo.png.png">
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .theme-nuit {
+            background: linear-gradient(135deg, #1a202c, #2d3748) !important;
+            color: #e2e8f0 !important;
+        }
+        .theme-nuit .bg-white { background: #2d3748 !important; color: #e2e8f0 !important; }
+        .theme-nuit .bg-gray-50 { background: #374151 !important; }
+        .theme-nuit .text-gray-900 { color: #e2e8f0 !important; }
+        .theme-nuit .border-gray-200 { border-color: #4a5568 !important; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
+        
+        // Hook pour les données
+        const useAppData = () => {
+            const [jobs, setJobs] = useState([]);
+            const [personnel] = useState([
+                { 
+                    id: 1, nom: "Éric Dufort", poste: "1.1 -TECH", succursale: "MDL - Sherbrooke", disponible: true, 
+                    email: "eric@mdl.com", telephone: "450-123-4567", type: "interne",
+                    droits: { lecture: true, ecriture: true, modification: true, suppression: false, admin: false }
+                },
+                { 
+                    id: 2, nom: "Marc Tremblay", poste: "1.2 - ING.", succursale: "MDL - Terrebonne", disponible: true, 
+                    email: "marc@mdl.com", telephone: "450-123-4568", type: "interne",
+                    droits: { lecture: true, ecriture: true, modification: true, suppression: true, admin: false }
+                },
+                { 
+                    id: 3, nom: "Sophie Martin", poste: "1.3 - CPI", succursale: "MDL - Québec", disponible: true, 
+                    email: "sophie@mdl.com", telephone: "418-123-4569", type: "interne",
+                    droits: { lecture: true, ecriture: false, modification: false, suppression: false, admin: false }
+                }
+            ]);
+            
+            const [modeTheme, setModeTheme] = useState('jour');
+            
+            // Sauvegarde automatique
+            useEffect(() => {
+                const timer = setTimeout(() => {
+                    localStorage.setItem('planificateur-simple', JSON.stringify({ jobs, modeTheme }));
+                }, 1000);
+                return () => clearTimeout(timer);
+            }, [jobs, modeTheme]);
+            
+            // Chargement des données
+            useEffect(() => {
+                const saved = localStorage.getItem('planificateur-simple');
+                if (saved) {
+                    try {
+                        const data = JSON.parse(saved);
+                        if (data.jobs) setJobs(data.jobs);
+                        if (data.modeTheme) setModeTheme(data.modeTheme);
+                    } catch (error) {
+                        console.error('Erreur lors du chargement:', error);
+                    }
+                }
+            }, []);
+            
+            return { jobs, setJobs, personnel, modeTheme, setModeTheme };
+        };
+        
+        // Composant principal
+        const PlanificateurSimple = () => {
+            const { jobs, setJobs, personnel, modeTheme, setModeTheme } = useAppData();
+            const [isAuthenticated, setIsAuthenticated] = useState(false);
+            const [currentUser, setCurrentUser] = useState(null);
+            const [showJobModal, setShowJobModal] = useState(false);
+            const [formData, setFormData] = useState({
+                nom: '',
+                client: '',
+                dateDebut: '',
+                dateFin: '',
+                heureDebut: '08:00',
+                heureFin: '17:00',
+                lieu: '',
+                personnel: [],
+                etapes: [],
+                notes: ''
+            });
+            
+            const handleLogin = (userName) => {
+                const user = personnel.find(p => p.nom.toLowerCase().includes(userName.toLowerCase()));
+                if (user) {
+                    setCurrentUser(user);
+                    setIsAuthenticated(true);
+                }
+            };
+            
+            const handleSaveJob = () => {
+                const newJob = {
+                    ...formData,
+                    id: Date.now(),
+                    numeroJob: `JOB-${Date.now()}`
+                };
+                setJobs([...jobs, newJob]);
+                setShowJobModal(false);
+                setFormData({
+                    nom: '',
+                    client: '',
+                    dateDebut: '',
+                    dateFin: '',
+                    heureDebut: '08:00',
+                    heureFin: '17:00',
+                    lieu: '',
+                    personnel: [],
+                    etapes: [],
+                    notes: ''
+                });
+            };
+            
+            // Écran de connexion
+            if (!isAuthenticated) {
+                return React.createElement('div', {
+                    className: "min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4"
+                },
+                    React.createElement('div', {
+                        className: "bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md"
+                    },
+                        React.createElement('div', { className: "text-center mb-8" },
+                            React.createElement('div', { className: "mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4 overflow-hidden" },
+                                React.createElement('img', { 
+                                    src: "C-Secur360-logo.png.png", 
+                                    alt: "C-Secur360 Logo",
+                                    className: "w-12 h-12 object-contain"
+                                })
+                            ),
+                            React.createElement('h1', { className: "text-2xl font-bold text-gray-900 mb-2" }, "Planificateur C-Secur360"),
+                            React.createElement('p', { className: "text-gray-600" }, "Version simplifiée - Connectez-vous pour accéder")
+                        ),
+                        
+                        React.createElement('form', {
+                            onSubmit: (e) => {
+                                e.preventDefault();
+                                const formData = new FormData(e.target);
+                                const userName = formData.get('userName');
+                                if (userName.trim()) {
+                                    handleLogin(userName.trim());
+                                }
+                            }
+                        },
+                            React.createElement('div', { className: "mb-6" },
+                                React.createElement('label', { className: "block text-sm font-medium text-gray-700 mb-2" }, "Nom d'utilisateur"),
+                                React.createElement('input', {
+                                    type: "text",
+                                    name: "userName",
+                                    placeholder: "Entrez votre nom",
+                                    className: "w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500",
+                                    required: true
+                                })
+                            ),
+                            
+                            React.createElement('button', {
+                                type: "submit",
+                                className: "w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                            }, "Se connecter"),
+                            
+                            React.createElement('div', { className: "mt-6 p-4 bg-gray-50 rounded-lg" },
+                                React.createElement('h3', { className: "text-sm font-medium text-gray-700 mb-2" }, "Utilisateurs disponibles:"),
+                                React.createElement('div', { className: "text-xs text-gray-600 space-y-1" },
+                                    personnel.map(p => 
+                                        React.createElement('div', { key: p.id, className: "flex justify-between" },
+                                            React.createElement('span', null, p.nom),
+                                            React.createElement('span', { className: "font-medium" }, p.poste)
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                );
+            }
+            
+            // Interface principale
+            return React.createElement('div', { 
+                className: `min-h-screen transition-colors duration-300 ${modeTheme === 'nuit' ? 'theme-nuit bg-gray-900' : 'bg-gray-50'}` 
+            },
+                // Header
+                React.createElement('div', { className: "bg-white shadow-sm border-b p-4" },
+                    React.createElement('div', { className: "flex items-center justify-between" },
+                        React.createElement('div', { className: "flex items-center gap-4" },
+                            React.createElement('img', { 
+                                src: "C-Secur360-logo.png.png", 
+                                alt: "C-Secur360",
+                                className: "w-10 h-10 object-contain"
+                            }),
+                            React.createElement('h1', { className: "text-xl font-bold text-gray-900" }, "Planificateur C-Secur360"),
+                            React.createElement('span', { className: "text-sm bg-yellow-100 text-yellow-800 px-2 py-1 rounded" }, "Version Simplifiée")
+                        ),
+                        
+                        React.createElement('div', { className: "flex items-center gap-3" },
+                            React.createElement('span', { className: "text-sm text-gray-600" }, `Connecté: ${currentUser.nom}`),
+                            
+                            React.createElement('button', {
+                                onClick: () => setModeTheme(modeTheme === 'jour' ? 'nuit' : 'jour'),
+                                className: `px-3 py-2 rounded-lg transition-colors ${
+                                    modeTheme === 'nuit' 
+                                        ? 'bg-yellow-500 text-white hover:bg-yellow-600' 
+                                        : 'bg-gray-800 text-white hover:bg-gray-900'
+                                }`
+                            }, modeTheme === 'nuit' ? '☀️ Jour' : '🌙 Nuit'),
+                            
+                            React.createElement('button', {
+                                onClick: () => setShowJobModal(true),
+                                className: "px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                            }, "➕ Nouveau Job"),
+                            
+                            React.createElement('button', {
+                                onClick: () => {
+                                    setIsAuthenticated(false);
+                                    setCurrentUser(null);
+                                },
+                                className: "px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                            }, "🚪 Déconnexion")
+                        )
+                    )
+                ),
+                
+                // Contenu principal
+                React.createElement('div', { className: "p-6" },
+                    React.createElement('div', { className: "grid gap-4" },
+                        jobs.length === 0 ? 
+                            React.createElement('div', { className: "text-center py-12" },
+                                React.createElement('div', { className: "text-6xl mb-4" }, "📅"),
+                                React.createElement('h3', { className: "text-lg font-medium text-gray-600 mb-2" }, "Aucun projet planifié"),
+                                React.createElement('p', { className: "text-gray-500" }, "Cliquez sur 'Nouveau Job' pour commencer")
+                            ) :
+                            jobs.map(job => 
+                                React.createElement('div', {
+                                    key: job.id,
+                                    className: "bg-white p-6 rounded-lg shadow-sm border hover:shadow-md transition-shadow"
+                                },
+                                    React.createElement('div', { className: "flex justify-between items-start mb-4" },
+                                        React.createElement('div', null,
+                                            React.createElement('h3', { className: "text-lg font-semibold text-gray-900" }, job.nom || 'Projet sans nom'),
+                                            React.createElement('p', { className: "text-sm text-gray-600" }, `${job.numeroJob} - ${job.client || 'Client non spécifié'}`)
+                                        ),
+                                        React.createElement('button', {
+                                            onClick: () => setJobs(jobs.filter(j => j.id !== job.id)),
+                                            className: "text-red-500 hover:text-red-700 p-1"
+                                        }, "🗑️")
+                                    ),
+                                    React.createElement('div', { className: "grid grid-cols-2 gap-4 text-sm" },
+                                        React.createElement('div', null,
+                                            React.createElement('strong', null, "📅 Date: "),
+                                            job.dateDebut + (job.dateFin ? ` au ${job.dateFin}` : '')
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('strong', null, "🕐 Horaire: "),
+                                            `${job.heureDebut} - ${job.heureFin}`
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('strong', null, "📍 Lieu: "),
+                                            job.lieu || 'Non spécifié'
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('strong', null, "👥 Personnel: "),
+                                            job.personnel.length || 0
+                                        )
+                                    ),
+                                    job.notes && React.createElement('div', { className: "mt-4 p-3 bg-gray-50 rounded" },
+                                        React.createElement('strong', null, "📝 Notes: "),
+                                        job.notes
+                                    )
+                                )
+                            )
+                    )
+                ),
+                
+                // Modal nouveau job
+                showJobModal && React.createElement('div', { 
+                    className: "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50",
+                    onClick: () => setShowJobModal(false)
+                },
+                    React.createElement('div', { 
+                        className: "bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto",
+                        onClick: (e) => e.stopPropagation()
+                    },
+                        React.createElement('div', { className: "flex justify-between items-center mb-6" },
+                            React.createElement('h2', { className: "text-xl font-semibold" }, "Nouveau Projet"),
+                            React.createElement('button', {
+                                onClick: () => setShowJobModal(false),
+                                className: "text-gray-400 hover:text-gray-600 text-2xl"
+                            }, "×")
+                        ),
+                        
+                        React.createElement('div', { className: "space-y-4" },
+                            React.createElement('div', null,
+                                React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Nom du projet *"),
+                                React.createElement('input', {
+                                    type: "text",
+                                    value: formData.nom,
+                                    onChange: (e) => setFormData({...formData, nom: e.target.value}),
+                                    className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500",
+                                    required: true
+                                })
+                            ),
+                            
+                            React.createElement('div', { className: "grid grid-cols-2 gap-4" },
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Client"),
+                                    React.createElement('input', {
+                                        type: "text",
+                                        value: formData.client,
+                                        onChange: (e) => setFormData({...formData, client: e.target.value}),
+                                        className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    })
+                                ),
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Lieu"),
+                                    React.createElement('input', {
+                                        type: "text",
+                                        value: formData.lieu,
+                                        onChange: (e) => setFormData({...formData, lieu: e.target.value}),
+                                        className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    })
+                                )
+                            ),
+                            
+                            React.createElement('div', { className: "grid grid-cols-2 gap-4" },
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Date début *"),
+                                    React.createElement('input', {
+                                        type: "date",
+                                        value: formData.dateDebut,
+                                        onChange: (e) => setFormData({...formData, dateDebut: e.target.value}),
+                                        className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500",
+                                        required: true
+                                    })
+                                ),
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Date fin"),
+                                    React.createElement('input', {
+                                        type: "date",
+                                        value: formData.dateFin,
+                                        onChange: (e) => setFormData({...formData, dateFin: e.target.value}),
+                                        className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    })
+                                )
+                            ),
+                            
+                            React.createElement('div', { className: "grid grid-cols-2 gap-4" },
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Heure début"),
+                                    React.createElement('input', {
+                                        type: "time",
+                                        value: formData.heureDebut,
+                                        onChange: (e) => setFormData({...formData, heureDebut: e.target.value}),
+                                        className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    })
+                                ),
+                                React.createElement('div', null,
+                                    React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Heure fin"),
+                                    React.createElement('input', {
+                                        type: "time",
+                                        value: formData.heureFin,
+                                        onChange: (e) => setFormData({...formData, heureFin: e.target.value}),
+                                        className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    })
+                                )
+                            ),
+                            
+                            React.createElement('div', null,
+                                React.createElement('label', { className: "block text-sm font-medium mb-1" }, "Notes"),
+                                React.createElement('textarea', {
+                                    value: formData.notes,
+                                    onChange: (e) => setFormData({...formData, notes: e.target.value}),
+                                    className: "w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500",
+                                    rows: 3
+                                })
+                            )
+                        ),
+                        
+                        React.createElement('div', { className: "flex justify-end gap-3 pt-6 border-t mt-6" },
+                            React.createElement('button', {
+                                onClick: () => setShowJobModal(false),
+                                className: "px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                            }, "Annuler"),
+                            React.createElement('button', {
+                                onClick: handleSaveJob,
+                                className: "px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600",
+                                disabled: !formData.nom || !formData.dateDebut
+                            }, "Créer le projet")
+                        )
+                    )
+                )
+            );
+        };
+
+        ReactDOM.render(React.createElement(PlanificateurSimple), document.getElementById('root'));
+    </script>
+</body>
+</html>
