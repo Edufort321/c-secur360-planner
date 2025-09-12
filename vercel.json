@@ -1,0 +1,17 @@
+{
+  "routes": [
+    {
+      "src": "/logo.png",
+      "dest": "/public/logo.png"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
+  "functions": {
+    "index.html": {
+      "includeFiles": "public/**"
+    }
+  }
+}
