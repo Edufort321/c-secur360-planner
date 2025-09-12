@@ -40,12 +40,5 @@
         }
       ]
     }
-  ],
-  "functions": {
-    "src/**/*.js": {
-      "runtime": "@vercel/static"
-    }
-  },
-  "cleanUrls": true,
-  "trailingSlash": false
+  ]
 }
