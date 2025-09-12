@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Test Vercel - Ultra Simple</title>
+</head>
+<body>
+    <h1>🧪 Test Vercel Ultra Simple</h1>
+    <p id="status">Chargement...</p>
+    
+    <script>
+        // Test de base JavaScript
+        document.getElementById('status').innerHTML = '✅ JavaScript fonctionne !';
+        
+        // Test console
+        console.log('🔍 Test console - Si vous voyez ceci, JavaScript fonctionne');
+        
+        // Test fetch basique
+        setTimeout(() => {
+            document.body.innerHTML += '<p>✅ Timeout fonctionne</p>';
+        }, 1000);
+        
+        // Test d'erreur volontaire pour voir si les erreurs s'affichent
+        setTimeout(() => {
+            try {
+                // Cette ligne va créer une erreur volontaire
+                throw new Error('Test d\'erreur volontaire - ceci devrait apparaître dans la console');
+            } catch (error) {
+                console.error('❌ Erreur capturée:', error.message);
+                document.body.innerHTML += '<p style="color: red;">❌ Test d\'erreur réussi: ' + error.message + '</p>';
+            }
+        }, 2000);
+    </script>
+</body>
+</html>
