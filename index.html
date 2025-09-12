@@ -4179,11 +4179,68 @@
                                 },
                                     formData.etapes.map((etape, index) => 
                                         React.createElement('div', { 
-                                            key: index,
-                                            className: `flex items-center gap-2 p-2 bg-white rounded border ${
-                                                expandedSections.etapes ? 'p-3' : ''
-                                            }`
+                                            key: `etape-${etape.id || index}`,
+                                            className: `group flex items-center gap-2 p-2 bg-white rounded border hover:shadow-md transition-all ${
+                                                expandedSections.etapes ? 'p-3 mb-2' : 'mb-1'
+                                            }`,
+                                            draggable: true,
+                                            onDragStart: (e) => {
+                                                e.dataTransfer.setData('text/plain', JSON.stringify({
+                                                    type: 'etape-reorder',
+                                                    fromIndex: index,
+                                                    etapeData: etape
+                                                }));
+                                                e.currentTarget.style.opacity = '0.5';
+                                            },
+                                            onDragEnd: (e) => {
+                                                e.currentTarget.style.opacity = '1';
+                                            },
+                                            onDragOver: (e) => {
+                                                e.preventDefault();
+                                                e.currentTarget.style.borderColor = '#3b82f6';
+                                                e.currentTarget.style.borderWidth = '2px';
+                                            },
+                                            onDragLeave: (e) => {
+                                                e.currentTarget.style.borderColor = '';
+                                                e.currentTarget.style.borderWidth = '1px';
+                                            },
+                                            onDrop: (e) => {
+                                                e.preventDefault();
+                                                const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                                                if (data.type === 'etape-reorder') {
+                                                    const newEtapes = [...formData.etapes];
+                                                    const draggedEtape = newEtapes.splice(data.fromIndex, 1)[0];
+                                                    newEtapes.splice(index, 0, draggedEtape);
+                                                    
+                                                    // Renumeroter automatiquement
+                                                    const renumberedEtapes = newEtapes.map((etape, i) => ({
+                                                        ...etape,
+                                                        number: i + 1,
+                                                        id: etape.id || `etape-${Date.now()}-${i}`
+                                                    }));
+                                                    
+                                                    updateField('etapes', renumberedEtapes);
+                                                }
+                                                e.currentTarget.style.borderColor = '';
+                                                e.currentTarget.style.borderWidth = '1px';
+                                            }
                                         },
+                                            
+                                            // NUMERO AUTOMATIQUE + POIGNEE DRAG
+                                            React.createElement('div', { className: 'flex items-center gap-2' },
+                                                React.createElement('div', {
+                                                    className: 'w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center text-xs font-bold cursor-grab active:cursor-grabbing',
+                                                    title: 'Étape #' + (index + 1) + ' - Glisser pour réorganiser'
+                                                }, (index + 1).toString()),
+                                                React.createElement('div', {
+                                                    className: 'flex flex-col gap-0.5 text-gray-400 opacity-0 group-hover:opacity-100 cursor-grab',
+                                                    title: 'Poignée de glissement'
+                                                },
+                                                    React.createElement('div', { className: 'w-1 h-0.5 bg-current' }),
+                                                    React.createElement('div', { className: 'w-1 h-0.5 bg-current' }),
+                                                    React.createElement('div', { className: 'w-1 h-0.5 bg-current' })
+                                                )
+                                            ),
                                             React.createElement('input', {
                                                 type: "checkbox",
                                                 checked: etape.completed,
@@ -4452,6 +4509,123 @@
                                                         }, `👥 ${equipe.nom}`)
                                                     )
                                                 )),
+                                            
+                                            // NOUVELLE SECTION: Assignation individuelle personnel et équipements
+                                            React.createElement('div', { className: 'border-t border-gray-200 pt-2 mt-2' },
+                                                React.createElement('div', { className: 'text-xs font-medium text-gray-700 mb-1' }, '👤 Personnel & 🔧 Équipements'),
+                                                
+                                                // Personnel assigné
+                                                React.createElement('div', { className: 'flex flex-wrap gap-1 mb-2' },
+                                                    React.createElement('label', { className: 'text-xs text-gray-600 w-full' }, 'Personnel:'),
+                                                    React.createElement('select', {
+                                                        multiple: true,
+                                                        value: etape.assignedPersonnel || [],
+                                                        onChange: (e) => {
+                                                            const selectedIds = Array.from(e.target.selectedOptions).map(option => option.value);
+                                                            const newEtapes = [...formData.etapes];
+                                                            newEtapes[index].assignedPersonnel = selectedIds;
+                                                            updateField('etapes', newEtapes);
+                                                        },
+                                                        className: 'text-xs border rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 max-w-[150px] bg-blue-50',
+                                                        size: 3
+                                                    },
+                                                        React.createElement('option', { value: '', disabled: true }, 'Sélectionner...'),
+                                                        ...personnel.map(person =>
+                                                            React.createElement('option', {
+                                                                key: person.id,
+                                                                value: person.id,
+                                                                title: `${person.nom} - ${person.poste || 'Poste non spécifié'}`
+                                                            }, `${person.nom} (${person.poste || 'N/A'})`)
+                                                        )
+                                                    ),
+                                                    
+                                                    // Affichage compact du personnel assigné
+                                                    etape.assignedPersonnel && etape.assignedPersonnel.length > 0 &&
+                                                    React.createElement('div', { className: 'flex flex-wrap gap-1 mt-1' },
+                                                        etape.assignedPersonnel.map(personnelId => {
+                                                            const person = personnel.find(p => p.id === personnelId);
+                                                            if (!person) return null;
+                                                            return React.createElement('span', {
+                                                                key: personnelId,
+                                                                className: 'inline-flex items-center gap-1 px-1 py-0.5 bg-blue-100 text-blue-800 text-xs rounded',
+                                                                title: `${person.nom} - ${person.poste || 'N/A'}`
+                                                            },
+                                                                React.createElement('span', null, person.nom.split(' ')[0]),
+                                                                React.createElement('button', {
+                                                                    type: 'button',
+                                                                    onClick: () => {
+                                                                        const newEtapes = [...formData.etapes];
+                                                                        newEtapes[index].assignedPersonnel = (newEtapes[index].assignedPersonnel || []).filter(id => id !== personnelId);
+                                                                        updateField('etapes', newEtapes);
+                                                                    },
+                                                                    className: 'text-blue-600 hover:text-blue-800 text-xs'
+                                                                }, '×')
+                                                            );
+                                                        })
+                                                    )
+                                                ),
+                                                
+                                                // Équipements assignés
+                                                React.createElement('div', { className: 'flex flex-wrap gap-1' },
+                                                    React.createElement('label', { className: 'text-xs text-gray-600 w-full' }, 'Équipements:'),
+                                                    React.createElement('select', {
+                                                        multiple: true,
+                                                        value: etape.assignedEquipment || [],
+                                                        onChange: (e) => {
+                                                            const selectedIds = Array.from(e.target.selectedOptions).map(option => option.value);
+                                                            const newEtapes = [...formData.etapes];
+                                                            newEtapes[index].assignedEquipment = selectedIds;
+                                                            updateField('etapes', newEtapes);
+                                                        },
+                                                        className: 'text-xs border rounded px-1 py-0.5 focus:ring-1 focus:ring-orange-500 max-w-[150px] bg-orange-50',
+                                                        size: 3
+                                                    },
+                                                        React.createElement('option', { value: '', disabled: true }, 'Sélectionner...'),
+                                                        ...equipements.map(equipment =>
+                                                            React.createElement('option', {
+                                                                key: equipment.id,
+                                                                value: equipment.id,
+                                                                title: `${equipment.nom} - ${equipment.type || 'Type non spécifié'}`
+                                                            }, `${equipment.nom} (${equipment.type || 'N/A'})`)
+                                                        )
+                                                    ),
+                                                    
+                                                    // Affichage compact des équipements assignés
+                                                    etape.assignedEquipment && etape.assignedEquipment.length > 0 &&
+                                                    React.createElement('div', { className: 'flex flex-wrap gap-1 mt-1' },
+                                                        etape.assignedEquipment.map(equipmentId => {
+                                                            const equipment = equipements.find(e => e.id === equipmentId);
+                                                            if (!equipment) return null;
+                                                            return React.createElement('span', {
+                                                                key: equipmentId,
+                                                                className: 'inline-flex items-center gap-1 px-1 py-0.5 bg-orange-100 text-orange-800 text-xs rounded',
+                                                                title: `${equipment.nom} - ${equipment.type || 'N/A'}`
+                                                            },
+                                                                React.createElement('span', null, equipment.nom.split(' ')[0]),
+                                                                React.createElement('button', {
+                                                                    type: 'button',
+                                                                    onClick: () => {
+                                                                        const newEtapes = [...formData.etapes];
+                                                                        newEtapes[index].assignedEquipment = (newEtapes[index].assignedEquipment || []).filter(id => id !== equipmentId);
+                                                                        updateField('etapes', newEtapes);
+                                                                    },
+                                                                    className: 'text-orange-600 hover:text-orange-800 text-xs'
+                                                                }, '×')
+                                                            );
+                                                        })
+                                                    )
+                                                ),
+                                                
+                                                // Résumé compact des assignations
+                                                React.createElement('div', { className: 'text-xs text-gray-500 mt-1 flex gap-2' },
+                                                    React.createElement('span', null, 
+                                                        `👤 ${(etape.assignedPersonnel || []).length} pers.`
+                                                    ),
+                                                    React.createElement('span', null, 
+                                                        `🔧 ${(etape.assignedEquipment || []).length} équip.`
+                                                    )
+                                                )
+                                            ),
                                             React.createElement('button', {
                                                 type: "button",
                                                 onClick: () => {
@@ -4468,8 +4642,12 @@
                                     type: "button",
                                     onClick: () => {
                                         const newEtapes = [...formData.etapes, { 
+                                            id: `etape-${Date.now()}-${formData.etapes.length}`,
+                                            number: formData.etapes.length + 1,
                                             text: '', 
-                                            completed: false, 
+                                            completed: false,
+                                            assignedPersonnel: [],
+                                            assignedEquipment: [], 
                                             duration: 0.25, 
                                             isParallel: false, 
                                             dependencies: [], 
