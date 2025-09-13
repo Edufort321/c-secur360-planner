@@ -3,10 +3,8 @@
     { "source": "/test", "destination": "/test-vercel.html" },
     { "source": "/simple", "destination": "/c-secur360-planner-main/simple.html" },
     { "source": "/light", "destination": "/c-secur360-planner-main/index-light.html" },
-    { "source": "/original", "destination": "/c-secur360-planner-main/index.html" },
     { "source": "/modern", "destination": "/src/index-restructured.html" },
-    { "source": "/", "destination": "/src/index-restructured.html" },
-    { "source": "/src/(.*)", "destination": "/src/$1" },
+    { "source": "/", "destination": "/c-secur360-planner-main/index.html" },
     { "source": "/(.*)", "destination": "/c-secur360-planner-main/$1" }
   ],
   "headers": [
