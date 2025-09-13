@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planificateur C-Secur360 V6.7 - Restructuré</title>
+    <link rel="icon" id="favicon" type="image/x-icon">
+    
+    <!-- PWA Configuration -->
+    <meta name="theme-color" content="#2563eb">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Planificateur C-Secur360 V6.7">
+    
+    <!-- Scripts externes -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    
+    <!-- Favicon dynamique -->
+    <script>
+        function createFavicon() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#2563eb';
+            ctx.fillRect(0, 0, 32, 32);
+            
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('CS', 16, 20);
+            
+            document.getElementById('favicon').href = canvas.toDataURL('image/x-icon');
+        }
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', createFavicon);
+        } else {
+            createFavicon();
+        }
+    </script>
+    
+    <!-- Configuration Tailwind pour les styles personnalisés -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+        
+        /* Styles pour les bureaux */
+        .mdl-sherbrooke { background: linear-gradient(135deg, #dc2626, #ef4444); }
+        .mdl-terrebonne { background: linear-gradient(135deg, #2563eb, #3b82f6); }
+        .mdl-quebec { background: linear-gradient(135deg, #16a34a, #22c55e); }
+        .dual-electrotech { background: linear-gradient(135deg, #ca8a04, #eab308); }
+        .cfm { background: linear-gradient(135deg, #9333ea, #a855f7); }
+        .surplec { background: linear-gradient(135deg, #dc2626, #f97316); }
+        
+        /* Styles pour les ressources */
+        .available-resource {
+            border-color: #10b981;
+            background-color: #f0fdf4;
+        }
+        
+        .selected-resource {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        
+        .busy-resource {
+            border-color: #ef4444;
+            background-color: #fef2f2;
+        }
+        
+        .resource-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 9999px;
+            font-weight: 500;
+        }
+        
+        /* Styles pour le carrousel */
+        .carousel-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 8px;
+        }
+        
+        .carousel-track {
+            display: flex;
+            transition: transform 0.3s ease;
+        }
+        
+        .carousel-slide {
+            min-width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .carousel-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .carousel-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .carousel-nav:hover {
+            background: rgba(0, 0, 0, 0.7);
+        }
+        
+        .carousel-nav.prev {
+            left: 8px;
+        }
+        
+        .carousel-nav.next {
+            right: 8px;
+        }
+        
+        .carousel-indicators {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 4px;
+        }
+        
+        .carousel-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .carousel-indicator.active {
+            background: white;
+        }
+        
+        /* Styles pour le drop zone */
+        .drop-zone {
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+        
+        .drop-zone:hover {
+            border-color: #3b82f6;
+            background-color: #f8fafc;
+        }
+        
+        .drop-zone.drag-over {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        
+        .drop-zone.has-files {
+            border-color: #10b981;
+            background-color: #f0fdf4;
+        }
+        
+        /* Animations de chargement */
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        
+        .loading-content {
+            text-align: center;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Responsive improvements */
+        @media (max-width: 768px) {
+            .mobile-hidden {
+                display: none;
+            }
+            
+            .mobile-full {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Écran de chargement -->
+    <div id="loading-screen">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <h2>Planificateur C-Secur360</h2>
+            <p>Chargement de l'application restructurée...</p>
+            <p style="font-size: 14px; opacity: 0.8;">Version modulaire V6.7</p>
+        </div>
+    </div>
+    
+    <!-- Conteneur principal -->
+    <div id="root" style="display: none;">
+        <div style="padding: 20px; text-align: center;">
+            <p>Initialisation de React...</p>
+        </div>
+    </div>
+    
+    <!-- Fallback si JavaScript est désactivé -->
+    <noscript>
+        <div style="padding: 20px; background: #fee; border: 2px solid #f00; margin: 20px; border-radius: 10px;">
+            <h1 style="color: #d00;">JavaScript requis</h1>
+            <p>Cette application nécessite JavaScript pour fonctionner.</p>
+            <p><a href="../OLD/c-secur360-planner-main/simple.html">Version de diagnostic</a></p>
+        </div>
+    </noscript>
+
+    <!-- Import des composants modulaires -->
+    <script type="module">
+        // Importation des composants depuis notre structure modulaire
+        import { 
+            useAppData, 
+            useGoogleDrive, 
+            useScreenSize, 
+            useNotifications,
+            Icon,
+            PhotoCarousel,
+            DropZone,
+            FilePreview,
+            Modal,
+            NotificationContainer,
+            EquipementModal,
+            CongesModal,
+            PersonnelModal,
+            DateNavigator,
+            ResourceSelector,
+            getBureauFromSuccursale,
+            getBureauColor,
+            getBureauOptions
+        } from './index.js';
+
+        // Rendre les composants disponibles globalement pour compatibilité
+        window.AppComponents = {
+            useAppData,
+            useGoogleDrive,
+            useScreenSize,
+            useNotifications,
+            Icon,
+            PhotoCarousel,
+            DropZone,
+            FilePreview,
+            Modal,
+            NotificationContainer,
+            EquipementModal,
+            CongesModal,
+            PersonnelModal,
+            DateNavigator,
+            ResourceSelector,
+            getBureauFromSuccursale,
+            getBureauColor,
+            getBureauOptions
+        };
+
+        // Signaler que les composants sont chargés
+        window.componentsReady = true;
+        console.log('✅ Composants modulaires chargés avec succès');
+    </script>
+    
+    <!-- Application principale - sera développée séparément -->
+    <script>
+        // Attendre que les composants soient chargés
+        function waitForComponents() {
+            if (window.componentsReady) {
+                console.log('🚀 Démarrage de l\'application...');
+                
+                // Pour l'instant, on affiche un message de succès
+                const { useState, useEffect } = React;
+                const { Icon, useAppData, useNotifications, NotificationContainer } = window.AppComponents;
+                
+                const App = () => {
+                    const appData = useAppData();
+                    const { notifications, addNotification } = useNotifications();
+                    
+                    useEffect(() => {
+                        addNotification('Application restructurée chargée avec succès!', 'success');
+                    }, []);
+                    
+                    return React.createElement('div', {
+                        className: "min-h-screen bg-gray-50 p-4"
+                    },
+                        React.createElement(NotificationContainer, { notifications }),
+                        React.createElement('div', {
+                            className: "max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8"
+                        },
+                            React.createElement('div', {
+                                className: "text-center"
+                            },
+                                React.createElement('div', {
+                                    className: "flex items-center justify-center gap-3 mb-6"
+                                },
+                                    React.createElement(Icon, { name: 'check', size: 48, className: 'text-green-500' }),
+                                    React.createElement('h1', {
+                                        className: "text-3xl font-bold text-gray-800"
+                                    }, "Restructuration Réussie!")
+                                ),
+                                React.createElement('div', {
+                                    className: "bg-green-50 border border-green-200 rounded-lg p-6 mb-6"
+                                },
+                                    React.createElement('h2', {
+                                        className: "text-xl font-semibold text-green-800 mb-4"
+                                    }, "✅ Composants Extraits"),
+                                    React.createElement('div', {
+                                        className: "grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-green-700"
+                                    },
+                                        React.createElement('div', null,
+                                            React.createElement('h3', { className: "font-medium mb-2" }, "Hooks:"),
+                                            React.createElement('ul', { className: "space-y-1" },
+                                                React.createElement('li', null, "• useAppData"),
+                                                React.createElement('li', null, "• useGoogleDrive"),
+                                                React.createElement('li', null, "• useScreenSize"),
+                                                React.createElement('li', null, "• useNotifications")
+                                            )
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('h3', { className: "font-medium mb-2" }, "Composants UI:"),
+                                            React.createElement('ul', { className: "space-y-1" },
+                                                React.createElement('li', null, "• Icon (toutes les icônes SVG)"),
+                                                React.createElement('li', null, "• PhotoCarousel"),
+                                                React.createElement('li', null, "• DropZone"),
+                                                React.createElement('li', null, "• FilePreview")
+                                            )
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('h3', { className: "font-medium mb-2" }, "Modales:"),
+                                            React.createElement('ul', { className: "space-y-1" },
+                                                React.createElement('li', null, "• EquipementModal"),
+                                                React.createElement('li', null, "• CongesModal"),
+                                                React.createElement('li', null, "• PersonnelModal"),
+                                                React.createElement('li', null, "• Modal (générique)")
+                                            )
+                                        ),
+                                        React.createElement('div', null,
+                                            React.createElement('h3', { className: "font-medium mb-2" }, "Utilitaires:"),
+                                            React.createElement('ul', { className: "space-y-1" },
+                                                React.createElement('li', null, "• DateNavigator"),
+                                                React.createElement('li', null, "• ResourceSelector"),
+                                                React.createElement('li', null, "• bureauUtils")
+                                            )
+                                        )
+                                    )
+                                ),
+                                React.createElement('div', {
+                                    className: "bg-blue-50 border border-blue-200 rounded-lg p-6"
+                                },
+                                    React.createElement('h2', {
+                                        className: "text-xl font-semibold text-blue-800 mb-4"
+                                    }, "📊 Données Chargées"),
+                                    React.createElement('div', {
+                                        className: "grid grid-cols-3 gap-4 text-blue-700"
+                                    },
+                                        React.createElement('div', {
+                                            className: "text-center"
+                                        },
+                                            React.createElement('div', {
+                                                className: "text-2xl font-bold"
+                                            }, appData.personnel?.length || 0),
+                                            React.createElement('div', {
+                                                className: "text-sm"
+                                            }, "Personnel")
+                                        ),
+                                        React.createElement('div', {
+                                            className: "text-center"
+                                        },
+                                            React.createElement('div', {
+                                                className: "text-2xl font-bold"
+                                            }, appData.equipements?.length || 0),
+                                            React.createElement('div', {
+                                                className: "text-sm"
+                                            }, "Équipements")
+                                        ),
+                                        React.createElement('div', {
+                                            className: "text-center"
+                                        },
+                                            React.createElement('div', {
+                                                className: "text-2xl font-bold"
+                                            }, appData.jobs?.length || 0),
+                                            React.createElement('div', {
+                                                className: "text-sm"
+                                            }, "Jobs")
+                                        )
+                                    )
+                                ),
+                                React.createElement('p', {
+                                    className: "text-gray-600 mt-6"
+                                }, "La version complète B3hoWdZQh a été restructurée avec succès en composants modulaires!")
+                            )
+                        )
+                    );
+                };
+                
+                // Masquer l'écran de chargement et afficher l'app
+                const loading = document.getElementById('loading-screen');
+                const root = document.getElementById('root');
+                
+                if (loading) {
+                    loading.style.opacity = '0';
+                    loading.style.transition = 'opacity 0.5s';
+                    setTimeout(() => {
+                        loading.style.display = 'none';
+                        if (root) {
+                            root.style.display = 'block';
+                            ReactDOM.render(React.createElement(App), root);
+                        }
+                    }, 500);
+                }
+            } else {
+                setTimeout(waitForComponents, 100);
+            }
+        }
+        
+        // Démarrer l'application quand tout est prêt
+        waitForComponents();
+        
+        // Gestion des erreurs globales
+        window.onerror = function(msg, url, line, col, error) {
+            console.error('Erreur globale:', {msg, url, line, col, error});
+            const loading = document.getElementById('loading-screen');
+            if (loading) {
+                loading.innerHTML = `
+                    <div style="text-align: center; color: white;">
+                        <h2>🚨 Erreur de chargement</h2>
+                        <p>Une erreur s'est produite lors du chargement de l'application.</p>
+                        <p style="font-size: 14px;">${msg}</p>
+                        <a href="../OLD/c-secur360-planner-main/simple.html" style="color: #ffeb3b; text-decoration: underline;">
+                            → Page de diagnostic
+                        </a>
+                    </div>
+                `;
+            }
+            return false;
+        };
+        
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('Promise rejetée:', event.reason);
+        });
+    </script>
+</body>
+</html>
