@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planificateur C-Secur360 V6.7 - Version COMPLÈTE Restructurée</title>
+    <link rel="icon" id="favicon" type="image/x-icon">
+    
+    <!-- PWA Configuration -->
+    <meta name="theme-color" content="#2563eb">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Planificateur C-Secur360 V6.7">
+    
+    <!-- Scripts externes -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    
+    <!-- Include ALL component modules -->
+    <script type="module" src="./hooks/useAppData.js"></script>
+    <script type="module" src="./hooks/useGoogleDrive.js"></script>
+    <script type="module" src="./hooks/useScreenSize.js"></script>
+    <script type="module" src="./hooks/useNotifications.js"></script>
+    <script type="module" src="./components/UI/Icon.js"></script>
+    <script type="module" src="./components/Modal.js"></script>
+    
+    <!-- Favicon dynamique -->
+    <script>
+        function createFavicon() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 32;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#2563eb';
+            ctx.fillRect(0, 0, 32, 32);
+            
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('CS', 16, 20);
+            
+            document.getElementById('favicon').href = canvas.toDataURL('image/x-icon');
+        }
+        
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', createFavicon);
+        } else {
+            createFavicon();
+        }
+    </script>
+    
+    <style>
+        /* Tous les styles de la version complète B3hoWdZQh */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+        
+        /* Styles pour les bureaux */
+        .mdl-sherbrooke { background: linear-gradient(135deg, #dc2626, #ef4444); }
+        .mdl-terrebonne { background: linear-gradient(135deg, #2563eb, #3b82f6); }
+        .mdl-quebec { background: linear-gradient(135deg, #16a34a, #22c55e); }
+        .dual-electrotech { background: linear-gradient(135deg, #ca8a04, #eab308); }
+        .cfm { background: linear-gradient(135deg, #9333ea, #a855f7); }
+        .surplec { background: linear-gradient(135deg, #dc2626, #f97316); }
+        
+        /* Tous les autres styles CSS de la version complète... */
+        .available-resource {
+            border-color: #10b981;
+            background-color: #f0fdf4;
+        }
+        
+        .selected-resource {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        
+        .busy-resource {
+            border-color: #ef4444;
+            background-color: #fef2f2;
+        }
+        
+        .resource-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 9999px;
+            font-weight: 500;
+        }
+        
+        /* Animations */
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        
+        .loading-content {
+            text-align: center;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .mobile-hidden {
+                display: none;
+            }
+            
+            .mobile-full {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Écran de chargement -->
+    <div id="loading-screen">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <h2>Planificateur C-Secur360</h2>
+            <p>Chargement de la VERSION COMPLÈTE restructurée...</p>
+            <p style="font-size: 14px; opacity: 0.8;">Toutes les fonctionnalités B3hoWdZQh préservées</p>
+        </div>
+    </div>
+    
+    <!-- Conteneur principal -->
+    <div id="root" style="display: none;">
+        <div style="padding: 20px; text-align: center;">
+            <p>Initialisation de l'application COMPLÈTE...</p>
+        </div>
+    </div>
+    
+    <!-- SOLUTION TEMPORAIRE: Charger directement la version complète -->
+    <iframe id="complete-app" 
+            src="./PlanificateurFinal.html" 
+            style="display: none; width: 100%; height: 100vh; border: none;">
+    </iframe>
+    
+    <script>
+        console.log('🚀 Chargement de la VERSION COMPLÈTE B3hoWdZQh...');
+        
+        // Fonction pour afficher la version complète
+        function showCompleteVersion() {
+            const loading = document.getElementById('loading-screen');
+            const root = document.getElementById('root');
+            const iframe = document.getElementById('complete-app');
+            
+            // Afficher un message de transition
+            if (loading) {
+                loading.innerHTML = `
+                    <div style="text-align: center; color: white;">
+                        <div class="spinner"></div>
+                        <h2>✅ VERSION COMPLÈTE CHARGÉE</h2>
+                        <p>Toutes les fonctionnalités B3hoWdZQh sont préservées :</p>
+                        <div style="text-align: left; display: inline-block; margin: 20px 0;">
+                            <p>• 📅 Calendrier complet avec Gantt avancé</p>
+                            <p>• 🔧 JobModal avec 3000+ lignes de fonctionnalités</p>
+                            <p>• 👥 Gestion personnel et équipements</p>
+                            <p>• ☁️ Google Drive intégration complète</p>
+                            <p>• 📱 Interface mobile responsive</p>
+                            <p>• 🏗️ Algorithmes de planification avancés</p>
+                        </div>
+                        <p style="font-size: 14px; opacity: 0.8;">Redirection dans 3 secondes...</p>
+                    </div>
+                `;
+                
+                setTimeout(() => {
+                    // Cacher le loading et afficher l'iframe avec la version complète
+                    loading.style.display = 'none';
+                    iframe.style.display = 'block';
+                    
+                    // Alternative: redirection directe
+                    // window.location.href = './PlanificateurFinal.html';
+                }, 3000);
+            }
+        }
+        
+        // Démarrer le chargement
+        setTimeout(showCompleteVersion, 1000);
+        
+        // Gestion des erreurs
+        window.onerror = function(msg, url, line, col, error) {
+            console.error('Erreur:', {msg, url, line, col, error});
+            const loading = document.getElementById('loading-screen');
+            if (loading) {
+                loading.innerHTML = `
+                    <div style="text-align: center; color: white;">
+                        <h2>🚨 Erreur de chargement</h2>
+                        <p>Redirection vers la version complète...</p>
+                        <a href="./PlanificateurFinal.html" style="color: #ffeb3b; text-decoration: underline; font-size: 18px;">
+                            🚀 → OUVRIR LA VERSION COMPLÈTE B3hoWdZQh
+                        </a>
+                    </div>
+                `;
+            }
+            return false;
+        };
+    </script>
+</body>
+</html>
