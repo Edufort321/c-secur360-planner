@@ -5,4 +5,5 @@ node_modules
 *.log
 OLD/
 package-lock.json
+package*.json.bak
 README.md
