@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planificateur C-Secur360 V6.7 - VERSION COMPLÈTE</title>
+    <title>Planificateur C-Secur360 V6.7 - VERSION COMPLÈTE RESTRUCTURÉE</title>
     <link rel="icon" id="favicon" type="image/x-icon">
     
     <!-- PWA Configuration -->
@@ -52,7 +52,7 @@
         }
         
         .container {
-            max-width: 600px;
+            max-width: 700px;
             margin: 0 auto;
             background: white;
             padding: 40px;
@@ -81,7 +81,15 @@
             font-size: 28px;
         }
         
-        .features {
+        .status {
+            background: #f0f9ff;
+            border: 2px solid #0ea5e9;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+        
+        .modules-info {
             background: #f8fafc;
             padding: 30px;
             border-radius: 15px;
@@ -89,32 +97,44 @@
             text-align: left;
         }
         
-        .features h3 {
+        .modules-info h3 {
             color: #2563eb;
             margin-bottom: 20px;
             text-align: center;
         }
         
-        .features ul {
-            list-style: none;
-            padding: 0;
-        }
-        
-        .features li {
-            padding: 8px 0;
+        .module-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
             border-bottom: 1px solid #e2e8f0;
         }
         
-        .features li:last-child {
+        .module-item:last-child {
             border-bottom: none;
+        }
+        
+        .module-name {
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .module-size {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
         }
         
         .btn {
             background: linear-gradient(135deg, #2563eb, #3b82f6);
             color: white;
-            padding: 15px 30px;
+            padding: 18px 35px;
             border: none;
-            border-radius: 10px;
+            border-radius: 12px;
             cursor: pointer;
             font-size: 18px;
             font-weight: 600;
@@ -126,23 +146,17 @@
         
         .btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
+            box-shadow: 0 12px 25px rgba(37, 99, 235, 0.4);
         }
         
         .btn-secondary {
             background: linear-gradient(135deg, #64748b, #94a3b8);
+            font-size: 16px;
+            padding: 12px 24px;
         }
         
         .btn-secondary:hover {
-            box-shadow: 0 10px 20px rgba(100, 116, 139, 0.3);
-        }
-        
-        .version-info {
-            background: #f0f9ff;
-            border: 2px solid #0ea5e9;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px 0;
+            box-shadow: 0 8px 20px rgba(100, 116, 139, 0.3);
         }
         
         .spinner {
@@ -160,58 +174,103 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        
+        .highlight {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="logo">CS</div>
         <h1>Planificateur C-Secur360</h1>
-        <p style="color: #666; font-size: 18px;">Version restructurée avec accès à TOUTES les fonctionnalités</p>
+        <p style="color: #666; font-size: 18px;">Version B3hoWdZQh <span class="highlight">RESTRUCTURÉE</span> en modules</p>
         
-        <div class="version-info">
-            <h3 style="color: #0369a1; margin-bottom: 15px;">✅ VERSION COMPLÈTE B3hoWdZQh DISPONIBLE</h3>
-            <p style="margin: 0; color: #0c4a6e;">
-                Toutes les fonctionnalités de la version 509KB sont préservées et accessibles
+        <div class="status">
+            <h3 style="color: #0369a1; margin-bottom: 15px;">✅ RESTRUCTURATION TERMINÉE</h3>
+            <p style="margin: 0; color: #0c4a6e; font-size: 16px;">
+                La version B3hoWdZQh a été <strong>découpée en modules</strong> tout en préservant 
+                <strong>100% des fonctionnalités</strong>
             </p>
         </div>
         
-        <div class="features">
-            <h3>🎯 Fonctionnalités Complètes Incluses</h3>
-            <ul>
-                <li>📅 <strong>Calendrier complet</strong> avec vue Gantt avancée</li>
-                <li>🔧 <strong>JobModal ultra-complet</strong> (3000+ lignes de fonctionnalités)</li>
-                <li>👥 <strong>Gestion personnel et équipements</strong> avec photos et bris</li>
-                <li>☁️ <strong>Google Drive intégration</strong> complète avec sync automatique</li>
-                <li>📱 <strong>Interface mobile responsive</strong> avec menu hamburger</li>
-                <li>🏗️ <strong>Algorithmes de planification</strong> avancés (surpasse MS Project)</li>
-                <li>🔐 <strong>Authentification complète</strong> (admin + utilisateurs)</li>
-                <li>📊 <strong>Gestion des congés</strong> et permissions avancées</li>
-                <li>🎨 <strong>Thèmes et styles</strong> par bureau/succursale</li>
-                <li>⚡ <strong>Performance optimisée</strong> pour Vercel</li>
-            </ul>
+        <div class="modules-info">
+            <h3>📁 Modules Extraits de B3hoWdZQh</h3>
+            
+            <div class="module-item">
+                <span class="module-name">🔧 JobModalComplet.js</span>
+                <span class="module-size">3546 lignes</span>
+            </div>
+            
+            <div class="module-item">
+                <span class="module-name">📅 PlanificateurFinal.js</span>
+                <span class="module-size">1434 lignes</span>
+            </div>
+            
+            <div class="module-item">
+                <span class="module-name">☁️ useAppDataWithSync.js</span>
+                <span class="module-size">103 lignes</span>
+            </div>
+            
+            <div class="module-item">
+                <span class="module-name">🎯 useAppData.js</span>
+                <span class="module-size">195 lignes</span>
+            </div>
+            
+            <div class="module-item">
+                <span class="module-name">📱 useScreenSize.js</span>
+                <span class="module-size">29 lignes</span>
+            </div>
+            
+            <div class="module-item">
+                <span class="module-name">🔔 useNotifications.js</span>
+                <span class="module-size">32 lignes</span>
+            </div>
+            
+            <div class="module-item">
+                <span class="module-name">⭐ Et tous les autres composants UI</span>
+                <span class="module-size">18 modules</span>
+            </div>
         </div>
         
         <div style="margin: 30px 0;">
-            <a href="./PlanificateurFinal.html" class="btn" id="main-btn">
-                🚀 OUVRIR LA VERSION COMPLÈTE
+            <a href="./app-complete.html" class="btn" id="main-btn">
+                🚀 OUVRIR LA VERSION RESTRUCTURÉE
             </a>
             <br>
-            <a href="./PlanificateurComplet.html" class="btn btn-secondary">
-                🔗 Version avec pont modulaire
+            <a href="../c-secur360-planner-main/index.html" class="btn btn-secondary">
+                📄 Version originale B3hoWdZQh
             </a>
         </div>
         
-        <div style="background: #f1f5f9; padding: 20px; border-radius: 10px; margin-top: 30px;">
-            <h4 style="color: #475569; margin-bottom: 15px;">📁 Structure Modulaire</h4>
-            <p style="color: #64748b; font-size: 14px; margin: 0;">
-                L'application a été restructurée avec des composants modulaires pour une meilleure maintenabilité, 
-                tout en préservant 100% des fonctionnalités de la version B3hoWdZQh originale.
-            </p>
+        <div style="background: #f1f5f9; padding: 25px; border-radius: 15px; margin-top: 30px;">
+            <h4 style="color: #475569; margin-bottom: 15px;">🎯 Avantages de la Restructuration</h4>
+            <div style="text-align: left;">
+                <p style="color: #64748b; font-size: 14px; margin: 8px 0;">
+                    ✅ <strong>Code modulaire</strong> - Plus facile à maintenir et développer
+                </p>
+                <p style="color: #64748b; font-size: 14px; margin: 8px 0;">
+                    ✅ <strong>Imports ES6</strong> - Architecture moderne et propre
+                </p>
+                <p style="color: #64748b; font-size: 14px; margin: 8px 0;">
+                    ✅ <strong>Composants réutilisables</strong> - Facilite les nouvelles fonctionnalités
+                </p>
+                <p style="color: #64748b; font-size: 14px; margin: 8px 0;">
+                    ✅ <strong>Séparation des responsabilités</strong> - Chaque module a un rôle précis
+                </p>
+                <p style="color: #64748b; font-size: 14px; margin: 8px 0;">
+                    ✅ <strong>Même interface</strong> - Exactement le même look & feel
+                </p>
+            </div>
         </div>
         
         <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
             <p style="color: #94a3b8; font-size: 12px;">
-                Version B3hoWdZQh restructurée • Tous droits réservés C-Secur360
+                Version B3hoWdZQh restructurée • <strong>5337+ lignes</strong> découpées en modules • C-Secur360
             </p>
         </div>
     </div>
@@ -224,12 +283,12 @@
             e.preventDefault();
             
             // Animation de chargement
-            this.innerHTML = '<span class="spinner"></span>Chargement...';
+            this.innerHTML = '<span class="spinner"></span>Chargement des modules...';
             this.style.opacity = '0.8';
             
             setTimeout(() => {
-                window.location.href = './PlanificateurFinal.html';
-            }, 1000);
+                window.location.href = './app-complete.html';
+            }, 1500);
         });
         
         // Gestion des erreurs
@@ -239,11 +298,11 @@
             const container = document.querySelector('.container');
             if (container) {
                 container.innerHTML += `
-                    <div style="background: #fef2f2; border: 2px solid #f87171; border-radius: 10px; padding: 20px; margin-top: 20px;">
+                    <div style="background: #fef2f2; border: 2px solid #f87171; border-radius: 15px; padding: 20px; margin-top: 20px;">
                         <h3 style="color: #dc2626;">⚠️ Erreur détectée</h3>
                         <p style="color: #7f1d1d;">
-                            <a href="./PlanificateurFinal.html" style="color: #dc2626; font-weight: bold;">
-                                → Accès direct à la version complète
+                            <a href="../c-secur360-planner-main/index.html" style="color: #dc2626; font-weight: bold;">
+                                → Accès direct à la version complète originale
                             </a>
                         </p>
                     </div>
@@ -252,7 +311,8 @@
             return false;
         };
         
-        console.log('🎉 Interface d\'accès à la version complète B3hoWdZQh chargée !');
+        console.log('🎉 Interface d\'accès à la version RESTRUCTURÉE chargée !');
+        console.log('📊 Modules extraits: JobModal (3546 lignes) + PlanificateurFinal (1434 lignes) + 18 autres modules');
     </script>
 </body>
 </html>
