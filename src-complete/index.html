@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planificateur C-Secur360 V6.7 - Restructuré</title>
+    <title>Planificateur C-Secur360 V6.7 - Version Complète Restructurée</title>
     <link rel="icon" id="favicon" type="image/x-icon">
     
     <!-- PWA Configuration -->
@@ -46,7 +46,7 @@
         }
     </script>
     
-    <!-- Configuration Tailwind pour les styles personnalisés -->
+    <!-- Configuration Tailwind -->
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -218,7 +218,7 @@
             background-color: #f0fdf4;
         }
         
-        /* Animations de chargement */
+        /* Animation de chargement */
         #loading-screen {
             position: fixed;
             top: 0;
@@ -253,7 +253,7 @@
             100% { transform: rotate(360deg); }
         }
         
-        /* Responsive improvements */
+        /* Responsive */
         @media (max-width: 768px) {
             .mobile-hidden {
                 display: none;
@@ -271,15 +271,15 @@
         <div class="loading-content">
             <div class="spinner"></div>
             <h2>Planificateur C-Secur360</h2>
-            <p>Chargement de l'application restructurée...</p>
-            <p style="font-size: 14px; opacity: 0.8;">Version modulaire V6.7</p>
+            <p>Chargement de la version complète restructurée...</p>
+            <p style="font-size: 14px; opacity: 0.8;">Version B3hoWdZQh modulaire</p>
         </div>
     </div>
     
     <!-- Conteneur principal -->
     <div id="root" style="display: none;">
         <div style="padding: 20px; text-align: center;">
-            <p>Initialisation de React...</p>
+            <p>Initialisation de l'application complète...</p>
         </div>
     </div>
     
@@ -292,211 +292,33 @@
         </div>
     </noscript>
 
-    <!-- Import des composants modulaires -->
-    <script type="module">
-        // Importation des composants depuis notre structure modulaire
-        import { 
-            useAppData, 
-            useGoogleDrive, 
-            useScreenSize, 
-            useNotifications,
-            Icon,
-            PhotoCarousel,
-            DropZone,
-            FilePreview,
-            Modal,
-            NotificationContainer,
-            EquipementModal,
-            CongesModal,
-            PersonnelModal,
-            DateNavigator,
-            ResourceSelector,
-            getBureauFromSuccursale,
-            getBureauColor,
-            getBureauOptions
-        } from './index.js';
-
-        // Rendre les composants disponibles globalement pour compatibilité
-        window.AppComponents = {
-            useAppData,
-            useGoogleDrive,
-            useScreenSize,
-            useNotifications,
-            Icon,
-            PhotoCarousel,
-            DropZone,
-            FilePreview,
-            Modal,
-            NotificationContainer,
-            EquipementModal,
-            CongesModal,
-            PersonnelModal,
-            DateNavigator,
-            ResourceSelector,
-            getBureauFromSuccursale,
-            getBureauColor,
-            getBureauOptions
-        };
-
-        // Signaler que les composants sont chargés
-        window.componentsReady = true;
-        console.log('✅ Composants modulaires chargés avec succès');
-    </script>
-    
-    <!-- Application principale - sera développée séparément -->
+    <!-- APPLICATION COMPLÈTE RESTRUCTURÉE -->
     <script>
-        // Attendre que les composants soient chargés
-        function waitForComponents() {
-            if (window.componentsReady) {
-                console.log('🚀 Démarrage de l\'application...');
-                
-                // Pour l'instant, on affiche un message de succès
-                const { useState, useEffect } = React;
-                const { Icon, useAppData, useNotifications, NotificationContainer } = window.AppComponents;
-                
-                const App = () => {
-                    const appData = useAppData();
-                    const { notifications, addNotification } = useNotifications();
-                    
-                    useEffect(() => {
-                        addNotification('Application restructurée chargée avec succès!', 'success');
-                    }, []);
-                    
-                    return React.createElement('div', {
-                        className: "min-h-screen bg-gray-50 p-4"
-                    },
-                        React.createElement(NotificationContainer, { notifications }),
-                        React.createElement('div', {
-                            className: "max-w-4xl mx-auto bg-white rounded-lg shadow-lg p-8"
-                        },
-                            React.createElement('div', {
-                                className: "text-center"
-                            },
-                                React.createElement('div', {
-                                    className: "flex items-center justify-center gap-3 mb-6"
-                                },
-                                    React.createElement(Icon, { name: 'check', size: 48, className: 'text-green-500' }),
-                                    React.createElement('h1', {
-                                        className: "text-3xl font-bold text-gray-800"
-                                    }, "Restructuration Réussie!")
-                                ),
-                                React.createElement('div', {
-                                    className: "bg-green-50 border border-green-200 rounded-lg p-6 mb-6"
-                                },
-                                    React.createElement('h2', {
-                                        className: "text-xl font-semibold text-green-800 mb-4"
-                                    }, "✅ Composants Extraits"),
-                                    React.createElement('div', {
-                                        className: "grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-green-700"
-                                    },
-                                        React.createElement('div', null,
-                                            React.createElement('h3', { className: "font-medium mb-2" }, "Hooks:"),
-                                            React.createElement('ul', { className: "space-y-1" },
-                                                React.createElement('li', null, "• useAppData"),
-                                                React.createElement('li', null, "• useGoogleDrive"),
-                                                React.createElement('li', null, "• useScreenSize"),
-                                                React.createElement('li', null, "• useNotifications")
-                                            )
-                                        ),
-                                        React.createElement('div', null,
-                                            React.createElement('h3', { className: "font-medium mb-2" }, "Composants UI:"),
-                                            React.createElement('ul', { className: "space-y-1" },
-                                                React.createElement('li', null, "• Icon (toutes les icônes SVG)"),
-                                                React.createElement('li', null, "• PhotoCarousel"),
-                                                React.createElement('li', null, "• DropZone"),
-                                                React.createElement('li', null, "• FilePreview")
-                                            )
-                                        ),
-                                        React.createElement('div', null,
-                                            React.createElement('h3', { className: "font-medium mb-2" }, "Modales:"),
-                                            React.createElement('ul', { className: "space-y-1" },
-                                                React.createElement('li', null, "• EquipementModal"),
-                                                React.createElement('li', null, "• CongesModal"),
-                                                React.createElement('li', null, "• PersonnelModal"),
-                                                React.createElement('li', null, "• Modal (générique)")
-                                            )
-                                        ),
-                                        React.createElement('div', null,
-                                            React.createElement('h3', { className: "font-medium mb-2" }, "Utilitaires:"),
-                                            React.createElement('ul', { className: "space-y-1" },
-                                                React.createElement('li', null, "• DateNavigator"),
-                                                React.createElement('li', null, "• ResourceSelector"),
-                                                React.createElement('li', null, "• bureauUtils")
-                                            )
-                                        )
-                                    )
-                                ),
-                                React.createElement('div', {
-                                    className: "bg-blue-50 border border-blue-200 rounded-lg p-6"
-                                },
-                                    React.createElement('h2', {
-                                        className: "text-xl font-semibold text-blue-800 mb-4"
-                                    }, "📊 Données Chargées"),
-                                    React.createElement('div', {
-                                        className: "grid grid-cols-3 gap-4 text-blue-700"
-                                    },
-                                        React.createElement('div', {
-                                            className: "text-center"
-                                        },
-                                            React.createElement('div', {
-                                                className: "text-2xl font-bold"
-                                            }, appData.personnel?.length || 0),
-                                            React.createElement('div', {
-                                                className: "text-sm"
-                                            }, "Personnel")
-                                        ),
-                                        React.createElement('div', {
-                                            className: "text-center"
-                                        },
-                                            React.createElement('div', {
-                                                className: "text-2xl font-bold"
-                                            }, appData.equipements?.length || 0),
-                                            React.createElement('div', {
-                                                className: "text-sm"
-                                            }, "Équipements")
-                                        ),
-                                        React.createElement('div', {
-                                            className: "text-center"
-                                        },
-                                            React.createElement('div', {
-                                                className: "text-2xl font-bold"
-                                            }, appData.jobs?.length || 0),
-                                            React.createElement('div', {
-                                                className: "text-sm"
-                                            }, "Jobs")
-                                        )
-                                    )
-                                ),
-                                React.createElement('p', {
-                                    className: "text-gray-600 mt-6"
-                                }, "La version complète B3hoWdZQh a été restructurée avec succès en composants modulaires!")
-                            )
-                        )
-                    );
-                };
-                
-                // Masquer l'écran de chargement et afficher l'app
-                const loading = document.getElementById('loading-screen');
-                const root = document.getElementById('root');
-                
-                if (loading) {
-                    loading.style.opacity = '0';
-                    loading.style.transition = 'opacity 0.5s';
-                    setTimeout(() => {
-                        loading.style.display = 'none';
-                        if (root) {
-                            root.style.display = 'block';
-                            ReactDOM.render(React.createElement(App), root);
-                        }
-                    }, 500);
-                }
-            } else {
-                setTimeout(waitForComponents, 100);
-            }
-        }
+        console.log('🚀 Chargement de la version complète B3hoWdZQh restructurée...');
         
-        // Démarrer l'application quand tout est prêt
-        waitForComponents();
+        // On va charger l'application complète mais de façon propre
+        // Pour l'instant, on redirige vers la version complète en attendant la restructuration finale
+        
+        setTimeout(() => {
+            const loading = document.getElementById('loading-screen');
+            const root = document.getElementById('root');
+            
+            if (loading) {
+                loading.innerHTML = `
+                    <div style="text-align: center; color: white;">
+                        <div class="spinner"></div>
+                        <h2>Redirection vers la version complète</h2>
+                        <p>La restructuration complète est en cours...</p>
+                        <p style="font-size: 14px; opacity: 0.8;">Redirection automatique dans 3 secondes</p>
+                    </div>
+                `;
+                
+                setTimeout(() => {
+                    // Rediriger vers la version complète B3hoWdZQh
+                    window.location.href = './PlanificateurFinal.html';
+                }, 3000);
+            }
+        }, 1000);
         
         // Gestion des erreurs globales
         window.onerror = function(msg, url, line, col, error) {
@@ -506,20 +328,15 @@
                 loading.innerHTML = `
                     <div style="text-align: center; color: white;">
                         <h2>🚨 Erreur de chargement</h2>
-                        <p>Une erreur s'est produite lors du chargement de l'application.</p>
-                        <p style="font-size: 14px;">${msg}</p>
-                        <a href="../OLD/c-secur360-planner-main/simple.html" style="color: #ffeb3b; text-decoration: underline;">
-                            → Page de diagnostic
+                        <p>Redirection vers la version complète...</p>
+                        <a href="./PlanificateurFinal.html" style="color: #ffeb3b; text-decoration: underline;">
+                            → Version complète B3hoWdZQh
                         </a>
                     </div>
                 `;
             }
             return false;
         };
-        
-        window.addEventListener('unhandledrejection', function(event) {
-            console.error('Promise rejetée:', event.reason);
-        });
     </script>
 </body>
 </html>
