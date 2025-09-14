@@ -1,9 +1,0 @@
-# Ignore des fichiers non nécessaires pour le déploiement
-node_modules
-.git
-.DS_Store
-*.log
-OLD/
-package-lock.json
-package*.json.bak
-README.md
