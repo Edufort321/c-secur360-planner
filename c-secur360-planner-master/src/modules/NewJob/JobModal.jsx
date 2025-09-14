@@ -89,7 +89,6 @@ export function JobModal({
     });
 
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [newSousTraitant, setNewSousTraitant] = useState('');
     const [photoCarouselIndex, setPhotoCarouselIndex] = useState(-1);
 
     const priorites = [
