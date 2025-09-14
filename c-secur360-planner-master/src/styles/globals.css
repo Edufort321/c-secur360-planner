@@ -1,0 +1,265 @@
+/* CSS Global - C-Secur360 Planificateur */
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Equipment badges in calendar */
+.equipment-indicator {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 8px;
+    height: 8px;
+    background: #10b981;
+    border-radius: 50%;
+    border: 1px solid white;
+}
+
+.recurrence-indicator {
+    position: absolute;
+    bottom: 2px;
+    left: 2px;
+    width: 8px;
+    height: 8px;
+    background: #3b82f6;
+    border-radius: 50%;
+    border: 1px solid white;
+    font-size: 6px;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.resource-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 2px 8px;
+    margin: 2px;
+    font-size: 11px;
+}
+
+.available-resource {
+    border-color: #10b981;
+    background-color: #d1fae5;
+    color: #047857;
+}
+
+.busy-resource {
+    border-color: #ef4444;
+    background-color: #fee2e2;
+    color: #dc2626;
+}
+
+.selected-resource {
+    border-color: #3b82f6;
+    background-color: #dbeafe;
+    color: #1d4ed8;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* Bureau colors */
+.mdl-sherbrooke { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+.mdl-terrebonne { background: linear-gradient(135deg, #10b981, #047857); }
+.mdl-quebec { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.dual-electrotech { background: linear-gradient(135deg, #ef4444, #dc2626); }
+.cfm { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
+.surplec { background: linear-gradient(135deg, #06b6d4, #0891b2); }
+
+/* Styles pour travaux de nuit */
+.night-work {
+    border-style: dashed !important;
+    position: relative;
+}
+
+.night-work::before {
+    content: '🌙';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    font-size: 8px;
+    z-index: 10;
+}
+
+/* Styles pour travaux 24h/24h */
+.work-24h {
+    border-style: double !important;
+    border-width: 3px !important;
+    position: relative;
+}
+
+.work-24h::before {
+    content: '⏰';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    font-size: 8px;
+    z-index: 10;
+}
+
+/* Styles pour fins de semaine incluses */
+.includes-weekends {
+    box-shadow: 0 0 0 1px #f59e0b inset;
+}
+
+/* Responsive optimizations */
+@media (max-width: 768px) {
+    .resource-badge {
+        padding: 1px 6px;
+        font-size: 10px;
+    }
+
+    .mobile-calendar-row {
+        min-height: 60px;
+    }
+
+    .mobile-job-card {
+        min-height: 50px;
+        font-size: 11px;
+    }
+
+    .mobile-gantt-person {
+        width: 140px;
+        font-size: 11px;
+    }
+
+    .mobile-gantt-day {
+        width: 40px;
+        font-size: 9px;
+    }
+}
+
+@media (max-width: 480px) {
+    .mobile-gantt-person {
+        width: 120px;
+        font-size: 10px;
+    }
+
+    .mobile-gantt-day {
+        width: 32px;
+        font-size: 8px;
+    }
+}
+
+/* Touch-friendly interactions */
+@media (pointer: coarse) {
+    button {
+        min-height: 44px;
+        min-width: 44px;
+    }
+}
+
+/* Drag and drop styles */
+.drop-zone {
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s ease;
+    background: #f9fafb;
+}
+
+.drop-zone.drag-over {
+    border-color: #3b82f6;
+    background: #eff6ff;
+}
+
+.drop-zone.has-files {
+    border-color: #10b981;
+    background: #f0fdf4;
+}
+
+/* Photo carousel styles */
+.carousel-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+}
+
+.carousel-track {
+    display: flex;
+    transition: transform 0.3s ease;
+}
+
+.carousel-slide {
+    min-width: 100%;
+    position: relative;
+}
+
+.carousel-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+}
+
+.carousel-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    padding: 8px;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10;
+}
+
+.carousel-nav:hover {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.carousel-nav.prev {
+    left: 10px;
+}
+
+.carousel-nav.next {
+    right: 10px;
+}
+
+.carousel-indicators {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+}
+
+.carousel-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+}
+
+.carousel-indicator.active {
+    background: white;
+}
