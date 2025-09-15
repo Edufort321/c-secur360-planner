@@ -12,8 +12,8 @@ export function useGoogleDrive() {
     const [error, setError] = useState(null);
 
     // Configuration Google Drive - avec fallbacks sécurisés
-    const GOOGLE_CLIENT_ID = (typeof process !== 'undefined' && process.env?.GOOGLE_CLIENT_ID) || GOOGLE_CONFIG.CLIENT_ID || 'demo-mode';
-    const GOOGLE_API_KEY = (typeof process !== 'undefined' && process.env?.GOOGLE_API_KEY) || GOOGLE_CONFIG.API_KEY || 'demo-mode';
+    const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || GOOGLE_CONFIG.CLIENT_ID || 'demo-mode';
+    const GOOGLE_API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || GOOGLE_CONFIG.API_KEY || 'demo-mode';
     const DISCOVERY_DOC = GOOGLE_CONFIG.DISCOVERY_DOC;
     const SCOPES = GOOGLE_CONFIG.SCOPES;
     const DATA_FILE_NAME = GOOGLE_CONFIG.FILENAME;

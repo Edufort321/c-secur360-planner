@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Icon } from '../../components/UI/Icon';
+import { Logo } from '../../components/UI/Logo';
 import { DropZone } from '../../components/UI/DropZone';
 import { FilePreview } from '../../components/UI/FilePreview';
 import { PhotoCarousel } from '../../components/UI/PhotoCarousel';
@@ -48,6 +49,12 @@ export function JobModal({
         photos: [],
         dureePreviewHours: '',
         includeWeekendsInDuration: false,
+        // Système d'heures planifiées
+        heuresPlanifiees: '',
+        modeHoraire: 'heures-jour', // 'heures-jour' ou '24h-24'
+        heuresDebutJour: '08:00',
+        heuresFinJour: '17:00',
+        nombrePersonnelRequis: 1,
         etapes: [],
         preparation: [],
         typeHoraire: 'jour',
@@ -182,7 +189,39 @@ export function JobModal({
         }
     }, [job, selectedCell, generateJobNumber, isOpen]);
 
+    // Système bidirectionnel d'heures : quand on change le personnel, ajuster les heures
+    useEffect(() => {
+        if (formData.personnel.length > 0 && formData.dateDebut && formData.dateFin &&
+            formData.modeHoraire && formData.heuresDebutJour && formData.heuresFinJour) {
+
+            const nouvellesHeures = calculateHeuresFromPersonnel(
+                formData.personnel.length,
+                formData.dateDebut,
+                formData.dateFin,
+                formData.modeHoraire,
+                formData.heuresDebutJour,
+                formData.heuresFinJour,
+                formData.includeWeekendsInDuration
+            );
+
+            if (nouvellesHeures && nouvellesHeures !== formData.heuresPlanifiees) {
+                setFormData(prev => ({
+                    ...prev,
+                    heuresPlanifiees: nouvellesHeures
+                }));
+            }
+        }
+    }, [formData.personnel.length, formData.dateDebut, formData.dateFin, formData.modeHoraire,
+        formData.heuresDebutJour, formData.heuresFinJour, formData.includeWeekendsInDuration]);
+
     const handleInputChange = (field, value) => {
+        setFormData(prev => ({
+            ...prev,
+            [field]: value
+        }));
+    };
+
+    const updateField = (field, value) => {
         setFormData(prev => ({
             ...prev,
             [field]: value
@@ -205,6 +244,10 @@ export function JobModal({
         });
     };
 
+    const togglePersonnel = (personnelId) => toggleResource(personnelId, 'personnel');
+    const toggleEquipement = (equipementId) => toggleResource(equipementId, 'equipement');
+    const toggleSousTraitant = (sousTraitantId) => toggleResource(sousTraitantId, 'sousTraitants');
+
     const handleAddSousTraitant = () => {
         if (newSousTraitant.trim()) {
             const newId = addSousTraitant(newSousTraitant);
@@ -218,6 +261,192 @@ export function JobModal({
             }
         }
     };
+
+    const isResourceAvailable = (resource, dateDebut, dateFin) => {
+        // Pour l'instant, considérer toutes les ressources comme disponibles
+        // Cette logique peut être améliorée selon les besoins
+        return true;
+    };
+
+    // Fonction de calcul automatique du personnel requis selon les heures
+    const calculatePersonnelRequis = (heuresPlanifiees, dateDebut, dateFin, modeHoraire, heuresDebutJour, heuresFinJour, includeWeekends = false) => {
+        if (!heuresPlanifiees || !dateDebut || !dateFin) return 1;
+
+        const totalHeures = parseInt(heuresPlanifiees);
+        if (isNaN(totalHeures) || totalHeures <= 0) return 1;
+
+        // Calculer le nombre de jours de travail (incluant ou excluant les fins de semaine)
+        const debut = new Date(dateDebut);
+        const fin = new Date(dateFin);
+
+        let joursOuvrables = 0;
+        let currentDate = new Date(debut);
+
+        while (currentDate <= fin) {
+            const dayOfWeek = currentDate.getDay();
+            if (includeWeekends || (dayOfWeek !== 0 && dayOfWeek !== 6)) {
+                joursOuvrables++;
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        let heuresParJour;
+        if (modeHoraire === '24h-24') {
+            heuresParJour = 24;
+        } else {
+            // Calculer les heures entre début et fin de journée
+            const [heureDebut, minuteDebut] = heuresDebutJour.split(':').map(Number);
+            const [heureFin, minuteFin] = heuresFinJour.split(':').map(Number);
+            const minutesDebut = heureDebut * 60 + minuteDebut;
+            const minutesFin = heureFin * 60 + minuteFin;
+            heuresParJour = (minutesFin - minutesDebut) / 60;
+        }
+
+        const heuresDisponibles = joursOuvrables * heuresParJour;
+        const personnelRequis = Math.ceil(totalHeures / heuresDisponibles);
+
+        return Math.max(1, personnelRequis);
+    };
+
+    // Fonction bidirectionnelle pour calculer les heures à partir du personnel et des dates
+    const calculateHeuresFromPersonnel = (nombrePersonnel, dateDebut, dateFin, modeHoraire, heuresDebutJour, heuresFinJour, includeWeekends = false) => {
+        if (!nombrePersonnel || !dateDebut || !dateFin) return '';
+
+        const personnel = parseInt(nombrePersonnel);
+        if (isNaN(personnel) || personnel <= 0) return '';
+
+        // Calculer le nombre de jours de travail (incluant ou excluant les fins de semaine)
+        const debut = new Date(dateDebut);
+        const fin = new Date(dateFin);
+
+        let joursOuvrables = 0;
+        let currentDate = new Date(debut);
+
+        while (currentDate <= fin) {
+            const dayOfWeek = currentDate.getDay();
+            if (includeWeekends || (dayOfWeek !== 0 && dayOfWeek !== 6)) {
+                joursOuvrables++;
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        let heuresParJour;
+        if (modeHoraire === '24h-24') {
+            heuresParJour = 24;
+        } else {
+            // Calculer les heures entre début et fin de journée
+            const [heureDebut, minuteDebut] = heuresDebutJour.split(':').map(Number);
+            const [heureFin, minuteFin] = heuresFinJour.split(':').map(Number);
+            const minutesDebut = heureDebut * 60 + minuteDebut;
+            const minutesFin = heureFin * 60 + minuteFin;
+            heuresParJour = (minutesFin - minutesDebut) / 60;
+        }
+
+        const totalHeuresDisponibles = joursOuvrables * heuresParJour * personnel;
+        return totalHeuresDisponibles.toString();
+    };
+
+    // Fonction de sauvegarde
+    const handleSubmit = () => {
+        if (!formData.nom || !formData.dateDebut || !formData.dateFin) {
+            addNotification?.('Veuillez remplir tous les champs obligatoires', 'error');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const jobData = {
+                ...formData,
+                id: job?.id || Date.now().toString(),
+                numeroJob: formData.numeroJob || `JOB-${Date.now()}`,
+                // Calcul automatique du personnel requis si heures planifiées
+                nombrePersonnelRequis: formData.heuresPlanifiees ?
+                    calculatePersonnelRequis(
+                        formData.heuresPlanifiees,
+                        formData.dateDebut,
+                        formData.dateFin,
+                        formData.modeHoraire,
+                        formData.heuresDebutJour,
+                        formData.heuresFinJour,
+                        formData.includeWeekendsInDuration
+                    ) : formData.nombrePersonnelRequis
+            };
+
+            onSave(jobData);
+            addNotification?.('Événement sauvegardé avec succès', 'success');
+            onClose();
+        } catch (error) {
+            console.error('Erreur lors de la sauvegarde:', error);
+            addNotification?.('Erreur lors de la sauvegarde', 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // Fonction de suppression
+    const handleDelete = async () => {
+        if (!job?.id) return;
+
+        if (window.confirm('Êtes-vous sûr de vouloir supprimer ce job ?')) {
+            try {
+                await onDelete(job.id);
+                addNotification?.('Job supprimé avec succès', 'success');
+                onClose();
+            } catch (error) {
+                console.error('Erreur lors de la suppression:', error);
+                addNotification?.('Erreur lors de la suppression', 'error');
+            }
+        }
+    };
+
+    // Calculer le chemin critique
+    const calculateCriticalPath = useCallback((tasks) => {
+        if (!tasks || tasks.length === 0) return [];
+
+        try {
+            // Calcul simplifié du chemin critique
+            // Pour l'instant, considérer les tâches les plus longues comme critiques
+            const maxDuration = Math.max(...tasks.map(t => t.duration || 1));
+            return tasks
+                .filter(task => (task.duration || 1) >= maxDuration * 0.8)
+                .map(task => task.id);
+        } catch (error) {
+            console.error('Erreur calcul chemin critique:', error);
+            return [];
+        }
+    }, []);
+
+    // Synchroniser les étapes avec le Gantt
+    useEffect(() => {
+        if (formData.etapes && formData.etapes.length > 0) {
+            const tasks = formData.etapes.map((etape, index) => ({
+                id: etape.id,
+                name: etape.text || `Étape ${index + 1}`,
+                duration: etape.duration || 1,
+                completed: etape.completed || false,
+                startDate: formData.dateDebut || new Date().toISOString().split('T')[0],
+                endDate: formData.dateFin || new Date().toISOString().split('T')[0]
+            }));
+
+            const criticalPath = calculateCriticalPath(tasks);
+
+            setGanttData(prev => ({
+                ...prev,
+                tasks,
+                assignments: prev.assignments || []
+            }));
+
+            setFormData(prev => ({
+                ...prev,
+                criticalPath
+            }));
+        } else {
+            setGanttData(prev => ({
+                ...prev,
+                tasks: []
+            }));
+        }
+    }, [formData.etapes, formData.dateDebut, formData.dateFin, calculateCriticalPath]);
 
     const addEtape = () => {
         setFormData(prev => ({
@@ -248,6 +477,33 @@ export function JobModal({
         }));
     };
 
+    const addPreparation = () => {
+        setFormData(prev => ({
+            ...prev,
+            preparation: [...prev.preparation, {
+                id: Date.now(),
+                text: '',
+                statut: 'a-faire'
+            }]
+        }));
+    };
+
+    const updatePreparation = (index, field, value) => {
+        setFormData(prev => ({
+            ...prev,
+            preparation: prev.preparation.map((item, i) =>
+                i === index ? { ...item, [field]: value } : item
+            )
+        }));
+    };
+
+    const removePreparation = (index) => {
+        setFormData(prev => ({
+            ...prev,
+            preparation: prev.preparation.filter((_, i) => i !== index)
+        }));
+    };
+
     const handleFilesAdded = (files, type) => {
         const newFiles = files.map(file => ({
             id: Date.now() + Math.random(),
@@ -271,77 +527,35 @@ export function JobModal({
         }));
     };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
 
-        if (!formData.numeroJob || !formData.nom || !formData.dateDebut || !formData.bureau) {
-            addNotification?.('Veuillez remplir les champs obligatoires (numéro, nom, date début, bureau)', 'error');
-            return;
-        }
-
-        if (formData.personnel.length === 0 && formData.sousTraitants.length === 0) {
-            addNotification?.('Veuillez assigner au moins une personne ou un sous-traitant', 'error');
-            return;
-        }
-
-        setIsSubmitting(true);
-
-        try {
-            const jobData = {
-                ...formData,
-                id: job ? job.id : Date.now(),
-                dateCreation: job ? job.dateCreation : new Date().toISOString(),
-                dateModification: new Date().toISOString()
-            };
-
-            onSave(jobData);
-            addNotification?.(job ? 'Job modifié avec succès' : 'Job créé avec succès', 'success');
-            onClose();
-        } catch (error) {
-            console.error('Erreur lors de la sauvegarde:', error);
-            addNotification?.('Erreur lors de la sauvegarde du job', 'error');
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    const handleDelete = async () => {
-        if (!job?.id) return;
-
-        const confirmation = window.confirm(
-            `Êtes-vous sûr de vouloir supprimer le job "${job.nom}" ?\n\nCette action est irréversible.`
-        );
-
-        if (confirmation) {
-            try {
-                await onDelete(job.id);
-                onClose();
-            } catch (error) {
-                console.error('Erreur lors de la suppression:', error);
-                alert('Erreur lors de la suppression du job');
-            }
-        }
-    };
 
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden">
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-purple-600 to-purple-700">
-                    <h2 className="text-xl font-bold text-white flex items-center">
-                        <Icon name="briefcase" className="mr-2" size={24} />
-                        {job ? 'Modifier le Job' : 'Nouveau Job'}
-                        {formData.numeroJob && (
-                            <span className="ml-3 text-purple-200 text-lg">#{formData.numeroJob}</span>
-                        )}
-                    </h2>
+            <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] flex flex-col">
+                {/* Header noir comme le principal */}
+                <div className="flex-shrink-0 flex items-center justify-between p-6 bg-gray-900 rounded-t-xl">
+                    <div className="flex items-center gap-4">
+                        <Logo size="normal" showText={false} />
+                        <div>
+                            <h2 className="text-xl font-bold text-white">
+                                {job ? 'Modifier l\'événement' : 'Créer événement'}
+                                {formData.numeroJob && (
+                                    <span className="ml-3 text-gray-300 text-lg">#{formData.numeroJob}</span>
+                                )}
+                            </h2>
+                            <p className="text-sm text-gray-300">
+                                {job ? 'Modification d\'un événement existant' : 'Nouveau job dans le planificateur'}
+                            </p>
+                        </div>
+                    </div>
                     <button
                         onClick={onClose}
-                        className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-lg transition-all"
+                        className="p-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                        title="Fermer"
                     >
-                        <Icon name="close" size={24} />
+                        <Icon name="close" size={20} />
                     </button>
                 </div>
 
@@ -390,7 +604,7 @@ export function JobModal({
                 </div>
 
                 {/* Content */}
-                <div className="p-6 overflow-y-auto max-h-[calc(95vh-180px)]">
+                <div className="flex-1 p-6 overflow-y-auto min-h-0">
                     {/* Tab Formulaire */}
                     {activeTab === 'form' && (
                         <form onSubmit={handleSubmit} className="space-y-6">
@@ -482,6 +696,124 @@ export function JobModal({
                                         onChange={(e) => handleInputChange('heureFin', e.target.value)}
                                         className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-purple-500"
                                     />
+                                </div>
+
+                                {/* Section Heures Planifiées */}
+                                <div className="md:col-span-2 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                    <h3 className="text-lg font-semibold text-blue-900 mb-4">⏱️ Système d'heures planifiées</h3>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Heures totales planifiées
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={formData.heuresPlanifiees}
+                                                onChange={(e) => handleInputChange('heuresPlanifiees', e.target.value)}
+                                                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                placeholder="Ex: 150"
+                                                min="0"
+                                            />
+                                            <p className="text-xs text-gray-500 mt-1">Nombre total d'heures à planifier</p>
+
+                                            {/* Checkbox pour inclure les fins de semaine */}
+                                            <div className="mt-2">
+                                                <label className="flex items-center gap-2 text-sm">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={formData.includeWeekendsInDuration}
+                                                        onChange={(e) => handleInputChange('includeWeekendsInDuration', e.target.checked)}
+                                                        className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200"
+                                                    />
+                                                    <span className="text-gray-700">📅 Inclure les fins de semaine</span>
+                                                </label>
+                                                <p className="text-xs text-gray-500 ml-6">Active le travail samedi et dimanche</p>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Mode horaire
+                                            </label>
+                                            <select
+                                                value={formData.modeHoraire}
+                                                onChange={(e) => handleInputChange('modeHoraire', e.target.value)}
+                                                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="heures-jour">⏰ Heures par jour</option>
+                                                <option value="24h-24">🌙 24h/24</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                Personnel requis (calculé)
+                                            </label>
+                                            <div className="p-3 bg-green-100 border border-green-300 rounded-lg text-center">
+                                                <span className="text-lg font-bold text-green-800">
+                                                    {formData.heuresPlanifiees ?
+                                                        calculatePersonnelRequis(
+                                                            formData.heuresPlanifiees,
+                                                            formData.dateDebut,
+                                                            formData.dateFin,
+                                                            formData.modeHoraire,
+                                                            formData.heuresDebutJour,
+                                                            formData.heuresFinJour,
+                                                            formData.includeWeekendsInDuration
+                                                        ) : 1
+                                                    } personnes
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {formData.modeHoraire === 'heures-jour' && (
+                                        <div className="grid grid-cols-2 gap-4 mt-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Heure début journée
+                                                </label>
+                                                <input
+                                                    type="time"
+                                                    value={formData.heuresDebutJour}
+                                                    onChange={(e) => handleInputChange('heuresDebutJour', e.target.value)}
+                                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                    Heure fin journée
+                                                </label>
+                                                <input
+                                                    type="time"
+                                                    value={formData.heuresFinJour}
+                                                    onChange={(e) => handleInputChange('heuresFinJour', e.target.value)}
+                                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {formData.heuresPlanifiees && formData.dateDebut && formData.dateFin && (
+                                        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                            <p className="text-sm text-yellow-800">
+                                                💡 <strong>Calcul automatique :</strong> Avec {formData.heuresPlanifiees}h sur {
+                                                    Math.ceil((new Date(formData.dateFin) - new Date(formData.dateDebut)) / (1000 * 60 * 60 * 24)) + 1
+                                                } jours, il faut {
+                                                    calculatePersonnelRequis(
+                                                        formData.heuresPlanifiees,
+                                                        formData.dateDebut,
+                                                        formData.dateFin,
+                                                        formData.modeHoraire,
+                                                        formData.heuresDebutJour,
+                                                        formData.heuresFinJour,
+                                                        formData.includeWeekendsInDuration
+                                                    )
+                                                } personne(s) pour compléter le travail.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div>
@@ -577,34 +909,79 @@ export function JobModal({
                                 </div>
                             </div>
 
-                            {/* Étapes */}
-                            <div>
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-lg font-semibold">Étapes du projet</h3>
-                                    <button
-                                        type="button"
-                                        onClick={addEtape}
-                                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                                    >
-                                        <Icon name="plus" size={16} className="mr-2" />
-                                        Ajouter une étape
-                                    </button>
-                                </div>
+                            {/* Section Étapes du projet avec scroll */}
+                            <div
+                                className={`p-4 bg-blue-50 rounded-lg border border-blue-200 transition-all duration-300 ${
+                                    expandedSections.etapes ? 'fixed inset-4 z-50 bg-white shadow-2xl' : ''
+                                }`}
+                                onDoubleClick={() => {
+                                    setExpandedSections(prev => ({
+                                        ...prev,
+                                        etapes: !prev.etapes
+                                    }));
+                                }}
+                            >
+                                <h4 className={`font-medium text-blue-800 flex items-center gap-2 mb-3 ${expandedSections.etapes ? 'text-lg' : ''}`}>
+                                    <span>📋</span>
+                                    Étapes du projet
+                                    {expandedSections.etapes && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setExpandedSections(prev => ({
+                                                    ...prev,
+                                                    etapes: false
+                                                }));
+                                            }}
+                                            className="ml-auto text-gray-500 hover:text-gray-700 text-2xl"
+                                        >
+                                            ×
+                                        </button>
+                                    )}
+                                    {!expandedSections.etapes && (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    addEtape();
+                                                }}
+                                                className="ml-auto px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+                                            >
+                                                <Icon name="plus" size={14} className="mr-1" />
+                                                Ajouter
+                                            </button>
+                                            <span className="ml-2 text-xs text-blue-400">Double-clic pour agrandir</span>
+                                        </>
+                                    )}
+                                </h4>
 
-                                <div className="space-y-3">
+                                <div
+                                    className={`space-y-2 mb-3 ${
+                                        expandedSections.etapes
+                                            ? 'overflow-y-auto max-h-[70vh]'
+                                            : 'max-h-40 overflow-y-auto'
+                                    }`}
+                                    style={expandedSections.etapes ? { maxHeight: 'calc(100vh - 200px)' } : {}}
+                                >
                                     {formData.etapes.map((etape, index) => (
-                                        <div key={etape.id} className="flex items-center space-x-3 p-3 border rounded-lg">
+                                        <div
+                                            key={etape.id}
+                                            className={`group flex items-center gap-2 p-2 bg-white rounded border hover:shadow-md transition-all ${
+                                                expandedSections.etapes ? 'p-3 mb-2' : 'mb-1'
+                                            }`}
+                                        >
                                             <input
                                                 type="checkbox"
                                                 checked={etape.completed}
                                                 onChange={(e) => updateEtape(index, 'completed', e.target.checked)}
-                                                className="w-5 h-5"
+                                                className="w-4 h-4"
                                             />
                                             <input
                                                 type="text"
                                                 value={etape.text}
                                                 onChange={(e) => updateEtape(index, 'text', e.target.value)}
-                                                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-purple-500"
+                                                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-blue-500 text-sm"
                                                 placeholder={`Étape ${index + 1}`}
                                             />
                                             <input
@@ -613,20 +990,132 @@ export function JobModal({
                                                 min="0.25"
                                                 value={etape.duration}
                                                 onChange={(e) => updateEtape(index, 'duration', parseFloat(e.target.value))}
-                                                className="w-20 p-2 border rounded focus:ring-2 focus:ring-purple-500"
+                                                className="w-16 p-1 border rounded focus:ring-2 focus:ring-blue-500 text-sm"
                                                 title="Durée en heures"
                                             />
-                                            <span className="text-sm text-gray-500">h</span>
+                                            <span className="text-xs text-gray-500">h</span>
                                             <button
                                                 type="button"
                                                 onClick={() => removeEtape(index)}
-                                                className="p-2 text-red-600 hover:bg-red-100 rounded"
+                                                className="p-1 text-red-600 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
                                             >
-                                                <Icon name="trash" size={16} />
+                                                <Icon name="trash" size={14} />
                                             </button>
                                         </div>
                                     ))}
                                 </div>
+
+                                {expandedSections.etapes && (
+                                    <button
+                                        type="button"
+                                        onClick={addEtape}
+                                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                    >
+                                        <Icon name="plus" size={16} className="mr-2" />
+                                        Ajouter une étape
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Section Préparation avec scroll */}
+                            <div
+                                className={`p-4 bg-orange-50 rounded-lg border border-orange-200 transition-all duration-300 ${
+                                    expandedSections.preparation ? 'fixed inset-4 z-50 bg-white shadow-2xl' : ''
+                                }`}
+                                onDoubleClick={() => {
+                                    setExpandedSections(prev => ({
+                                        ...prev,
+                                        preparation: !prev.preparation
+                                    }));
+                                }}
+                            >
+                                <h4 className={`font-medium text-orange-800 flex items-center gap-2 mb-3 ${expandedSections.preparation ? 'text-lg' : ''}`}>
+                                    <span>🛠️</span>
+                                    Préparation et matériel
+                                    {expandedSections.preparation && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setExpandedSections(prev => ({
+                                                    ...prev,
+                                                    preparation: false
+                                                }));
+                                            }}
+                                            className="ml-auto text-gray-500 hover:text-gray-700 text-2xl"
+                                        >
+                                            ×
+                                        </button>
+                                    )}
+                                    {!expandedSections.preparation && (
+                                        <>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    addPreparation();
+                                                }}
+                                                className="ml-auto px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 transition-colors"
+                                            >
+                                                <Icon name="plus" size={14} className="mr-1" />
+                                                Ajouter
+                                            </button>
+                                            <span className="ml-2 text-xs text-orange-400">Double-clic pour agrandir</span>
+                                        </>
+                                    )}
+                                </h4>
+
+                                <div
+                                    className={`space-y-2 mb-3 ${
+                                        expandedSections.preparation
+                                            ? 'overflow-y-auto max-h-[70vh]'
+                                            : 'max-h-40 overflow-y-auto'
+                                    }`}
+                                    style={expandedSections.preparation ? { maxHeight: 'calc(100vh - 200px)' } : {}}
+                                >
+                                    {formData.preparation.map((item, index) => (
+                                        <div
+                                            key={index}
+                                            className={`group flex items-center gap-2 p-2 bg-white rounded border hover:shadow-md transition-all ${
+                                                expandedSections.preparation ? 'p-3 mb-2' : 'mb-1'
+                                            }`}
+                                        >
+                                            <select
+                                                value={item.statut || 'a-faire'}
+                                                onChange={(e) => updatePreparation(index, 'statut', e.target.value)}
+                                                className="w-24 p-1 border rounded text-xs font-medium"
+                                            >
+                                                <option value="a-faire">À faire</option>
+                                                <option value="en-cours">En cours</option>
+                                                <option value="termine">Terminé</option>
+                                            </select>
+                                            <input
+                                                type="text"
+                                                value={item.text || ''}
+                                                onChange={(e) => updatePreparation(index, 'text', e.target.value)}
+                                                className="flex-1 p-2 border rounded focus:ring-2 focus:ring-orange-500 text-sm"
+                                                placeholder={`Préparation ${index + 1}`}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => removePreparation(index)}
+                                                className="p-1 text-red-600 hover:bg-red-100 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <Icon name="trash" size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {expandedSections.preparation && (
+                                    <button
+                                        type="button"
+                                        onClick={addPreparation}
+                                        className="w-full px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                                    >
+                                        <Icon name="plus" size={16} className="mr-2" />
+                                        Ajouter une préparation
+                                    </button>
+                                )}
                             </div>
 
                             {/* Notes */}
@@ -819,7 +1308,7 @@ export function JobModal({
                 </div>
 
                 {/* Footer */}
-                <div className="flex justify-between items-center p-6 border-t bg-gray-50">
+                <div className="flex-shrink-0 flex justify-between items-center p-6 border-t bg-gray-50">
                     {job && peutModifier && (
                         <button
                             type="button"
@@ -840,7 +1329,7 @@ export function JobModal({
                         </button>
                         {peutModifier && (
                             <button
-                                onClick={activeTab === 'form' ? handleSubmit : undefined}
+                                onClick={handleSubmit}
                                 disabled={isSubmitting}
                                 className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
                             >

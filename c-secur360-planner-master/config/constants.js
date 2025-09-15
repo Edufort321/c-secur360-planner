@@ -17,117 +17,143 @@ export const STORAGE_CONFIG = {
     SYNC_DELAY: 2000 // 2 secondes pour la sync
 };
 
-// Personnel par défaut avec authentification
+// Personnel par défaut avec authentification - VERSION ORIGINALE
 export const DEFAULT_PERSONNEL = [
     {
-        id: 'user1',
-        nom: 'Alexandre Desrochers',
-        succursale: 'MDL Sherbrooke',
-        specialites: ['Analyse de réponse', 'Testeur de rapport de transformation'],
-        password: 'Alex123!',
-        canModify: true,
-        isCoordinator: true
+        id: 1,
+        nom: "Éric Dufort",
+        poste: "1.1 -TECH",
+        succursale: "MDL - Sherbrooke",
+        disponible: true,
+        email: "eric@mdl.com",
+        telephone: "450-123-4567",
+        type: "interne",
+        motDePasse: "tech123",
+        permissions: { peutModifier: true, estCoordonnateur: false },
+        visibleChantier: true
     },
     {
-        id: 'user2',
-        nom: 'Marc-André Bisson',
-        succursale: 'MDL Terrebonne',
-        specialites: ['Testeur d\'enroulement', 'Analyse de réponse'],
-        password: 'Marc456!',
-        canModify: true,
-        isCoordinator: false
+        id: 2,
+        nom: "Carl Lévesque",
+        poste: "1.2 - ING.",
+        succursale: "MDL - Terrebonne",
+        disponible: true,
+        email: "carl@mdl.com",
+        telephone: "450-123-4568",
+        type: "interne",
+        motDePasse: "ing123",
+        permissions: { peutModifier: true, estCoordonnateur: false },
+        visibleChantier: true
     },
     {
-        id: 'user3',
-        nom: 'Jean-François Lemieux',
-        succursale: 'MDL Québec',
-        specialites: ['Testeur de rapport de transformation', 'Testeur d\'enroulement'],
-        password: 'JF789!',
-        canModify: true,
-        isCoordinator: false
+        id: 3,
+        nom: "Miguel Morin",
+        poste: "1.3 - CPI",
+        succursale: "MDL - Québec",
+        disponible: true,
+        email: "miguel@mdl.com",
+        telephone: "418-123-4567",
+        type: "interne",
+        motDePasse: "cpi123",
+        permissions: { peutModifier: true, estCoordonnateur: false },
+        visibleChantier: true
     },
     {
-        id: 'user4',
-        nom: 'Simon Dubois',
-        succursale: 'DUAL Électrotech',
-        specialites: ['Analyse de réponse', 'Diagnostic'],
-        password: 'Simon321!',
-        canModify: false,
-        isCoordinator: false
+        id: 4,
+        nom: "Chad Rodrigue",
+        poste: "1.4 - COORD.",
+        succursale: "DUAL - Électrotech",
+        disponible: true,
+        email: "chad@dual.com",
+        telephone: "819-123-4567",
+        type: "interne",
+        motDePasse: "coord123",
+        permissions: { peutModifier: true, estCoordonnateur: true },
+        visibleChantier: false
     },
     {
-        id: 'user5',
-        nom: 'Patrick Tremblay',
-        succursale: 'CFM',
-        specialites: ['Testeur d\'enroulement', 'Maintenance'],
-        password: 'Pat654!',
-        canModify: true,
-        isCoordinator: true
+        id: 5,
+        nom: "Alexandre Gariépy-Gauvin",
+        poste: "1.5 - D.T.",
+        succursale: "CFM",
+        disponible: true,
+        email: "alex@cfm.com",
+        telephone: "450-123-4569",
+        type: "interne",
+        motDePasse: "dt123",
+        permissions: { peutModifier: false, estCoordonnateur: false },
+        visibleChantier: true
     },
     {
-        id: 'user6',
-        nom: 'Michel Gagnon',
-        succursale: 'Surplec',
-        specialites: ['Diagnostic avancé', 'Formation'],
-        password: 'Mich987!',
-        canModify: true,
-        isCoordinator: false
+        id: 6,
+        nom: "Test Admin",
+        poste: "ADMIN",
+        succursale: "Test",
+        disponible: true,
+        email: "test@test.com",
+        telephone: "000-000-0000",
+        type: "interne",
+        motDePasse: "admin123",
+        permissions: { peutModifier: true, estCoordonnateur: true },
+        visibleChantier: false
     }
 ];
 
-// Équipements par défaut
+// Équipements par défaut - VERSION ORIGINALE
 export const DEFAULT_EQUIPMENTS = [
+    { id: 1, nom: "DOBLE M4000", type: "Analyseur de réponse", succursale: "MDL - Sherbrooke", disponible: true, numeroSerie: "DM4000-001", derniereMaintenance: "2025-08-15" },
+    { id: 2, nom: "DOBLE SFRA", type: "Analyseur de réponse", succursale: "MDL - Terrebonne", disponible: true, numeroSerie: "SFRA-002", derniereMaintenance: "2025-08-10" },
+    { id: 3, nom: "TTR", type: "Testeur de rapport", succursale: "MDL - Québec", disponible: true, numeroSerie: "TTR-003", derniereMaintenance: "2025-07-20" },
+    { id: 4, nom: "WINDING", type: "Testeur d'enroulement", succursale: "DUAL - Électrotech", disponible: true, numeroSerie: "WIN-004", derniereMaintenance: "2025-08-01" }
+];
+
+// Jobs de test par défaut - VERSION ORIGINALE
+export const DEFAULT_JOBS = [
     {
-        id: 'eq1',
-        nom: 'Analyseur CABA Win',
-        type: 'Analyseur de réponse',
-        numeroSerie: 'CW-2019-001',
-        derniereMaintenance: '2024-01-15',
-        prochaineMaintenance: '2024-07-15',
-        statut: 'Disponible',
-        localisation: 'MDL Sherbrooke'
+        id: 1,
+        nom: 'Analyse transformateur Hydro-Québec',
+        dateDebut: new Date().toISOString().split('T')[0], // Aujourd'hui
+        heureDebut: '08:00',
+        heureFin: '16:00',
+        personnel: [1, 2], // Éric et Carl
+        equipements: [1], // DOBLE M4000
+        sousTraitants: [],
+        priorite: 'haute',
+        statut: 'planifie',
+        description: 'Analyse de réponse sur transformateur 25 MVA',
+        client: 'Hydro-Québec',
+        localisation: 'Sherbrooke'
     },
     {
-        id: 'eq2',
-        nom: 'Testeur Ratio TTR-300',
-        type: 'Testeur de rapport',
-        numeroSerie: 'TTR-2020-045',
-        derniereMaintenance: '2024-02-20',
-        prochaineMaintenance: '2024-08-20',
-        statut: 'Disponible',
-        localisation: 'MDL Terrebonne'
-    },
-    {
-        id: 'eq3',
-        nom: 'Testeur Enroulement EW-50',
-        type: 'Testeur d\'enroulement',
-        numeroSerie: 'EW-2021-078',
-        derniereMaintenance: '2024-03-10',
-        prochaineMaintenance: '2024-09-10',
-        statut: 'En maintenance',
-        localisation: 'MDL Québec'
-    },
-    {
-        id: 'eq4',
-        nom: 'Kit Diagnostic Mobile',
-        type: 'Diagnostic portable',
-        numeroSerie: 'KDM-2023-012',
-        derniereMaintenance: '2024-04-05',
-        prochaineMaintenance: '2024-10-05',
-        statut: 'Disponible',
-        localisation: 'DUAL Électrotech'
+        id: 2,
+        nom: 'Test rapport transformation',
+        dateDebut: (() => {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            return tomorrow.toISOString().split('T')[0];
+        })(),
+        heureDebut: '09:00',
+        heureFin: '17:00',
+        personnel: [3], // Miguel
+        equipements: [3], // TTR
+        sousTraitants: [],
+        priorite: 'normale',
+        statut: 'planifie',
+        description: 'Test de rapport de transformation',
+        client: 'Ville de Québec',
+        localisation: 'Québec'
     }
 ];
 
-// Types d'équipements disponibles
+// Types d'équipements disponibles - VERSION ORIGINALE
 export const EQUIPMENT_TYPES = [
-    'Analyseur de réponse',
-    'Testeur de rapport',
-    'Testeur d\'enroulement',
-    'Diagnostic portable',
-    'Multimètre avancé',
-    'Oscilloscope',
-    'Autre'
+    "Analyseur de réponse",
+    "Testeur de rapport",
+    "Testeur d'enroulement",
+    "Analyseur de gaz dissous",
+    "Mégohmmètre",
+    "Testeur d'isolation",
+    "Analyseur de qualité d'huile"
 ];
 
 // Statuts des équipements
@@ -168,19 +194,19 @@ export const WORK_TYPES = [
 
 // Priorités des tâches
 export const TASK_PRIORITIES = [
-    { value: 'low', label: 'Basse', color: '#10b981' },
-    { value: 'medium', label: 'Moyenne', color: '#f59e0b' },
-    { value: 'high', label: 'Haute', color: '#ef4444' },
-    { value: 'urgent', label: 'Urgente', color: '#dc2626' }
+    { value: 'faible', label: 'Faible', color: '#10b981' },
+    { value: 'normale', label: 'Normale', color: '#f59e0b' },
+    { value: 'haute', label: 'Haute', color: '#ef4444' },
+    { value: 'urgente', label: 'Urgente', color: '#dc2626' }
 ];
 
 // Statuts des tâches
 export const TASK_STATUSES = [
-    { value: 'planned', label: 'Planifiée', color: '#6b7280' },
-    { value: 'in_progress', label: 'En cours', color: '#3b82f6' },
-    { value: 'completed', label: 'Terminée', color: '#10b981' },
-    { value: 'cancelled', label: 'Annulée', color: '#ef4444' },
-    { value: 'postponed', label: 'Reportée', color: '#f59e0b' }
+    { value: 'planifie', label: 'Planifiée', color: '#6b7280' },
+    { value: 'en_cours', label: 'En cours', color: '#3b82f6' },
+    { value: 'termine', label: 'Terminée', color: '#10b981' },
+    { value: 'annule', label: 'Annulée', color: '#ef4444' },
+    { value: 'reporte', label: 'Reportée', color: '#f59e0b' }
 ];
 
 // Configuration responsive
@@ -190,12 +216,12 @@ export const SCREEN_BREAKPOINTS = {
     desktop: 1280
 };
 
-// Couleurs des bureaux
+// Couleurs des bureaux - VERSION ORIGINALE
 export const BUREAU_COLORS = {
-    'MDL Sherbrooke': { bg: '#3b82f6', text: '#ffffff', class: 'mdl-sherbrooke' },
-    'MDL Terrebonne': { bg: '#10b981', text: '#ffffff', class: 'mdl-terrebonne' },
-    'MDL Québec': { bg: '#f59e0b', text: '#ffffff', class: 'mdl-quebec' },
-    'DUAL Électrotech': { bg: '#ef4444', text: '#ffffff', class: 'dual-electrotech' },
+    'MDL - Sherbrooke': { bg: '#3b82f6', text: '#ffffff', class: 'mdl-sherbrooke' },
+    'MDL - Terrebonne': { bg: '#10b981', text: '#ffffff', class: 'mdl-terrebonne' },
+    'MDL - Québec': { bg: '#f59e0b', text: '#ffffff', class: 'mdl-quebec' },
+    'DUAL - Électrotech': { bg: '#ef4444', text: '#ffffff', class: 'dual-electrotech' },
     'CFM': { bg: '#8b5cf6', text: '#ffffff', class: 'cfm' },
     'Surplec': { bg: '#06b6d4', text: '#ffffff', class: 'surplec' }
 };

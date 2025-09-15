@@ -1,125 +1,178 @@
-// ============== APPLICATION PRINCIPALE ==============
-// Composant racine de l'application C-Secur360
+// ============== APPLICATION C-SECUR360 VERSION ORIGINALE ==============
+// Reproduction EXACTE de la version originale avec système d'authentification intégré
 
-import React, { useState } from 'react';
-import { AuthProvider, useAuth } from './modules/Auth/AuthContext.jsx';
-import { Header } from './modules/Header/Header.jsx';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { UserLoginModal } from './components/Auth/UserLoginModal.jsx';
 import { PlanificateurFinal } from './modules/Calendar/PlanificateurFinal.jsx';
-import { Dashboard } from './modules/Dashboard/Dashboard.jsx';
 import { NotificationContainer } from './components/UI/NotificationContainer.jsx';
+import { ThemeProvider } from './contexts/ThemeContext.jsx';
+import { Header } from './components/Header/Header.jsx';
 import { useNotifications } from './hooks/useNotifications.js';
 import { useAppDataWithSync } from './hooks/useAppDataWithSync.js';
 import { useScreenSize } from './hooks/useScreenSize.js';
+import { Logo } from './components/UI/Logo.jsx';
+import { ResourcesModal } from './components/Modals/ResourcesModal.jsx';
+import { CongesModal } from './components/Modals/CongesModal.jsx';
+import { JobModal } from './modules/NewJob/JobModal.jsx';
 
-// Import des styles globaux
-import './styles/globals.css';
+// Import des styles de la version originale
+import './styles/original.css';
 
-function AppContent() {
-    const [selectedView, setSelectedView] = useState('month');
-    const [selectedDate, setSelectedDate] = useState(new Date());
-    const [selectedBureau, setSelectedBureau] = useState(null);
-    const [showDashboard, setShowDashboard] = useState(false);
-
-    // Hooks
-    const { currentUser, isAdmin } = useAuth();
-    const notifications = useNotifications();
+export function App() {
+    // Hook pour les données de l'application
     const appData = useAppDataWithSync();
-    const screenSize = useScreenSize();
+    const { notifications, addNotification } = useNotifications();
+    const { isMobile, isTablet } = useScreenSize();
 
-    const handleAdminAccess = () => {
-        setShowDashboard(true);
-        notifications.success('Accès administrateur activé');
+    // États d'authentification utilisateur - VERSION ORIGINALE
+    const [utilisateurConnecte, setUtilisateurConnecte] = useState(null);
+    const [showUserLogin, setShowUserLogin] = useState(true);
+    const [loginForm, setLoginForm] = useState({ nom: '', motDePasse: '' });
+
+    // États pour les modals accessibles via le menu hamburger
+    const [showCreateEvent, setShowCreateEvent] = useState(false);
+    const [showCongesManagement, setShowCongesManagement] = useState(false);
+    const [showResourcesManagement, setShowResourcesManagement] = useState(false);
+
+    // Authentification utilisateur - VERSION ORIGINALE
+    const handleUserLogin = (utilisateurIdentifie, motDePasse) => {
+        console.log('📥 Réception des données d\'authentification:', {
+            utilisateur: utilisateurIdentifie?.nom,
+            motDePasse: motDePasse,
+            longueurMotDePasse: motDePasse?.length,
+            typeMotDePasse: typeof motDePasse
+        });
+
+        if (!utilisateurIdentifie) {
+            console.error('❌ Utilisateur non fourni');
+            addNotification('Erreur: Utilisateur non trouvé', 'error');
+            return;
+        }
+
+        if (!motDePasse) {
+            console.error('❌ Mot de passe non fourni');
+            addNotification('Erreur: Mot de passe requis', 'error');
+            return;
+        }
+
+        console.log('🔍 Vérification:', {
+            motDePasseAttendu: utilisateurIdentifie.motDePasse,
+            motDePasseSaisi: motDePasse,
+            typesIdentiques: typeof utilisateurIdentifie.motDePasse === typeof motDePasse
+        });
+
+        // Vérification du mot de passe
+        if (utilisateurIdentifie.motDePasse === motDePasse) {
+            console.log('✅ CONNEXION RÉUSSIE pour:', utilisateurIdentifie.nom);
+            setUtilisateurConnecte(utilisateurIdentifie);
+            setShowUserLogin(false);
+            addNotification(`Connexion réussie - ${utilisateurIdentifie.nom}`, 'success');
+        } else {
+            console.log('❌ ÉCHEC DE CONNEXION pour:', utilisateurIdentifie.nom);
+            console.log('Attendu:', utilisateurIdentifie.motDePasse, 'Reçu:', motDePasse);
+            addNotification('Mot de passe incorrect', 'error');
+        }
     };
 
-    const handleViewChange = (view) => {
-        setSelectedView(view);
-        appData.setSelectedView(view);
+    // Fonctions de permissions - VERSION ORIGINALE
+    const peutModifier = () => {
+        if (!utilisateurConnecte) return false;
+        if (!utilisateurConnecte.permissions) return false;
+        return utilisateurConnecte.permissions.peutModifier === true;
     };
 
-    const handleDateChange = (date) => {
-        setSelectedDate(date);
-        appData.setSelectedDate(date);
+    const estCoordonnateur = () => {
+        if (!utilisateurConnecte) return false;
+        if (!utilisateurConnecte.permissions) return false;
+        return utilisateurConnecte.permissions.estCoordonnateur === true;
     };
 
-    const handleBureauChange = (bureau) => {
-        setSelectedBureau(bureau);
-    };
+    // Fonction pour ajouter un sous-traitant - VERSION ORIGINALE
+    const addSousTraitant = useCallback((newSousTraitant) => {
+        if (newSousTraitant && newSousTraitant.trim()) {
+            const nouveauSousTraitant = {
+                id: Date.now(),
+                nom: newSousTraitant.trim(),
+                specialite: "À spécifier",
+                telephone: "",
+                email: "",
+                disponible: true,
+                tarif: "À négocier"
+            };
+            appData.setSousTraitants(prev => [...prev, nouveauSousTraitant]);
+            return nouveauSousTraitant.id;
+        }
+        return null;
+    }, [appData.setSousTraitants]);
 
-    // Fonction pour ajouter un sous-traitant
-    const addSousTraitant = (nom) => {
-        const newSousTraitant = {
-            id: Date.now(),
-            nom: nom.trim(),
-            specialite: '',
-            tarif: '',
-            dateCreation: new Date().toISOString()
-        };
+    // Debug au démarrage
+    useEffect(() => {
+        console.log('%c🚀 DÉMARRAGE APPLICATION C-SECUR360 V6.7', 'background: #4CAF50; color: white; padding: 10px; font-size: 16px;');
+        console.log('✅ Hooks chargés:', {
+            personnelCount: appData.personnel.length,
+            equipementsCount: appData.equipements.length,
+            jobsCount: appData.jobs.length
+        });
+    }, []);
 
-        const updatedSousTraitants = [...appData.sousTraitants, newSousTraitant];
-        appData.setSousTraitants(updatedSousTraitants);
-        return newSousTraitant.id;
-    };
-
+    // Affichage du chargement
     if (appData.isLoading) {
         return (
-            <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Chargement du planificateur...</p>
+                    <div className="flex justify-center mb-4 animate-pulse">
+                        <Logo size="xl" showText={false} />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">Chargement C-Secur360</h2>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Initialisation du planificateur...</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <Header
-                selectedView={selectedView}
-                onViewChange={handleViewChange}
-                selectedBureau={selectedBureau}
-                onBureauChange={handleBureauChange}
-                onAdminAccess={handleAdminAccess}
-            />
+        <ThemeProvider>
+            <div className="min-h-screen bg-gray-50">
+                {/* Système de notifications */}
+                <NotificationContainer notifications={notifications} />
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                {/* Statut de synchronisation */}
-                {appData.syncStatus && (
-                    <div className="mb-4 flex items-center justify-between bg-white rounded-lg shadow-sm p-3">
-                        <div className="flex items-center space-x-2">
-                            <div className={`h-2 w-2 rounded-full ${
-                                appData.syncStatus.isConnected ? 'bg-green-500' : 'bg-gray-400'
-                            }`} />
-                            <span className="text-sm text-gray-600">
-                                {appData.syncStatus.isConnected ? 'Synchronisé' : 'Mode local'}
-                                {appData.syncStatus.isSyncing && ' (synchronisation...)'}
-                            </span>
-                        </div>
-                        {appData.syncStatus.lastSync && (
-                            <span className="text-xs text-gray-500">
-                                Dernière sync: {new Date(appData.syncStatus.lastSync).toLocaleTimeString('fr-FR')}
-                            </span>
-                        )}
-                    </div>
-                )}
+                {/* Modal de login utilisateur - OBLIGATOIRE POUR ACCÉDER */}
+                <UserLoginModal
+                    isOpen={showUserLogin}
+                    personnel={appData.personnel}
+                    loginForm={loginForm}
+                    setLoginForm={setLoginForm}
+                    onLogin={handleUserLogin}
+                    onClose={() => {}} // Pas de fermeture possible sans connexion
+                />
 
-                {/* Contenu principal */}
-                {showDashboard ? (
-                    <Dashboard
-                        jobs={appData.jobs}
-                        personnel={appData.personnel}
-                        equipements={appData.equipements}
-                        conges={appData.conges}
-                        isAdmin={isAdmin}
-                        currentUser={currentUser}
-                    />
-                ) : (
-                    <div className="bg-white rounded-lg shadow h-full">
+                {/* Application principale - visible seulement si connecté */}
+                {utilisateurConnecte && !showUserLogin && (
+                    <>
+                        {/* Header avec logo officiel et menu hamburger */}
+                        <Header
+                            utilisateurConnecte={utilisateurConnecte}
+                            onLogout={() => {
+                                setUtilisateurConnecte(null);
+                                setShowUserLogin(true);
+                                addNotification('Déconnexion réussie', 'info');
+                            }}
+                            onCreateEvent={() => setShowCreateEvent(true)}
+                            onManageConges={() => setShowCongesManagement(true)}
+                            onManageResources={() => setShowResourcesManagement(true)}
+                        />
+
+                        {/* Interface PlanificateurFinal complète */}
                         <PlanificateurFinal
+                            // Données
                             jobs={appData.jobs}
                             personnel={appData.personnel}
                             equipements={appData.equipements}
                             sousTraitants={appData.sousTraitants}
                             conges={appData.conges}
+
+                            // Fonctions de sauvegarde
                             onSaveJob={appData.saveJob}
                             onDeleteJob={appData.deleteJob}
                             onSavePersonnel={appData.savePersonnel}
@@ -128,33 +181,71 @@ function AppContent() {
                             onDeleteEquipement={appData.deleteEquipement}
                             onSaveConge={appData.saveConge}
                             onDeleteConge={appData.deleteConge}
+
+                            // Utilitaires
                             addSousTraitant={addSousTraitant}
-                            addNotification={notifications.add}
-                            selectedView={selectedView}
-                            onViewChange={handleViewChange}
-                            selectedDate={selectedDate}
-                            onDateChange={handleDateChange}
-                            currentUser={currentUser}
-                            isAdmin={isAdmin}
+                            addNotification={addNotification}
+
+                            // Utilisateur connecté et permissions
+                            utilisateurConnecte={utilisateurConnecte}
+                            peutModifier={peutModifier}
+                            estCoordonnateur={estCoordonnateur}
                         />
-                    </div>
+
+                        {/* Modals accessibles via le menu hamburger */}
+
+                        {/* Modal Créer Événement */}
+                        {showCreateEvent && (
+                            <JobModal
+                                isOpen={showCreateEvent}
+                                onClose={() => setShowCreateEvent(false)}
+                                onSave={appData.saveJob}
+                                onDelete={appData.deleteJob}
+                                job={null}
+                                personnel={appData.personnel}
+                                equipements={appData.equipements}
+                                sousTraitants={appData.sousTraitants}
+                                addSousTraitant={addSousTraitant}
+                                addNotification={addNotification}
+                            />
+                        )}
+
+                        {/* Modal Gestion Congés */}
+                        {showCongesManagement && (
+                            <CongesModal
+                                isOpen={showCongesManagement}
+                                onClose={() => setShowCongesManagement(false)}
+                                onSave={appData.saveConge}
+                                onDelete={appData.deleteConge}
+                                conge={null}
+                                personnel={appData.personnel}
+                                addNotification={addNotification}
+                                utilisateurConnecte={utilisateurConnecte}
+                                peutModifier={peutModifier}
+                            />
+                        )}
+
+                        {/* Modal Gestion Ressources */}
+                        {showResourcesManagement && (
+                            <ResourcesModal
+                                isOpen={showResourcesManagement}
+                                onClose={() => setShowResourcesManagement(false)}
+                                personnel={appData.personnel}
+                                equipements={appData.equipements}
+                                onSavePersonnel={appData.savePersonnel}
+                                onDeletePersonnel={appData.deletePersonnel}
+                                onSaveEquipement={appData.saveEquipement}
+                                onDeleteEquipement={appData.deleteEquipement}
+                                utilisateurConnecte={utilisateurConnecte}
+                                estCoordonnateur={estCoordonnateur}
+                                peutModifier={peutModifier}
+                                addNotification={addNotification}
+                            />
+                        )}
+                    </>
                 )}
-            </main>
-
-            {/* Conteneur de notifications */}
-            <NotificationContainer
-                notifications={notifications.notifications}
-                onRemoveNotification={notifications.removeNotification}
-            />
-        </div>
-    );
-}
-
-export function App() {
-    return (
-        <AuthProvider>
-            <AppContent />
-        </AuthProvider>
+            </div>
+        </ThemeProvider>
     );
 }
 

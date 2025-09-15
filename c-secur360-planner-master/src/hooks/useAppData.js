@@ -2,11 +2,11 @@
 // Hook principal pour la gestion des données de l'application
 
 import { useState, useEffect, useCallback } from 'react';
-import { DEFAULT_PERSONNEL, DEFAULT_EQUIPMENTS, STORAGE_CONFIG } from '../../config/constants.js';
+import { DEFAULT_PERSONNEL, DEFAULT_EQUIPMENTS, DEFAULT_JOBS, STORAGE_CONFIG } from '../../config/constants.js';
 
 export function useAppData() {
     // États principaux
-    const [jobs, setJobs] = useState([]);
+    const [jobs, setJobs] = useState(DEFAULT_JOBS);
     const [personnel, setPersonnel] = useState(DEFAULT_PERSONNEL);
     const [equipements, setEquipements] = useState(DEFAULT_EQUIPMENTS);
     const [sousTraitants, setSousTraitants] = useState([]);
@@ -52,12 +52,14 @@ export function useAppData() {
                 setLastSaved(new Date(data.lastSaved || Date.now()));
             } else {
                 // Première utilisation, utiliser les données par défaut
+                setJobs(DEFAULT_JOBS);
                 setPersonnel(DEFAULT_PERSONNEL);
                 setEquipements(DEFAULT_EQUIPMENTS);
             }
         } catch (error) {
             console.error('Erreur lors du chargement des données:', error);
             // En cas d'erreur, utiliser les données par défaut
+            setJobs(DEFAULT_JOBS);
             setPersonnel(DEFAULT_PERSONNEL);
             setEquipements(DEFAULT_EQUIPMENTS);
         } finally {
