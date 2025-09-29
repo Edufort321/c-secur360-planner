@@ -100,6 +100,13 @@ export function JobModal({
     const [ganttCompactMode, setGanttCompactMode] = useState(false);
     const [newSousTraitant, setNewSousTraitant] = useState('');
 
+    // États pour horaires hiérarchiques
+    const [selectedDay, setSelectedDay] = useState('');
+    const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+    const [scheduleModalType, setScheduleModalType] = useState('');
+    const [selectedResource, setSelectedResource] = useState(null);
+    const [dailyPersonnelTab, setDailyPersonnelTab] = useState('assigned');
+
     // Initialisation des données si c'est un job existant
     useEffect(() => {
         if (job) {
@@ -284,6 +291,273 @@ export function JobModal({
             ...prev,
             [type]: prev[type].filter((_, i) => i !== index)
         }));
+    };
+
+    // Fonctions pour horaires hiérarchiques
+    const getAllDays = () => {
+        if (!formData.dateDebut || !formData.dateFin) return [];
+
+        const startDate = new Date(formData.dateDebut);
+        const endDate = new Date(formData.dateFin);
+        const allDays = [];
+
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+            const dateString = d.toISOString().split('T')[0];
+            const dayOfWeek = d.getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+            // Un jour est inclus par défaut sauf si explicitement exclu
+            let included = true;
+            let isExplicitlyExcluded = false;
+
+            if (formData.horairesParJour[dateString] === null) {
+                included = false;
+                isExplicitlyExcluded = true;
+            } else if (isWeekend && !formData.includeWeekendsInDuration && !formData.horairesParJour[dateString]) {
+                included = false;
+            }
+
+            allDays.push({
+                date: dateString,
+                dateString: dateString,
+                dayName: getLocalizedDayName(d, currentLanguage, false),
+                dayNumber: d.getDate(),
+                isWeekend: isWeekend,
+                included: included,
+                isExplicitlyExcluded: isExplicitlyExcluded,
+                hasCustomSchedule: formData.horairesParJour[dateString] !== undefined && formData.horairesParJour[dateString] !== null
+            });
+        }
+
+        return allDays;
+    };
+
+    const getLocalizedDayName = (date, language, abbreviated = true) => {
+        const options = { weekday: abbreviated ? 'short' : 'long' };
+        return date.toLocaleDateString(language === 'en' ? 'en-US' : 'fr-FR', options);
+    };
+
+    const updateDailySchedule = (date, heureDebut, heureFin, mode = 'jour') => {
+        setFormData(prev => ({
+            ...prev,
+            horairesParJour: {
+                ...prev.horairesParJour,
+                [date]: {
+                    heureDebut: mode === '24h' ? '00:00' : heureDebut,
+                    heureFin: mode === '24h' ? '23:59' : heureFin,
+                    mode: mode
+                }
+            }
+        }));
+    };
+
+    const toggleDay24h = (date) => {
+        const currentSchedule = formData.horairesParJour[date];
+        const is24h = currentSchedule?.mode === '24h';
+
+        updateDailySchedule(
+            date,
+            is24h ? formData.heureDebut : '00:00',
+            is24h ? formData.heureFin : '23:59',
+            is24h ? 'jour' : '24h'
+        );
+    };
+
+    const toggleDayInclusion = (date) => {
+        if (formData.horairesParJour[date] === null) {
+            // Jour explicitement exclu → l'inclure avec horaires par défaut
+            updateDailySchedule(date, formData.heureDebut, formData.heureFin, 'jour');
+        } else if (formData.horairesParJour[date]) {
+            // Jour avec horaire personnalisé → l'exclure explicitement
+            setFormData(prev => ({
+                ...prev,
+                horairesParJour: {
+                    ...prev.horairesParJour,
+                    [date]: null  // null = explicitement exclu
+                }
+            }));
+        } else {
+            // Jour avec horaire global par défaut → l'exclure explicitement
+            setFormData(prev => ({
+                ...prev,
+                horairesParJour: {
+                    ...prev.horairesParJour,
+                    [date]: null  // null = explicitement exclu
+                }
+            }));
+        }
+    };
+
+    const togglePersonnelForDay = (dateString, personnelId) => {
+        setFormData(prev => {
+            const dayAssignations = prev.assignationsParJour[dateString] || { personnel: [], equipements: [] };
+            const isCurrentlyAssigned = dayAssignations.personnel.includes(personnelId);
+
+            if (isCurrentlyAssigned) {
+                const updatedPersonnel = dayAssignations.personnel.filter(id => id !== personnelId);
+                return {
+                    ...prev,
+                    assignationsParJour: {
+                        ...prev.assignationsParJour,
+                        [dateString]: {
+                            ...dayAssignations,
+                            personnel: updatedPersonnel
+                        }
+                    }
+                };
+            } else {
+                const updatedPersonnel = [...dayAssignations.personnel, personnelId];
+                return {
+                    ...prev,
+                    assignationsParJour: {
+                        ...prev.assignationsParJour,
+                        [dateString]: {
+                            ...dayAssignations,
+                            personnel: updatedPersonnel
+                        }
+                    }
+                };
+            }
+        });
+    };
+
+    const toggleEquipementForDay = (dateString, equipementId) => {
+        setFormData(prev => {
+            const dayAssignations = prev.assignationsParJour[dateString] || { personnel: [], equipements: [] };
+            const isCurrentlyAssigned = dayAssignations.equipements.includes(equipementId);
+
+            if (isCurrentlyAssigned) {
+                const updatedEquipements = dayAssignations.equipements.filter(id => id !== equipementId);
+                return {
+                    ...prev,
+                    assignationsParJour: {
+                        ...prev.assignationsParJour,
+                        [dateString]: {
+                            ...dayAssignations,
+                            equipements: updatedEquipements
+                        }
+                    }
+                };
+            } else {
+                const updatedEquipements = [...dayAssignations.equipements, equipementId];
+                return {
+                    ...prev,
+                    assignationsParJour: {
+                        ...prev.assignationsParJour,
+                        [dateString]: {
+                            ...dayAssignations,
+                            equipements: updatedEquipements
+                        }
+                    }
+                };
+            }
+        });
+    };
+
+    const getAssignedPersonnelForDay = (dateString) => {
+        const dayAssignations = formData.assignationsParJour[dateString];
+        if (!dayAssignations || !dayAssignations.personnel) return [];
+
+        return dayAssignations.personnel
+            .map(personnelId => personnel?.find(p => p.id === personnelId))
+            .filter(Boolean);
+    };
+
+    const getAssignedEquipementForDay = (dateString) => {
+        const dayAssignations = formData.assignationsParJour[dateString];
+        if (!dayAssignations || !dayAssignations.equipements) return [];
+
+        return dayAssignations.equipements
+            .map(equipementId => equipements?.find(e => e.id === equipementId))
+            .filter(Boolean);
+    };
+
+    const openScheduleModal = (resourceType, resourceId, resourceData) => {
+        setScheduleModalType(resourceType);
+        setSelectedResource({ id: resourceId, data: resourceData });
+        setScheduleModalOpen(true);
+    };
+
+    const generateDefaultDailySchedules = (includeWeekends = false) => {
+        const defaultSchedules = {};
+        getAllDays().forEach(day => {
+            if (day.included || includeWeekends) {
+                defaultSchedules[day.dateString] = {
+                    heureDebut: formData.heureDebut,
+                    heureFin: formData.heureFin,
+                    mode: 'jour'
+                };
+            }
+        });
+        return defaultSchedules;
+    };
+
+    // Fonctions pour gestion d'équipes
+    const createTeam = (teamName, memberIds) => {
+        const newTeam = {
+            id: `team-${Date.now()}`,
+            nom: teamName,
+            membres: memberIds,
+            dateCreation: new Date().toISOString()
+        };
+
+        setFormData(prev => ({
+            ...prev,
+            equipes: [...prev.equipes, newTeam]
+        }));
+
+        addNotification?.(`Équipe "${teamName}" créée avec succès`, 'success');
+        return newTeam.id;
+    };
+
+    const updateTeam = (teamId, updates) => {
+        setFormData(prev => ({
+            ...prev,
+            equipes: prev.equipes.map(team =>
+                team.id === teamId ? { ...team, ...updates } : team
+            )
+        }));
+    };
+
+    const deleteTeam = (teamId) => {
+        const team = formData.equipes.find(t => t.id === teamId);
+        setFormData(prev => ({
+            ...prev,
+            equipes: prev.equipes.filter(team => team.id !== teamId),
+            horairesEquipes: {
+                ...prev.horairesEquipes,
+                [teamId]: undefined
+            }
+        }));
+        addNotification?.(`Équipe "${team?.nom}" supprimée`, 'info');
+    };
+
+    const setTeamSchedule = (teamId, scheduleData) => {
+        setFormData(prev => ({
+            ...prev,
+            horairesEquipes: {
+                ...prev.horairesEquipes,
+                [teamId]: scheduleData
+            }
+        }));
+    };
+
+    const addPersonnelToTeam = (teamId, personnelId) => {
+        const team = formData.equipes.find(t => t.id === teamId);
+        if (team && !team.membres.includes(personnelId)) {
+            updateTeam(teamId, {
+                membres: [...team.membres, personnelId]
+            });
+        }
+    };
+
+    const removePersonnelFromTeam = (teamId, personnelId) => {
+        const team = formData.equipes.find(t => t.id === teamId);
+        if (team) {
+            updateTeam(teamId, {
+                membres: team.membres.filter(id => id !== personnelId)
+            });
+        }
     };
 
     // Gestionnaires d'événements
@@ -1056,6 +1330,339 @@ export function JobModal({
                                             )}
                                         </div>
                                     </div>
+
+                                    {/* Gestion des Équipes */}
+                                    <div className="bg-white border rounded-lg overflow-hidden">
+                                        <div className="bg-orange-50 p-4 border-b">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="font-medium text-orange-800 flex items-center gap-2">
+                                                    💼 Équipes ({formData.equipes?.length || 0} équipe{(formData.equipes?.length || 0) > 1 ? 's' : ''})
+                                                </h4>
+                                                <button
+                                                    onClick={() => {
+                                                        const teamName = prompt('Nom de la nouvelle équipe:');
+                                                        if (teamName?.trim()) {
+                                                            createTeam(teamName.trim(), []);
+                                                        }
+                                                    }}
+                                                    className="px-3 py-1 text-sm bg-orange-600 text-white rounded hover:bg-orange-700"
+                                                >
+                                                    ➕ Nouvelle équipe
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="p-4">
+                                            {formData.equipes && formData.equipes.length > 0 ? (
+                                                <div className="space-y-4">
+                                                    {formData.equipes.map(equipe => {
+                                                        const membresEquipe = equipe.membres
+                                                            .map(membreId => personnel?.find(p => p.id === membreId))
+                                                            .filter(Boolean);
+
+                                                        return (
+                                                            <div key={equipe.id} className="border rounded-lg p-4 bg-orange-50">
+                                                                <div className="flex items-center justify-between mb-3">
+                                                                    <div>
+                                                                        <h5 className="font-medium text-orange-800">{equipe.nom}</h5>
+                                                                        <p className="text-sm text-orange-600">
+                                                                            {membresEquipe.length} membre{membresEquipe.length > 1 ? 's' : ''}
+                                                                        </p>
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                const newName = prompt('Éditer le nom:', equipe.nom);
+                                                                                if (newName?.trim() && newName !== equipe.nom) {
+                                                                                    updateTeam(equipe.id, { nom: newName.trim() });
+                                                                                }
+                                                                            }}
+                                                                            className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                                                                        >
+                                                                            ✏️ Éditer
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                if (confirm(`Supprimer l'équipe "${equipe.nom}" ?`)) {
+                                                                                    deleteTeam(equipe.id);
+                                                                                }
+                                                                            }}
+                                                                            className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
+                                                                        >
+                                                                            🗑️ Supprimer
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Membres de l'équipe */}
+                                                                <div className="space-y-2">
+                                                                    <h6 className="text-sm font-medium text-gray-700">Membres de l'équipe:</h6>
+                                                                    {membresEquipe.length > 0 ? (
+                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                                            {membresEquipe.map(membre => (
+                                                                                <div
+                                                                                    key={membre.id}
+                                                                                    className="flex items-center justify-between p-2 bg-white border rounded"
+                                                                                >
+                                                                                    <div>
+                                                                                        <div className="font-medium text-sm">
+                                                                                            {membre.prenom ? `${membre.prenom} ${membre.nom}` : membre.nom}
+                                                                                        </div>
+                                                                                        <div className="text-xs text-gray-600">{membre.poste}</div>
+                                                                                    </div>
+                                                                                    <button
+                                                                                        onClick={() => removePersonnelFromTeam(equipe.id, membre.id)}
+                                                                                        className="text-red-500 hover:text-red-700 text-xs"
+                                                                                        title="Retirer de l'équipe"
+                                                                                    >
+                                                                                        ✗
+                                                                                    </button>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="text-sm text-gray-500 italic">Aucun membre assigné</div>
+                                                                    )}
+
+                                                                    {/* Ajouter du personnel à l'équipe */}
+                                                                    {personnel && personnel.length > 0 && (
+                                                                        <div className="mt-3">
+                                                                            <h6 className="text-sm font-medium text-gray-600 mb-2">Ajouter du personnel:</h6>
+                                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                                                {personnel
+                                                                                    .filter(person => !equipe.membres.includes(person.id))
+                                                                                    .map(person => (
+                                                                                        <div
+                                                                                            key={person.id}
+                                                                                            onClick={() => addPersonnelToTeam(equipe.id, person.id)}
+                                                                                            className="flex items-center justify-between p-2 bg-gray-50 border rounded cursor-pointer hover:bg-orange-50 hover:border-orange-300 transition-colors"
+                                                                                            title="Cliquer pour ajouter à l'équipe"
+                                                                                        >
+                                                                                            <div>
+                                                                                                <div className="font-medium text-sm">
+                                                                                                    {person.prenom ? `${person.prenom} ${person.nom}` : person.nom}
+                                                                                                </div>
+                                                                                                <div className="text-xs text-gray-600">{person.poste}</div>
+                                                                                            </div>
+                                                                                            <div className="text-gray-400">+</div>
+                                                                                        </div>
+                                                                                    ))
+                                                                                }
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-8 text-gray-500">
+                                                    <div className="text-4xl mb-2">💼</div>
+                                                    <p>Aucune équipe créée</p>
+                                                    <p className="text-sm mt-1">Cliquez sur "Nouvelle équipe" pour commencer</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Horaires Hiérarchiques */}
+                                    {formData.dateDebut && formData.dateFin && (
+                                        <div className="bg-white border rounded-lg overflow-hidden">
+                                            <div className="bg-yellow-50 p-4 border-b">
+                                                <h4 className="font-medium text-yellow-800 flex items-center gap-2">
+                                                    🕰️ Horaires Hiérarchiques
+                                                </h4>
+                                            </div>
+                                            <div className="p-4 space-y-4">
+                                                {/* Mode horaire global */}
+                                                <div className="flex items-center gap-4">
+                                                    <label className="text-sm font-medium text-gray-700">Mode horaire:</label>
+                                                    <select
+                                                        value={formData.modeHoraire || 'heures-jour'}
+                                                        onChange={(e) => updateField('modeHoraire', e.target.value)}
+                                                        className="text-sm border rounded px-2 py-1"
+                                                    >
+                                                        <option value="heures-jour">Heures de jour</option>
+                                                        <option value="24h-24">24h/24</option>
+                                                    </select>
+                                                    {formData.modeHoraire === 'heures-jour' && (
+                                                        <>
+                                                            <input
+                                                                type="time"
+                                                                value={formData.heuresDebutJour || '08:00'}
+                                                                onChange={(e) => updateField('heuresDebutJour', e.target.value)}
+                                                                className="text-sm border rounded px-2 py-1"
+                                                            />
+                                                            <span className="text-gray-500">à</span>
+                                                            <input
+                                                                type="time"
+                                                                value={formData.heuresFinJour || '17:00'}
+                                                                onChange={(e) => updateField('heuresFinJour', e.target.value)}
+                                                                className="text-sm border rounded px-2 py-1"
+                                                            />
+                                                        </>
+                                                    )}
+                                                </div>
+
+                                                {/* Calendrier des jours */}
+                                                <div>
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <h5 className="font-medium text-gray-700">Planification par jour</h5>
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                onClick={() => {
+                                                                    const defaultSchedules = generateDefaultDailySchedules();
+                                                                    setFormData(prev => ({
+                                                                        ...prev,
+                                                                        horairesParJour: { ...prev.horairesParJour, ...defaultSchedules }
+                                                                    }));
+                                                                }}
+                                                                className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                                            >
+                                                                ⚡ Initialiser
+                                                            </button>
+                                                            <button
+                                                                onClick={() => {
+                                                                    setFormData(prev => ({
+                                                                        ...prev,
+                                                                        horairesParJour: {}
+                                                                    }));
+                                                                }}
+                                                                className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+                                                            >
+                                                                🗑️ Effacer
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-7 gap-2">
+                                                        {getAllDays().map(day => {
+                                                            const daySchedule = formData.horairesParJour[day.dateString];
+                                                            const is24h = daySchedule?.mode === '24h';
+                                                            const isCustom = daySchedule !== undefined && daySchedule !== null;
+
+                                                            return (
+                                                                <div
+                                                                    key={day.dateString}
+                                                                    className={`p-2 border rounded text-center cursor-pointer transition-all ${
+                                                                        day.isExplicitlyExcluded
+                                                                            ? 'bg-red-100 border-red-300 text-red-700'
+                                                                            : !day.included
+                                                                                ? 'bg-gray-100 border-gray-300 text-gray-500'
+                                                                                : is24h
+                                                                                    ? 'bg-purple-100 border-purple-300 text-purple-700'
+                                                                                    : isCustom
+                                                                                        ? 'bg-blue-100 border-blue-300 text-blue-700'
+                                                                                        : day.isWeekend
+                                                                                            ? 'bg-orange-50 border-orange-200 text-orange-700'
+                                                                                            : 'bg-green-50 border-green-200 text-green-700 hover:bg-green-100'
+                                                                    }`}
+                                                                    onClick={() => setSelectedDay(day.dateString)}
+                                                                >
+                                                                    <div className="text-xs font-medium">{day.dayName}</div>
+                                                                    <div className="text-lg font-bold">{day.dayNumber}</div>
+                                                                    {isCustom && (
+                                                                        <div className="text-xs mt-1">
+                                                                            {is24h ? '24h' : `${daySchedule.heureDebut}-${daySchedule.heureFin}`}
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="flex justify-center gap-1 mt-1">
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                toggleDay24h(day.dateString);
+                                                                            }}
+                                                                            className={`w-4 h-4 rounded text-xs ${
+                                                                                is24h ? 'bg-purple-500 text-white' : 'bg-gray-300 hover:bg-purple-300'
+                                                                            }`}
+                                                                            title={is24h ? 'Mode 24h actif' : 'Activer mode 24h'}
+                                                                        >
+                                                                            {is24h ? '✓' : '24'}
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                toggleDayInclusion(day.dateString);
+                                                                            }}
+                                                                            className={`w-4 h-4 rounded text-xs ${
+                                                                                day.included ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                                                                            }`}
+                                                                            title={day.included ? 'Jour inclus' : 'Jour exclu'}
+                                                                        >
+                                                                            {day.included ? '✓' : '✗'}
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                {/* Détail du jour sélectionné */}
+                                                {selectedDay && (
+                                                    <div className="bg-gray-50 p-4 rounded-lg">
+                                                        <h6 className="font-medium text-gray-700 mb-3">
+                                                            Détail pour {getAllDays().find(d => d.dateString === selectedDay)?.dayName} {getAllDays().find(d => d.dateString === selectedDay)?.dayNumber}
+                                                        </h6>
+
+                                                        {/* Assignations personnel pour ce jour */}
+                                                        <div className="space-y-3">
+                                                            <div>
+                                                                <h6 className="text-sm font-medium text-gray-600 mb-2">
+                                                                    Personnel assigné ({getAssignedPersonnelForDay(selectedDay).length})
+                                                                </h6>
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                                    {getAssignedPersonnelForDay(selectedDay).map(person => (
+                                                                        <div
+                                                                            key={person.id}
+                                                                            onClick={() => togglePersonnelForDay(selectedDay, person.id)}
+                                                                            className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded cursor-pointer hover:bg-red-50 hover:border-red-300 transition-colors"
+                                                                            title="Cliquer pour retirer de ce jour"
+                                                                        >
+                                                                            <div className="flex-1">
+                                                                                <div className="font-medium text-sm">
+                                                                                    {person.prenom ? `${person.prenom} ${person.nom}` : person.nom}
+                                                                                </div>
+                                                                                <div className="text-xs text-gray-600">{person.poste}</div>
+                                                                            </div>
+                                                                            <div className="text-green-600">✓</div>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+
+                                                                {/* Personnel disponible à ajouter */}
+                                                                {personnel && personnel.length > 0 && (
+                                                                    <div className="mt-3">
+                                                                        <h6 className="text-sm font-medium text-gray-600 mb-2">Ajouter du personnel</h6>
+                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                                            {personnel
+                                                                                .filter(person => !getAssignedPersonnelForDay(selectedDay).find(ap => ap.id === person.id))
+                                                                                .map(person => (
+                                                                                    <div
+                                                                                        key={person.id}
+                                                                                        onClick={() => togglePersonnelForDay(selectedDay, person.id)}
+                                                                                        className="flex items-center justify-between p-2 bg-gray-50 border border-gray-200 rounded cursor-pointer hover:bg-green-50 hover:border-green-300 transition-colors"
+                                                                                        title="Cliquer pour assigner à ce jour"
+                                                                                    >
+                                                                                        <div className="flex-1">
+                                                                                            <div className="font-medium text-sm">
+                                                                                                {person.prenom ? `${person.prenom} ${person.nom}` : person.nom}
+                                                                                            </div>
+                                                                                            <div className="text-xs text-gray-600">{person.poste}</div>
+                                                                                        </div>
+                                                                                        <div className="text-gray-400">+</div>
+                                                                                    </div>
+                                                                                ))
+                                                                            }
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Résumé des ressources */}
                                     {(formData.personnel?.length > 0 || formData.equipements?.length > 0 || formData.sousTraitants?.length > 0) && (
