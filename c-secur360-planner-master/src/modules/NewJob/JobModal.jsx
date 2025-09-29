@@ -196,27 +196,119 @@ export function JobModal({
         return scale;
     };
 
-    const addNewTask = () => {
+    // Fonctions WBS avancées
+    const generateWBSCode = (taskId, tasks) => {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return '';
+
+        if (!task.parentId) {
+            // Tâche de niveau racine
+            const rootTasks = tasks.filter(t => !t.parentId);
+            const index = rootTasks.findIndex(t => t.id === taskId) + 1;
+            return index.toString();
+        } else {
+            // Sous-tâche
+            const siblings = tasks.filter(t => t.parentId === task.parentId);
+            const index = siblings.findIndex(t => t.id === taskId) + 1;
+            const parentCode = generateWBSCode(task.parentId, tasks);
+            return `${parentCode}.${index}`;
+        }
+    };
+
+    const calculateWorkPackageEffort = (taskId, tasks) => {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return 0;
+
+        const children = tasks.filter(t => t.parentId === taskId);
+        if (children.length === 0) {
+            // Tâche feuille - retourner sa propre durée
+            return task.duration || 0;
+        } else {
+            // Tâche parent - sommer les efforts des enfants
+            return children.reduce((total, child) =>
+                total + calculateWorkPackageEffort(child.id, tasks), 0
+            );
+        }
+    };
+
+    const generateProjectDecomposition = (rootTaskId, tasks) => {
+        const decomposition = [];
+        const rootTask = tasks.find(t => t.id === rootTaskId);
+        if (!rootTask) return decomposition;
+
+        const processTask = (task, level = 0) => {
+            const wbsCode = generateWBSCode(task.id, tasks);
+            const effort = calculateWorkPackageEffort(task.id, tasks);
+            const children = tasks.filter(t => t.parentId === task.id);
+
+            decomposition.push({
+                id: task.id,
+                name: task.name,
+                wbsCode,
+                level,
+                effort,
+                isWorkPackage: children.length === 0,
+                childCount: children.length,
+                description: task.description || '',
+                deliverables: task.deliverables || [],
+                acceptanceCriteria: task.acceptanceCriteria || [],
+                skills: task.requiredSkills || []
+            });
+
+            children.forEach(child => processTask(child, level + 1));
+        };
+
+        processTask(rootTask);
+        return decomposition;
+    };
+
+    const addNewTask = (parentId = null) => {
+        const level = parentId ? calculateTaskLevel(parentId, formData.etapes) + 1 : 0;
         const lastTask = formData.etapes[formData.etapes.length - 1];
-        const nextStartHour = lastTask ? lastTask.startHour + lastTask.duration : 0;
+        const nextStartHour = lastTask ? lastTask.startHour + (lastTask.duration || 1) : 0;
 
         const newTask = {
             id: Date.now().toString(),
-            name: 'Nouvelle tâche',
-            duration: 8,
+            name: parentId ? 'Nouvelle sous-tâche' : 'Nouvelle tâche',
+            duration: level > 0 ? 4 : 8, // Sous-tâches plus courtes par défaut
             startHour: nextStartHour,
             description: '',
             priority: 'normale',
             status: 'planifie',
             resources: [],
-            dependencies: []
+            dependencies: [],
+            parallelWith: [],
+            assignedResources: { personnel: [], equipements: [], equipes: [], sousTraitants: [] },
+            parentId: parentId,
+            level: level,
+            // Propriétés WBS avancées
+            wbsCode: '', // Calculé automatiquement
+            deliverables: [], // Livrables attendus
+            acceptanceCriteria: [], // Critères d'acceptation
+            requiredSkills: [], // Compétences requises
+            riskLevel: 'faible', // Niveau de risque
+            complexity: 'simple', // Complexité (simple, modérée, complexe)
+            estimationMethod: 'expert', // Méthode d'estimation (expert, analogique, paramétrique)
+            confidenceLevel: 'moyenne', // Niveau de confiance (faible, moyenne, élevée)
+            assumptions: [], // Hypothèses
+            constraints: [], // Contraintes
+            workPackageType: level > 2 ? 'executable' : 'planification' // Type de paquet de travail
         };
-        setFormData(prev => ({
-            ...prev,
-            etapes: [...prev.etapes, newTask]
-        }));
 
-        addNotification?.('Nouvelle tâche ajoutée au planning', 'success');
+        setFormData(prev => {
+            const newEtapes = [...prev.etapes, newTask];
+            // Recalculer les codes WBS pour toutes les tâches
+            newEtapes.forEach(task => {
+                task.wbsCode = generateWBSCode(task.id, newEtapes);
+            });
+            return {
+                ...prev,
+                etapes: newEtapes
+            };
+        });
+
+        addNotification?.(`${parentId ? 'Sous-tâche' : 'Tâche'} ajoutée au planning WBS`, 'success');
+        return newTask;
     };
 
     const updateTask = (taskId, updates) => {
@@ -735,6 +827,202 @@ export function JobModal({
         addNotification?.('Baseline sauvegardée avec succès', 'success');
     };
 
+    // Templates WBS prédéfinis
+    const WBS_TEMPLATES = {
+        construction: {
+            name: 'Projet de Construction/Sécurité',
+            phases: [
+                {
+                    name: 'Phase 1 - Planification',
+                    tasks: [
+                        { name: 'Étude de faisabilité', duration: 16, skills: ['analyse', 'expertise technique'] },
+                        { name: 'Conception préliminaire', duration: 24, skills: ['conception', 'dessin technique'] },
+                        { name: 'Évaluation des risques', duration: 8, skills: ['sécurité', 'analyse de risque'] }
+                    ]
+                },
+                {
+                    name: 'Phase 2 - Préparation',
+                    tasks: [
+                        { name: 'Obtention des permis', duration: 40, skills: ['réglementation', 'administration'] },
+                        { name: 'Commande matériaux', duration: 8, skills: ['approvisionnement', 'logistique'] },
+                        { name: 'Préparation du site', duration: 16, skills: ['préparation terrain', 'sécurité'] }
+                    ]
+                },
+                {
+                    name: 'Phase 3 - Réalisation',
+                    tasks: [
+                        { name: 'Installation systèmes', duration: 64, skills: ['installation', 'technique'] },
+                        { name: 'Tests et contrôles', duration: 24, skills: ['tests', 'contrôle qualité'] },
+                        { name: 'Formation utilisateurs', duration: 16, skills: ['formation', 'communication'] }
+                    ]
+                }
+            ]
+        },
+        maintenance: {
+            name: 'Maintenance Préventive',
+            phases: [
+                {
+                    name: 'Inspection',
+                    tasks: [
+                        { name: 'Diagnostic initial', duration: 4, skills: ['diagnostic', 'expertise'] },
+                        { name: 'Liste des points à vérifier', duration: 2, skills: ['planification', 'documentation'] }
+                    ]
+                },
+                {
+                    name: 'Maintenance',
+                    tasks: [
+                        { name: 'Nettoyage et lubrification', duration: 8, skills: ['maintenance', 'mécanique'] },
+                        { name: 'Remplacement pièces', duration: 12, skills: ['réparation', 'technique'] },
+                        { name: 'Tests de fonctionnement', duration: 4, skills: ['tests', 'contrôle'] }
+                    ]
+                }
+            ]
+        }
+    };
+
+    const applyWBSTemplate = (templateKey) => {
+        const template = WBS_TEMPLATES[templateKey];
+        if (!template) return;
+
+        const newTasks = [];
+        let currentStartHour = 0;
+
+        template.phases.forEach((phase, phaseIndex) => {
+            // Créer la tâche de phase (parent)
+            const phaseTask = {
+                id: `phase_${Date.now()}_${phaseIndex}`,
+                name: phase.name,
+                duration: phase.tasks.reduce((sum, task) => sum + task.duration, 0),
+                startHour: currentStartHour,
+                description: `Phase du projet: ${phase.name}`,
+                priority: 'haute',
+                status: 'planifie',
+                resources: [],
+                dependencies: phaseIndex > 0 ? [`phase_${Date.now()}_${phaseIndex - 1}`] : [],
+                parallelWith: [],
+                assignedResources: { personnel: [], equipements: [], equipes: [], sousTraitants: [] },
+                parentId: null,
+                level: 0,
+                wbsCode: (phaseIndex + 1).toString(),
+                deliverables: [],
+                acceptanceCriteria: [],
+                requiredSkills: [],
+                riskLevel: 'moyenne',
+                complexity: 'modérée',
+                estimationMethod: 'analogique',
+                confidenceLevel: 'élevée',
+                assumptions: [],
+                constraints: [],
+                workPackageType: 'planification'
+            };
+            newTasks.push(phaseTask);
+
+            let taskStartHour = currentStartHour;
+
+            // Créer les sous-tâches
+            phase.tasks.forEach((task, taskIndex) => {
+                const subTask = {
+                    id: `task_${Date.now()}_${phaseIndex}_${taskIndex}`,
+                    name: task.name,
+                    duration: task.duration,
+                    startHour: taskStartHour,
+                    description: `Tâche: ${task.name}`,
+                    priority: 'normale',
+                    status: 'planifie',
+                    resources: [],
+                    dependencies: taskIndex > 0 ? [`task_${Date.now()}_${phaseIndex}_${taskIndex - 1}`] : [],
+                    parallelWith: [],
+                    assignedResources: { personnel: [], equipements: [], equipes: [], sousTraitants: [] },
+                    parentId: phaseTask.id,
+                    level: 1,
+                    wbsCode: `${phaseIndex + 1}.${taskIndex + 1}`,
+                    deliverables: [],
+                    acceptanceCriteria: [],
+                    requiredSkills: task.skills || [],
+                    riskLevel: 'faible',
+                    complexity: 'simple',
+                    estimationMethod: 'expert',
+                    confidenceLevel: 'moyenne',
+                    assumptions: [],
+                    constraints: [],
+                    workPackageType: 'executable'
+                };
+                newTasks.push(subTask);
+                taskStartHour += task.duration;
+            });
+
+            currentStartHour += phaseTask.duration;
+        });
+
+        setFormData(prev => ({
+            ...prev,
+            etapes: [...prev.etapes, ...newTasks]
+        }));
+
+        addNotification?.(`Template WBS "${template.name}" appliqué avec succès`, 'success');
+    };
+
+    const generateWorkPackageReport = () => {
+        const allTasks = formData.etapes;
+        const report = {
+            totalTasks: allTasks.length,
+            workPackages: allTasks.filter(t => t.workPackageType === 'executable').length,
+            planningPackages: allTasks.filter(t => t.workPackageType === 'planification').length,
+            totalEffort: allTasks.reduce((sum, task) => sum + (task.duration || 0), 0),
+            riskDistribution: {
+                faible: allTasks.filter(t => t.riskLevel === 'faible').length,
+                moyenne: allTasks.filter(t => t.riskLevel === 'moyenne').length,
+                elevee: allTasks.filter(t => t.riskLevel === 'élevée').length
+            },
+            complexityDistribution: {
+                simple: allTasks.filter(t => t.complexity === 'simple').length,
+                moderee: allTasks.filter(t => t.complexity === 'modérée').length,
+                complexe: allTasks.filter(t => t.complexity === 'complexe').length
+            },
+            skillsRequired: [...new Set(allTasks.flatMap(t => t.requiredSkills || []))],
+            estimationMethods: {
+                expert: allTasks.filter(t => t.estimationMethod === 'expert').length,
+                analogique: allTasks.filter(t => t.estimationMethod === 'analogique').length,
+                parametrique: allTasks.filter(t => t.estimationMethod === 'paramétrique').length
+            }
+        };
+
+        return report;
+    };
+
+    const validateWBSStructure = () => {
+        const tasks = formData.etapes;
+        const issues = [];
+
+        // Vérifier l'intégrité des références parent-enfant
+        tasks.forEach(task => {
+            if (task.parentId && !tasks.find(t => t.id === task.parentId)) {
+                issues.push(`Tâche "${task.name}" référence un parent inexistant`);
+            }
+        });
+
+        // Vérifier que les codes WBS sont uniques
+        const wbsCodes = tasks.map(t => t.wbsCode).filter(Boolean);
+        const duplicates = wbsCodes.filter((code, index) => wbsCodes.indexOf(code) !== index);
+        if (duplicates.length > 0) {
+            issues.push(`Codes WBS dupliqués: ${duplicates.join(', ')}`);
+        }
+
+        // Vérifier que les tâches parent ont une durée cohérente
+        tasks.filter(t => tasks.some(child => child.parentId === t.id)).forEach(parent => {
+            const children = tasks.filter(t => t.parentId === parent.id);
+            const childrenDuration = children.reduce((sum, child) => sum + (child.duration || 0), 0);
+            if (Math.abs(parent.duration - childrenDuration) > 0.1) {
+                issues.push(`Tâche parent "${parent.name}" a une durée incohérente avec ses enfants`);
+            }
+        });
+
+        return {
+            isValid: issues.length === 0,
+            issues
+        };
+    };
+
     const addSubTask = (parentId) => {
         return addNewTask(parentId);
     };
@@ -1002,6 +1290,55 @@ export function JobModal({
                                                 >
                                                     ➕ Ajouter une tâche
                                                 </button>
+                                                {/* Templates WBS */}
+                                                <div className="relative">
+                                                    <select
+                                                        onChange={(e) => {
+                                                            if (e.target.value) {
+                                                                applyWBSTemplate(e.target.value);
+                                                                e.target.value = '';
+                                                            }
+                                                        }}
+                                                        className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm appearance-none pr-8"
+                                                    >
+                                                        <option value="">📋 Templates WBS</option>
+                                                        <option value="construction">🏗️ Construction/Sécurité</option>
+                                                        <option value="maintenance">🔧 Maintenance Préventive</option>
+                                                    </select>
+                                                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none text-white">
+                                                        ▼
+                                                    </div>
+                                                </div>
+
+                                                <button
+                                                    onClick={() => {
+                                                        const validation = validateWBSStructure();
+                                                        if (validation.isValid) {
+                                                            addNotification?.('Structure WBS valide ✅', 'success');
+                                                        } else {
+                                                            addNotification?.(`Problèmes WBS: ${validation.issues.join(', ')}`, 'error');
+                                                        }
+                                                    }}
+                                                    className="px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center gap-2 text-sm"
+                                                >
+                                                    ✅ Valider WBS
+                                                </button>
+
+                                                <button
+                                                    onClick={() => {
+                                                        const report = generateWorkPackageReport();
+                                                        const message = `📊 Rapport WBS:
+- ${report.totalTasks} tâches totales
+- ${report.workPackages} paquets de travail
+- ${report.totalEffort}h d'effort total
+- ${report.skillsRequired.length} compétences requises`;
+                                                        alert(message);
+                                                    }}
+                                                    className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm"
+                                                >
+                                                    📊 Rapport WBS
+                                                </button>
+
                                                 <button
                                                     onClick={() => {
                                                         const projectTemplate = [
@@ -1130,16 +1467,54 @@ export function JobModal({
                                                         const taskStart = (task.startHour || 0) / 8 * 100; // Position de départ
 
                                                         return (
-                                                            <div key={task.id} className="grid grid-cols-12 gap-2 p-3 hover:bg-gray-50">
-                                                                {/* Nom de la tâche */}
+                                                            <div key={task.id} className={`grid grid-cols-12 gap-2 p-3 hover:bg-gray-50 ${task.parentId ? 'bg-blue-50' : ''} ${task.workPackageType === 'executable' ? 'border-l-4 border-green-500' : 'border-l-4 border-blue-500'}`}>
+                                                                {/* WBS + Nom de la tâche */}
                                                                 <div className="col-span-4">
-                                                                    <input
-                                                                        type="text"
-                                                                        value={task.name || ''}
-                                                                        onChange={(e) => updateTask(task.id, { name: e.target.value })}
-                                                                        className="w-full text-sm border-none bg-transparent focus:bg-white focus:border focus:border-purple-300 rounded px-2 py-1"
-                                                                        placeholder="Nom de la tâche"
-                                                                    />
+                                                                    <div className="flex items-center gap-2">
+                                                                        {/* Code WBS */}
+                                                                        <div className="flex-shrink-0">
+                                                                            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded font-mono">
+                                                                                {task.wbsCode || generateWBSCode(task.id, formData.etapes)}
+                                                                            </span>
+                                                                        </div>
+
+                                                                        {/* Indentation hiérarchique */}
+                                                                        <div style={{ marginLeft: `${(task.level || 0) * 20}px` }} className="flex-1">
+                                                                            <input
+                                                                                type="text"
+                                                                                value={task.name || ''}
+                                                                                onChange={(e) => updateTask(task.id, { name: e.target.value })}
+                                                                                className="w-full text-sm border-none bg-transparent focus:bg-white focus:border focus:border-purple-300 rounded px-2 py-1"
+                                                                                placeholder="Nom de la tâche"
+                                                                            />
+
+                                                                            {/* Indicateurs WBS */}
+                                                                            <div className="flex items-center gap-1 mt-1">
+                                                                                {task.workPackageType === 'executable' && (
+                                                                                    <span className="text-xs bg-green-100 text-green-700 px-1 rounded">Exécutable</span>
+                                                                                )}
+                                                                                {task.complexity && task.complexity !== 'simple' && (
+                                                                                    <span className={`text-xs px-1 rounded ${
+                                                                                        task.complexity === 'complexe' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                                                                                    }`}>
+                                                                                        {task.complexity}
+                                                                                    </span>
+                                                                                )}
+                                                                                {task.riskLevel && task.riskLevel !== 'faible' && (
+                                                                                    <span className={`text-xs px-1 rounded ${
+                                                                                        task.riskLevel === 'élevée' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
+                                                                                    }`}>
+                                                                                        ⚠️ {task.riskLevel}
+                                                                                    </span>
+                                                                                )}
+                                                                                {task.requiredSkills && task.requiredSkills.length > 0 && (
+                                                                                    <span className="text-xs bg-blue-100 text-blue-700 px-1 rounded" title={`Compétences: ${task.requiredSkills.join(', ')}`}>
+                                                                                        🎯 {task.requiredSkills.length}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
 
                                                                 {/* Durée */}
