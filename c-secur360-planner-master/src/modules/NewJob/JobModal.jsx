@@ -98,6 +98,7 @@ export function JobModal({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [ganttFullscreen, setGanttFullscreen] = useState(false);
     const [ganttCompactMode, setGanttCompactMode] = useState(false);
+    const [newSousTraitant, setNewSousTraitant] = useState('');
 
     // Initialisation des données si c'est un job existant
     useEffect(() => {
@@ -219,6 +220,63 @@ export function JobModal({
         setFormData(prev => ({
             ...prev,
             etapes: prev.etapes.filter(task => task.id !== taskId)
+        }));
+    };
+
+    // Gestionnaires de ressources
+    const toggleResource = (resourceId, resourceType) => {
+        setFormData(prev => {
+            const currentList = prev[resourceType] || [];
+            return {
+                ...prev,
+                [resourceType]: currentList.includes(resourceId)
+                    ? currentList.filter(id => id !== resourceId)
+                    : [...currentList, resourceId]
+            };
+        });
+    };
+
+    const togglePersonnel = (personnelId) => toggleResource(personnelId, 'personnel');
+    const toggleEquipement = (equipementId) => toggleResource(equipementId, 'equipements');
+    const toggleSousTraitant = (sousTraitantId) => toggleResource(sousTraitantId, 'sousTraitants');
+
+    const handleAddSousTraitant = () => {
+        if (newSousTraitant.trim()) {
+            const newId = addSousTraitant(newSousTraitant);
+            if (newId) {
+                setFormData(prev => ({
+                    ...prev,
+                    sousTraitants: [...(prev.sousTraitants || []), newId]
+                }));
+                setNewSousTraitant('');
+                addNotification?.(`Sous-traitant "${newSousTraitant}" ajouté avec succès`, 'success');
+            }
+        }
+    };
+
+    const isResourceAvailable = (resourceId, resourceType, dateDebut, dateFin) => {
+        // Logique de base pour vérifier la disponibilité
+        // Dans une version complète, ceci vérifierait les conflits avec d'autres jobs
+        return true;
+    };
+
+    const checkResourceConflicts = (resourceId, resourceType, dateDebut, dateFin, excludeJobId = null) => {
+        // Logique de base pour détecter les conflits
+        // Dans une version complète, ceci retournerait une liste des conflits détectés
+        return [];
+    };
+
+    const handleFilesAdded = (files, type) => {
+        setFormData(prev => ({
+            ...prev,
+            [type]: [...prev[type], ...files]
+        }));
+    };
+
+    const removeFile = (index, type) => {
+        setFormData(prev => ({
+            ...prev,
+            [type]: prev[type].filter((_, i) => i !== index)
         }));
     };
 
@@ -666,22 +724,313 @@ export function JobModal({
 
                         {/* Onglet Ressources */}
                         {activeTab === 'resources' && (
-                            <div className="p-6 h-full flex items-center justify-center">
-                                <div className="text-center">
-                                    <div className="text-6xl mb-4">👥</div>
-                                    <h3 className="text-xl font-semibold text-gray-700 mb-2">Gestion des Ressources</h3>
-                                    <p className="text-gray-500">Personnel, équipements et planification</p>
+                            <div className="h-full overflow-y-auto p-6">
+                                <div className="space-y-6">
+                                    {/* Header Ressources */}
+                                    <div className="flex items-center gap-4 p-4 bg-gray-900 rounded-lg">
+                                        <Logo size="normal" showText={false} />
+                                        <div>
+                                            <h3 className="text-lg font-bold text-white flex items-center">
+                                                👥 Gestion des Ressources
+                                            </h3>
+                                            <p className="text-sm text-gray-300">
+                                                Assignment du personnel et des équipements
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Personnel */}
+                                    <div className="bg-white border rounded-lg overflow-hidden">
+                                        <div className="bg-blue-50 p-4 border-b">
+                                            <h4 className="font-medium text-blue-800 flex items-center gap-2">
+                                                👤 Personnel ({formData.personnel?.length || 0} assigné{(formData.personnel?.length || 0) > 1 ? 's' : ''})
+                                            </h4>
+                                        </div>
+                                        <div className="p-4">
+                                            {personnel && personnel.length > 0 ? (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                    {personnel.map(person => {
+                                                        const isSelected = formData.personnel?.includes(person.id);
+                                                        const isAvailable = isResourceAvailable(person.id, 'personnel', formData.dateDebut, formData.dateFin);
+
+                                                        return (
+                                                            <div
+                                                                key={person.id}
+                                                                onClick={() => togglePersonnel(person.id)}
+                                                                className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                                                                    isSelected
+                                                                        ? 'bg-blue-50 border-blue-300 ring-2 ring-blue-200'
+                                                                        : isAvailable
+                                                                            ? 'bg-gray-50 border-gray-200 hover:bg-blue-50 hover:border-blue-300'
+                                                                            : 'bg-red-50 border-red-200 opacity-60'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-start justify-between">
+                                                                    <div className="flex-1">
+                                                                        <div className="font-medium text-sm">
+                                                                            {person.prenom ? `${person.prenom} ${person.nom}` : person.nom}
+                                                                        </div>
+                                                                        <div className="text-xs text-gray-600 mt-1">{person.poste}</div>
+                                                                        <div className="text-xs text-gray-500">{person.succursale}</div>
+                                                                    </div>
+                                                                    <div className="ml-2">
+                                                                        {isSelected ? (
+                                                                            <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
+                                                                                <span className="text-white text-xs">✓</span>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="w-5 h-5 border-2 border-gray-300 rounded-full"></div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-8 text-gray-500">
+                                                    <div className="text-4xl mb-2">👤</div>
+                                                    <p>Aucun personnel disponible</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Équipements */}
+                                    <div className="bg-white border rounded-lg overflow-hidden">
+                                        <div className="bg-green-50 p-4 border-b">
+                                            <h4 className="font-medium text-green-800 flex items-center gap-2">
+                                                🔧 Équipements ({formData.equipements?.length || 0} assigné{(formData.equipements?.length || 0) > 1 ? 's' : ''})
+                                            </h4>
+                                        </div>
+                                        <div className="p-4">
+                                            {equipements && equipements.length > 0 ? (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                    {equipements.map(equipment => {
+                                                        const isSelected = formData.equipements?.includes(equipment.id);
+                                                        const isAvailable = isResourceAvailable(equipment.id, 'equipement', formData.dateDebut, formData.dateFin);
+
+                                                        return (
+                                                            <div
+                                                                key={equipment.id}
+                                                                onClick={() => toggleEquipement(equipment.id)}
+                                                                className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                                                                    isSelected
+                                                                        ? 'bg-green-50 border-green-300 ring-2 ring-green-200'
+                                                                        : isAvailable
+                                                                            ? 'bg-gray-50 border-gray-200 hover:bg-green-50 hover:border-green-300'
+                                                                            : 'bg-red-50 border-red-200 opacity-60'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-start justify-between">
+                                                                    <div className="flex-1">
+                                                                        <div className="font-medium text-sm">{equipment.nom}</div>
+                                                                        <div className="text-xs text-gray-600 mt-1">{equipment.type}</div>
+                                                                        <div className="text-xs text-gray-500">{equipment.succursale}</div>
+                                                                    </div>
+                                                                    <div className="ml-2">
+                                                                        {isSelected ? (
+                                                                            <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                                                                <span className="text-white text-xs">✓</span>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="w-5 h-5 border-2 border-gray-300 rounded-full"></div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-8 text-gray-500">
+                                                    <div className="text-4xl mb-2">🔧</div>
+                                                    <p>Aucun équipement disponible</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Sous-traitants */}
+                                    <div className="bg-white border rounded-lg overflow-hidden">
+                                        <div className="bg-purple-50 p-4 border-b">
+                                            <h4 className="font-medium text-purple-800 flex items-center gap-2">
+                                                🏢 Sous-traitants ({formData.sousTraitants?.length || 0} assigné{(formData.sousTraitants?.length || 0) > 1 ? 's' : ''})
+                                            </h4>
+                                        </div>
+                                        <div className="p-4">
+                                            {/* Ajouter nouveau sous-traitant */}
+                                            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        value={newSousTraitant}
+                                                        onChange={(e) => setNewSousTraitant(e.target.value)}
+                                                        placeholder="Nom du nouveau sous-traitant"
+                                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                        onKeyPress={(e) => e.key === 'Enter' && handleAddSousTraitant()}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleAddSousTraitant}
+                                                        disabled={!newSousTraitant.trim()}
+                                                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        ➕ Ajouter
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {sousTraitants && sousTraitants.length > 0 ? (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                    {sousTraitants.map(sousTraitant => {
+                                                        const isSelected = formData.sousTraitants?.includes(sousTraitant.id);
+
+                                                        return (
+                                                            <div
+                                                                key={sousTraitant.id}
+                                                                onClick={() => toggleSousTraitant(sousTraitant.id)}
+                                                                className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                                                                    isSelected
+                                                                        ? 'bg-purple-50 border-purple-300 ring-2 ring-purple-200'
+                                                                        : 'bg-gray-50 border-gray-200 hover:bg-purple-50 hover:border-purple-300'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-start justify-between">
+                                                                    <div className="flex-1">
+                                                                        <div className="font-medium text-sm">{sousTraitant.nom}</div>
+                                                                        <div className="text-xs text-gray-600 mt-1">{sousTraitant.specialite}</div>
+                                                                        <div className="text-xs text-gray-500">{sousTraitant.contact}</div>
+                                                                    </div>
+                                                                    <div className="ml-2">
+                                                                        {isSelected ? (
+                                                                            <div className="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                                                                                <span className="text-white text-xs">✓</span>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="w-5 h-5 border-2 border-gray-300 rounded-full"></div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-8 text-gray-500">
+                                                    <div className="text-4xl mb-2">🏢</div>
+                                                    <p>Aucun sous-traitant disponible</p>
+                                                    <p className="text-sm mt-1">Ajoutez-en un ci-dessus</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Résumé des ressources */}
+                                    {(formData.personnel?.length > 0 || formData.equipements?.length > 0 || formData.sousTraitants?.length > 0) && (
+                                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                            <h4 className="font-medium text-gray-800 mb-3">📊 Résumé des ressources assignées</h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                                                <div className="text-center">
+                                                    <div className="text-2xl font-bold text-blue-600">{formData.personnel?.length || 0}</div>
+                                                    <div className="text-gray-600">Personnel</div>
+                                                </div>
+                                                <div className="text-center">
+                                                    <div className="text-2xl font-bold text-green-600">{formData.equipements?.length || 0}</div>
+                                                    <div className="text-gray-600">Équipements</div>
+                                                </div>
+                                                <div className="text-center">
+                                                    <div className="text-2xl font-bold text-purple-600">{formData.sousTraitants?.length || 0}</div>
+                                                    <div className="text-gray-600">Sous-traitants</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
 
                         {/* Onglet Fichiers */}
                         {activeTab === 'files' && (
-                            <div className="p-6 h-full flex items-center justify-center">
-                                <div className="text-center">
-                                    <div className="text-6xl mb-4">📎</div>
-                                    <h3 className="text-xl font-semibold text-gray-700 mb-2">Gestion des Fichiers</h3>
-                                    <p className="text-gray-500">Documents et photos du projet</p>
+                            <div className="h-full overflow-y-auto p-6">
+                                <div className="space-y-6">
+                                    {/* Header Fichiers */}
+                                    <div className="flex items-center gap-4 p-4 bg-gray-900 rounded-lg">
+                                        <Logo size="normal" showText={false} />
+                                        <div>
+                                            <h3 className="text-lg font-bold text-white flex items-center">
+                                                📁 Gestion des Documents
+                                            </h3>
+                                            <p className="text-sm text-gray-300">
+                                                Fichiers, photos et documents du projet
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Documents */}
+                                    <div className="bg-white border rounded-lg overflow-hidden">
+                                        <div className="bg-blue-50 p-4 border-b">
+                                            <h4 className="font-medium text-blue-800 flex items-center gap-2">
+                                                📄 Documents ({formData.documents?.length || 0})
+                                            </h4>
+                                        </div>
+                                        <div className="p-4">
+                                            <DropZone
+                                                onFilesSelected={(files) => handleFilesAdded(files, 'documents')}
+                                                accept="*"
+                                                multiple={true}
+                                            />
+                                            {formData.documents && formData.documents.length > 0 && (
+                                                <div className="mt-4">
+                                                    <FilePreview
+                                                        files={formData.documents}
+                                                        onRemove={(index) => removeFile(index, 'documents')}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Photos */}
+                                    <div className="bg-white border rounded-lg overflow-hidden">
+                                        <div className="bg-green-50 p-4 border-b">
+                                            <h4 className="font-medium text-green-800 flex items-center gap-2">
+                                                📷 Photos ({formData.photos?.length || 0})
+                                            </h4>
+                                        </div>
+                                        <div className="p-4">
+                                            <DropZone
+                                                onFilesSelected={(files) => handleFilesAdded(files, 'photos')}
+                                                accept="image/*"
+                                                multiple={true}
+                                            />
+                                            {formData.photos && formData.photos.length > 0 && (
+                                                <div className="mt-4">
+                                                    <FilePreview
+                                                        files={formData.photos}
+                                                        onRemove={(index) => removeFile(index, 'photos')}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Résumé des fichiers */}
+                                    {((formData.documents?.length || 0) + (formData.photos?.length || 0)) > 0 && (
+                                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                            <h4 className="font-medium text-gray-800 mb-3">📊 Résumé des fichiers</h4>
+                                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                                <div className="text-center">
+                                                    <div className="text-2xl font-bold text-blue-600">{formData.documents?.length || 0}</div>
+                                                    <div className="text-gray-600">Documents</div>
+                                                </div>
+                                                <div className="text-center">
+                                                    <div className="text-2xl font-bold text-green-600">{formData.photos?.length || 0}</div>
+                                                    <div className="text-gray-600">Photos</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
