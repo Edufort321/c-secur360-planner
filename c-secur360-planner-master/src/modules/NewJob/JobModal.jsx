@@ -93,19 +93,106 @@ export function JobModal({
         resourcesPersonnaliseeParJour: {}
     });
 
+    // États avancés manquants du backup
+    const [expandedSections, setExpandedSections] = useState({
+        etapes: false,
+        preparation: false
+    });
+
+    const [modificationMode, setModificationMode] = useState('groupe');
+    const [ressourceIndividuelle, setRessourceIndividuelle] = useState(null);
+    const [typeRessourceIndividuelle, setTypeRessourceIndividuelle] = useState('personnel');
+    const [modificationsIndividuelles, setModificationsIndividuelles] = useState({});
+    const [newSousTraitant, setNewSousTraitant] = useState('');
+
     // États pour l'interface utilisateur
     const [activeTab, setActiveTab] = useState('form');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [ganttFullscreen, setGanttFullscreen] = useState(false);
     const [ganttCompactMode, setGanttCompactMode] = useState(false);
-    const [newSousTraitant, setNewSousTraitant] = useState('');
 
-    // États pour horaires hiérarchiques
-    const [selectedDay, setSelectedDay] = useState('');
-    const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
-    const [scheduleModalType, setScheduleModalType] = useState('');
+    // États pour la gestion des horaires hiérarchiques
+    const [showDailySchedules, setShowDailySchedules] = useState(false);
+    const [showTeamManagement, setShowTeamManagement] = useState(false);
+    const [dailyPersonnelTab, setDailyPersonnelTab] = useState('horaires'); // 'horaires', 'personnel', ou 'equipement'
+    const [selectedDay, setSelectedDay] = useState(null); // Jour sélectionné pour gestion personnel
+    const [personnelFilters, setPersonnelFilters] = useState({
+        poste: 'tous',
+        succursale: 'global',
+        showAll: false // false = seulement disponibles, true = tout le personnel
+    });
+
+    // États pour les actions rapides
+    const [showPersonnelQuickActions, setShowPersonnelQuickActions] = useState(false);
+    const [showAvailablePersonnelQuickActions, setShowAvailablePersonnelQuickActions] = useState(false);
+    const [showEquipementQuickActions, setShowEquipementQuickActions] = useState(false);
+    const [showAvailableEquipementQuickActions, setShowAvailableEquipementQuickActions] = useState(false);
+
+    // États pour les modals avancés
+    const [showScheduleModal, setShowScheduleModal] = useState(false);
+    const [scheduleModalType, setScheduleModalType] = useState(null); // 'personnel' ou 'equipement'
     const [selectedResource, setSelectedResource] = useState(null);
+    const [showStepConfigModal, setShowStepConfigModal] = useState(false);
+    const [selectedStep, setSelectedStep] = useState(null);
+
+    // Données Gantt avancées
+    const [ganttData, setGanttData] = useState({
+        tasks: [],
+        assignments: [],
+        mode: 'global'
+    });
+
+    // Constantes et données de référence avancées
+    const priorites = [
+        { value: 'faible', label: `🟢 Faible`, couleur: '#10B981' },
+        { value: 'normale', label: `🟡 Normale`, couleur: '#F59E0B' },
+        { value: 'haute', label: `🟠 Haute`, couleur: '#F97316' },
+        { value: 'urgente', label: `🔴 Urgente`, couleur: '#EF4444' }
+    ];
+
+    const statuts = [
+        { value: 'planifie', label: `📋 Planifié`, couleur: '#6B7280' },
+        { value: 'en_cours', label: `🔄 En cours`, couleur: '#3B82F6' },
+        { value: 'termine', label: `✅ Terminé`, couleur: '#10B981' },
+        { value: 'annule', label: `❌ Annulé`, couleur: '#EF4444' },
+        { value: 'reporte', label: `⏸️ Reporté`, couleur: '#F59E0B' }
+    ];
+
+    const bureaux = [
+        'MDL Sherbrooke', 'MDL Terrebonne', 'MDL Québec',
+        'DUAL Électrotech', 'CFM', 'Surplec'
+    ];
+
+    // Génération automatique du numéro de job
+    const generateJobNumber = useCallback(() => {
+        const year = new Date().getFullYear();
+        const month = String(new Date().getMonth() + 1).padStart(2, '0');
+        const existingNumbers = (jobs || [])
+            .filter(j => j.numeroJob?.startsWith(`G${year.toString().slice(-2)}-${month}`))
+            .map(j => parseInt(j.numeroJob.split('-')[1]) || 0);
+        const nextNumber = Math.max(0, ...existingNumbers) + 1;
+        return `G${year.toString().slice(-2)}-${month}${String(nextNumber).padStart(2, '0')}`;
+    }, [jobs]);
     const [dailyPersonnelTab, setDailyPersonnelTab] = useState('assigned');
+
+    // Effect pour forcer l'onglet Gantt en mode mobile
+    useEffect(() => {
+        const handleResize = () => {
+            const isMobile = window.innerWidth < 640; // sm breakpoint
+            if (isMobile && activeTab !== 'gantt') {
+                setActiveTab('gantt');
+            }
+        };
+
+        // Vérifier au chargement
+        handleResize();
+
+        // Ajouter le listener
+        window.addEventListener('resize', handleResize);
+
+        // Nettoyer
+        return () => window.removeEventListener('resize', handleResize);
+    }, [activeTab]);
 
     // Initialisation des données si c'est un job existant
     useEffect(() => {
@@ -1025,6 +1112,178 @@ export function JobModal({
 
     const addSubTask = (parentId) => {
         return addNewTask(parentId);
+    };
+
+    // ====== SYSTÈME DE DÉTECTION DE CONFLITS AVANCÉ ======
+
+    const checkResourceConflicts = (resourceId, resourceType, dateDebut, dateFin, excludeJobId = null) => {
+        const conflicts = [];
+        const startDate = new Date(dateDebut);
+        const endDate = new Date(dateFin);
+
+        // Vérifier les conflits avec d'autres jobs
+        (jobs || []).forEach(job => {
+            if (excludeJobId && job.id === excludeJobId) return;
+
+            const jobStart = new Date(job.dateDebut);
+            const jobEnd = new Date(job.dateFin);
+
+            // Vérifier le chevauchement de dates
+            const hasDateOverlap = startDate < jobEnd && endDate > jobStart;
+
+            if (hasDateOverlap) {
+                let hasResourceConflict = false;
+
+                // Vérifier selon le type de ressource
+                if (resourceType === 'personnel' && job.personnel?.includes(resourceId)) {
+                    hasResourceConflict = true;
+                } else if (resourceType === 'equipement' && job.equipements?.includes(resourceId)) {
+                    hasResourceConflict = true;
+                } else if (resourceType === 'sousTraitant' && job.sousTraitants?.includes(resourceId)) {
+                    hasResourceConflict = true;
+                }
+
+                if (hasResourceConflict) {
+                    conflicts.push({
+                        type: 'job',
+                        priority: 'high',
+                        jobId: job.id,
+                        jobNom: job.nom,
+                        dateDebut: job.dateDebut,
+                        dateFin: job.dateFin,
+                        resourceType,
+                        resourceId,
+                        description: `Conflit avec le job: ${job.nom}`
+                    });
+                }
+            }
+        });
+
+        // Vérifier les conflits avec les congés
+        if (resourceType === 'personnel') {
+            (conges || []).forEach(conge => {
+                if (conge.personnelId !== resourceId) return;
+
+                const congeStart = new Date(conge.dateDebut);
+                const congeEnd = new Date(conge.dateFin);
+
+                const hasDateOverlap = startDate < congeEnd && endDate > congeStart;
+
+                if (hasDateOverlap) {
+                    conflicts.push({
+                        type: 'conge',
+                        priority: 'critical',
+                        congeId: conge.id,
+                        jobNom: `Congé ${conge.type || 'personnel'}`,
+                        dateDebut: conge.dateDebut,
+                        dateFin: conge.dateFin,
+                        resourceType,
+                        resourceId,
+                        description: `${conge.type || 'Congé'}: ${conge.raison || 'Non spécifié'}`
+                    });
+                }
+            });
+        }
+
+        // Vérifier les conflits avec les maintenances d'équipement
+        if (resourceType === 'equipement') {
+            const equipement = equipements?.find(e => e.id === resourceId);
+            if (equipement && equipement.maintenances) {
+                equipement.maintenances.forEach(maintenance => {
+                    const maintenanceStart = new Date(maintenance.dateDebut);
+                    const maintenanceEnd = new Date(maintenance.dateFin || maintenance.dateDebut);
+
+                    const hasDateOverlap = startDate < maintenanceEnd && endDate > maintenanceStart;
+
+                    if (hasDateOverlap) {
+                        conflicts.push({
+                            type: 'maintenance',
+                            priority: 'high',
+                            maintenanceId: maintenance.id,
+                            jobNom: `Maintenance ${maintenance.type || 'préventive'}`,
+                            dateDebut: maintenance.dateDebut,
+                            dateFin: maintenance.dateFin || maintenance.dateDebut,
+                            resourceType,
+                            resourceId,
+                            description: maintenance.description
+                        });
+                    }
+                });
+            }
+
+            // Vérifier aussi si l'équipement est hors service
+            if (equipement && equipement.statut === 'hors_service') {
+                conflicts.push({
+                    type: 'hors_service',
+                    priority: 'critical',
+                    jobNom: 'Équipement hors service',
+                    dateDebut: dateDebut,
+                    dateFin: dateFin,
+                    resourceType,
+                    resourceId,
+                    description: 'Cet équipement est actuellement hors service'
+                });
+            }
+        }
+
+        // Trier les conflits par priorité (critical > high > medium > normal)
+        return conflicts.sort((a, b) => {
+            const priorityOrder = { critical: 4, high: 3, medium: 2, normal: 1 };
+            return priorityOrder[b.priority] - priorityOrder[a.priority];
+        });
+    };
+
+    const isResourceAvailable = (resourceId, resourceType, dateDebut, dateFin) => {
+        const conflicts = checkResourceConflicts(resourceId, resourceType, dateDebut, dateFin, job?.id);
+        return conflicts.length === 0;
+    };
+
+    // Fonction pour obtenir tous les conflits de l'événement actuel
+    const getCurrentEventConflicts = () => {
+        if (!formData.dateDebut || !formData.dateFin) return [];
+
+        let allConflicts = [];
+
+        // Vérifier les conflits pour le personnel
+        formData.personnel?.forEach(personnelId => {
+            const conflicts = checkResourceConflicts(personnelId, 'personnel', formData.dateDebut, formData.dateFin, job?.id);
+            allConflicts = [...allConflicts, ...conflicts];
+        });
+
+        // Vérifier les conflits pour les équipements
+        formData.equipements?.forEach(equipementId => {
+            const conflicts = checkResourceConflicts(equipementId, 'equipement', formData.dateDebut, formData.dateFin, job?.id);
+            allConflicts = [...allConflicts, ...conflicts];
+        });
+
+        // Vérifier les conflits pour les sous-traitants
+        formData.sousTraitants?.forEach(sousTraitantId => {
+            const conflicts = checkResourceConflicts(sousTraitantId, 'sousTraitant', formData.dateDebut, formData.dateFin, job?.id);
+            allConflicts = [...allConflicts, ...conflicts];
+        });
+
+        return allConflicts;
+    };
+
+    const currentConflicts = getCurrentEventConflicts();
+
+    // Fonction pour personnaliser automatiquement l'événement selon les conflits prioritaires
+    const autoPersonalizeEventForConflicts = () => {
+        if (!formData.dateDebut || !formData.dateFin) return;
+
+        const highPriorityConflicts = currentConflicts.filter(c => c.priority === 'high' || c.priority === 'critical');
+
+        if (highPriorityConflicts.length > 0) {
+            // Basculer automatiquement en mode personnalisé
+            if (formData.horaireMode === 'global') {
+                setFormData(prev => ({
+                    ...prev,
+                    horaireMode: 'personnalise'
+                }));
+            }
+
+            addNotification?.(`${highPriorityConflicts.length} conflit(s) détecté(s) - Mode personnalisé activé`, 'warning');
+        }
     };
 
     const calculateTaskLevel = (taskId, tasks) => {
