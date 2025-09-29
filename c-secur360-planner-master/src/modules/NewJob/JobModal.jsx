@@ -560,6 +560,191 @@ export function JobModal({
         }
     };
 
+    // Fonctions avancées pour Gantt
+    const calculateCriticalPath = () => {
+        const tasks = formData.etapes.map(etape => ({
+            id: etape.id,
+            duration: etape.duration || 1,
+            dependencies: etape.dependencies || [],
+            earlyStart: 0,
+            earlyFinish: 0,
+            lateStart: 0,
+            lateFinish: 0,
+            slack: 0
+        }));
+
+        if (tasks.length === 0) return [];
+
+        // Forward Pass (Early Start/Finish)
+        const taskMap = {};
+        tasks.forEach(task => {
+            taskMap[task.id] = { ...task };
+        });
+
+        const calculateEarly = (taskId, visited = new Set()) => {
+            if (visited.has(taskId)) return;
+            visited.add(taskId);
+
+            const task = taskMap[taskId];
+            if (!task) return;
+
+            let maxEarlyFinish = 0;
+            if (task.dependencies && task.dependencies.length > 0) {
+                task.dependencies.forEach(dep => {
+                    calculateEarly(dep.id, visited);
+                    const depTask = taskMap[dep.id];
+                    if (depTask) {
+                        const depFinish = depTask.earlyFinish + (dep.lag || 0);
+                        maxEarlyFinish = Math.max(maxEarlyFinish, depFinish);
+                    }
+                });
+            }
+
+            task.earlyStart = maxEarlyFinish;
+            task.earlyFinish = task.earlyStart + task.duration;
+        };
+
+        tasks.forEach(task => calculateEarly(task.id));
+
+        // Backward Pass (Late Start/Finish)
+        const projectFinish = Math.max(...Object.values(taskMap).map(t => t.earlyFinish));
+
+        Object.values(taskMap).forEach(task => {
+            const hasSuccessors = tasks.some(t =>
+                t.dependencies && t.dependencies.some(dep => dep.id === task.id)
+            );
+            if (!hasSuccessors) {
+                task.lateFinish = projectFinish;
+                task.lateStart = task.lateFinish - task.duration;
+            }
+        });
+
+        const calculateLate = (taskId, visited = new Set()) => {
+            if (visited.has(taskId)) return;
+            visited.add(taskId);
+
+            const task = taskMap[taskId];
+            if (!task) return;
+
+            if (task.lateFinish === undefined) {
+                let minLateStart = Infinity;
+                tasks.forEach(t => {
+                    if (t.dependencies && t.dependencies.some(dep => dep.id === taskId)) {
+                        calculateLate(t.id, visited);
+                        const successorTask = taskMap[t.id];
+                        if (successorTask) {
+                            const dep = t.dependencies.find(d => d.id === taskId);
+                            const lag = dep ? (dep.lag || 0) : 0;
+                            minLateStart = Math.min(minLateStart, successorTask.lateStart - lag);
+                        }
+                    }
+                });
+
+                if (minLateStart !== Infinity) {
+                    task.lateFinish = minLateStart;
+                    task.lateStart = task.lateFinish - task.duration;
+                }
+            }
+        };
+
+        tasks.forEach(task => calculateLate(task.id));
+
+        // Calculate slack and identify critical path
+        Object.values(taskMap).forEach(task => {
+            task.slack = task.lateStart - task.earlyStart;
+        });
+
+        const criticalTasks = Object.values(taskMap)
+            .filter(task => Math.abs(task.slack) < 0.001)
+            .map(task => task.id);
+
+        return criticalTasks;
+    };
+
+    const addDependency = (etapeId, dependencyId, type = 'FS', lag = 0) => {
+        setFormData(prev => ({
+            ...prev,
+            etapes: prev.etapes.map(etape =>
+                etape.id === etapeId
+                    ? {
+                        ...etape,
+                        dependencies: [...(etape.dependencies || []), { id: dependencyId, type, lag }]
+                    }
+                    : etape
+            )
+        }));
+    };
+
+    const removeDependency = (etapeId, dependencyId) => {
+        setFormData(prev => ({
+            ...prev,
+            etapes: prev.etapes.map(etape =>
+                etape.id === etapeId
+                    ? {
+                        ...etape,
+                        dependencies: (etape.dependencies || []).filter(dep => dep.id !== dependencyId)
+                    }
+                    : etape
+            )
+        }));
+    };
+
+    const addParallelTask = (etapeId, parallelEtapeId) => {
+        setFormData(prev => ({
+            ...prev,
+            etapes: prev.etapes.map(etape => {
+                if (etape.id === etapeId) {
+                    const parallelWith = etape.parallelWith || [];
+                    return {
+                        ...etape,
+                        parallelWith: parallelWith.includes(parallelEtapeId)
+                            ? parallelWith
+                            : [...parallelWith, parallelEtapeId]
+                    };
+                }
+                if (etape.id === parallelEtapeId) {
+                    const parallelWith = etape.parallelWith || [];
+                    return {
+                        ...etape,
+                        parallelWith: parallelWith.includes(etapeId)
+                            ? parallelWith
+                            : [...parallelWith, etapeId]
+                    };
+                }
+                return etape;
+            })
+        }));
+    };
+
+    const saveBaseline = () => {
+        const baseline = {
+            date: new Date().toISOString(),
+            etapes: formData.etapes.map(etape => ({
+                id: etape.id,
+                baselineStart: etape.startDate || formData.dateDebut,
+                baselineEnd: etape.endDate || formData.dateFin,
+                baselineDuration: etape.duration
+            }))
+        };
+
+        setFormData(prev => ({
+            ...prev,
+            ganttBaseline: baseline
+        }));
+
+        addNotification?.('Baseline sauvegardée avec succès', 'success');
+    };
+
+    const addSubTask = (parentId) => {
+        return addNewTask(parentId);
+    };
+
+    const calculateTaskLevel = (taskId, tasks) => {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task || !task.parentId) return 0;
+        return 1 + calculateTaskLevel(task.parentId, tasks);
+    };
+
     // Gestionnaires d'événements
     const handleSubmit = async () => {
         setIsSubmitting(true);
@@ -654,6 +839,16 @@ export function JobModal({
                             }`}
                         >
                             📎 Fichiers ({(formData.documents?.length || 0) + (formData.photos?.length || 0)})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('recurrence')}
+                            className={`px-6 py-3 font-medium transition-colors ${
+                                activeTab === 'recurrence'
+                                    ? 'text-purple-600 border-b-2 border-purple-600 bg-white'
+                                    : 'text-gray-600 hover:text-gray-900'
+                            }`}
+                        >
+                            🔄 Récurrence {formData.recurrence?.active ? '(Activé)' : ''}
                         </button>
                     </div>
 
@@ -842,19 +1037,26 @@ export function JobModal({
                                                 </button>
                                                 <button
                                                     onClick={() => {
-                                                        const randomStatuses = ['planifie', 'en_cours', 'termine', 'bloque'];
+                                                        const criticalPath = calculateCriticalPath();
                                                         setFormData(prev => ({
                                                             ...prev,
+                                                            criticalPath,
                                                             etapes: prev.etapes.map(task => ({
                                                                 ...task,
-                                                                status: randomStatuses[Math.floor(Math.random() * randomStatuses.length)]
+                                                                isCritical: criticalPath.includes(task.id)
                                                             }))
                                                         }));
-                                                        addNotification?.('Statuts mis à jour aléatoirement pour démonstration', 'info');
+                                                        addNotification?.(`Chemin critique calculé: ${criticalPath.length} tâche(s) critique(s)`, 'info');
                                                     }}
                                                     className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm"
                                                 >
-                                                    🎲 Simulation
+                                                    🎯 Calculer critique
+                                                </button>
+                                                <button
+                                                    onClick={saveBaseline}
+                                                    className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm"
+                                                >
+                                                    💾 Sauver baseline
                                                 </button>
                                                 <button
                                                     onClick={() => updateField('showCriticalPath', !formData.showCriticalPath)}
@@ -995,6 +1197,42 @@ export function JobModal({
                                                                             <option value="termine">✅ Terminé</option>
                                                                             <option value="bloque">🚫 Bloqué</option>
                                                                         </select>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                const targetTaskId = prompt('ID de la tâche dépendante:');
+                                                                                if (targetTaskId) {
+                                                                                    addDependency(task.id, targetTaskId, 'FS', 0);
+                                                                                    addNotification?.('Dépendance ajoutée', 'success');
+                                                                                }
+                                                                            }}
+                                                                            className="text-blue-500 hover:text-blue-700 text-xs px-2 py-1"
+                                                                            title="Ajouter dépendance"
+                                                                        >
+                                                                            🔗
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                const targetTaskId = prompt('ID de la tâche parallèle:');
+                                                                                if (targetTaskId) {
+                                                                                    addParallelTask(task.id, targetTaskId);
+                                                                                    addNotification?.('Tâche parallèle ajoutée', 'success');
+                                                                                }
+                                                                            }}
+                                                                            className="text-purple-500 hover:text-purple-700 text-xs px-2 py-1"
+                                                                            title="Ajouter tâche parallèle"
+                                                                        >
+                                                                            ⚡
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                const subTaskId = addSubTask(task.id);
+                                                                                addNotification?.('Sous-tâche ajoutée', 'success');
+                                                                            }}
+                                                                            className="text-green-500 hover:text-green-700 text-xs px-2 py-1"
+                                                                            title="Ajouter sous-tâche"
+                                                                        >
+                                                                            📁
+                                                                        </button>
                                                                         <button
                                                                             onClick={() => deleteTask(task.id)}
                                                                             className="text-red-500 hover:text-red-700 text-xs px-2 py-1"
@@ -1767,6 +2005,380 @@ export function JobModal({
                                                     <div className="text-gray-600">Photos</div>
                                                 </div>
                                             </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'recurrence' && (
+                            <div className="h-full overflow-y-auto p-6">
+                                <div className="space-y-6">
+                                    {/* Header Récurrence */}
+                                    <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg">
+                                        <div className="text-4xl">🔄</div>
+                                        <div>
+                                            <h3 className="text-lg font-bold text-white flex items-center">
+                                                Récurrence des Tâches
+                                            </h3>
+                                            <p className="text-sm text-gray-200">
+                                                Configuration des tâches récurrentes et programmation automatique
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Activation de la récurrence */}
+                                    <div className="bg-white border rounded-lg overflow-hidden">
+                                        <div className="bg-purple-50 p-4 border-b">
+                                            <h4 className="font-medium text-purple-800 flex items-center gap-2">
+                                                ⚡ Activation de la Récurrence
+                                            </h4>
+                                        </div>
+                                        <div className="p-6">
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="checkbox"
+                                                    id="recurrence-active"
+                                                    checked={formData.recurrence?.active || false}
+                                                    onChange={(e) => setFormData(prev => ({
+                                                        ...prev,
+                                                        recurrence: {
+                                                            ...prev.recurrence,
+                                                            active: e.target.checked
+                                                        }
+                                                    }))}
+                                                    className="w-5 h-5 text-purple-600 rounded"
+                                                />
+                                                <label htmlFor="recurrence-active" className="text-lg font-medium text-gray-900">
+                                                    Activer la récurrence automatique
+                                                </label>
+                                            </div>
+                                            {formData.recurrence?.active && (
+                                                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                                                    <p className="text-green-800 text-sm">
+                                                        ✅ La récurrence est activée. Ce job sera automatiquement dupliqué selon la configuration ci-dessous.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Configuration de la récurrence */}
+                                    {formData.recurrence?.active && (
+                                        <>
+                                            {/* Type de récurrence */}
+                                            <div className="bg-white border rounded-lg overflow-hidden">
+                                                <div className="bg-blue-50 p-4 border-b">
+                                                    <h4 className="font-medium text-blue-800 flex items-center gap-2">
+                                                        📅 Type de Récurrence
+                                                    </h4>
+                                                </div>
+                                                <div className="p-6">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                        {[
+                                                            { value: 'quotidienne', label: 'Quotidienne', icon: '📅' },
+                                                            { value: 'hebdomadaire', label: 'Hebdomadaire', icon: '📊' },
+                                                            { value: 'mensuelle', label: 'Mensuelle', icon: '📆' },
+                                                            { value: 'annuelle', label: 'Annuelle', icon: '🗓️' }
+                                                        ].map(type => (
+                                                            <label
+                                                                key={type.value}
+                                                                className={`flex flex-col items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                                                                    formData.recurrence?.type === type.value
+                                                                        ? 'border-purple-500 bg-purple-50 text-purple-700'
+                                                                        : 'border-gray-200 hover:border-gray-300'
+                                                                }`}
+                                                            >
+                                                                <input
+                                                                    type="radio"
+                                                                    name="recurrence-type"
+                                                                    value={type.value}
+                                                                    checked={formData.recurrence?.type === type.value}
+                                                                    onChange={(e) => setFormData(prev => ({
+                                                                        ...prev,
+                                                                        recurrence: {
+                                                                            ...prev.recurrence,
+                                                                            type: e.target.value
+                                                                        }
+                                                                    }))}
+                                                                    className="sr-only"
+                                                                />
+                                                                <div className="text-2xl mb-2">{type.icon}</div>
+                                                                <div className="font-medium">{type.label}</div>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Intervalle et paramètres */}
+                                            <div className="bg-white border rounded-lg overflow-hidden">
+                                                <div className="bg-orange-50 p-4 border-b">
+                                                    <h4 className="font-medium text-orange-800 flex items-center gap-2">
+                                                        ⚙️ Paramètres de Récurrence
+                                                    </h4>
+                                                </div>
+                                                <div className="p-6 space-y-4">
+                                                    {/* Intervalle */}
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                            Intervalle - Répéter tous les {formData.recurrence?.intervalle || 1} {
+                                                                formData.recurrence?.type === 'quotidienne' ? 'jour(s)' :
+                                                                formData.recurrence?.type === 'hebdomadaire' ? 'semaine(s)' :
+                                                                formData.recurrence?.type === 'mensuelle' ? 'mois' :
+                                                                'année(s)'
+                                                            }
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="1"
+                                                            max="99"
+                                                            value={formData.recurrence?.intervalle || 1}
+                                                            onChange={(e) => setFormData(prev => ({
+                                                                ...prev,
+                                                                recurrence: {
+                                                                    ...prev.recurrence,
+                                                                    intervalle: parseInt(e.target.value) || 1
+                                                                }
+                                                            }))}
+                                                            className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                                        />
+                                                    </div>
+
+                                                    {/* Condition de fin */}
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                                                            Condition de fin
+                                                        </label>
+                                                        <div className="space-y-3">
+                                                            <label className="flex items-center gap-3">
+                                                                <input
+                                                                    type="radio"
+                                                                    name="fin-recurrence"
+                                                                    value="date"
+                                                                    checked={formData.recurrence?.finRecurrence === 'date'}
+                                                                    onChange={(e) => setFormData(prev => ({
+                                                                        ...prev,
+                                                                        recurrence: {
+                                                                            ...prev.recurrence,
+                                                                            finRecurrence: e.target.value
+                                                                        }
+                                                                    }))}
+                                                                    className="w-4 h-4 text-purple-600"
+                                                                />
+                                                                <span>Se terminer à une date spécifique</span>
+                                                            </label>
+                                                            {formData.recurrence?.finRecurrence === 'date' && (
+                                                                <div className="ml-7">
+                                                                    <input
+                                                                        type="date"
+                                                                        value={formData.recurrence?.dateFinRecurrence || ''}
+                                                                        onChange={(e) => setFormData(prev => ({
+                                                                            ...prev,
+                                                                            recurrence: {
+                                                                                ...prev.recurrence,
+                                                                                dateFinRecurrence: e.target.value
+                                                                            }
+                                                                        }))}
+                                                                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                                                    />
+                                                                </div>
+                                                            )}
+
+                                                            <label className="flex items-center gap-3">
+                                                                <input
+                                                                    type="radio"
+                                                                    name="fin-recurrence"
+                                                                    value="occurrences"
+                                                                    checked={formData.recurrence?.finRecurrence === 'occurrences'}
+                                                                    onChange={(e) => setFormData(prev => ({
+                                                                        ...prev,
+                                                                        recurrence: {
+                                                                            ...prev.recurrence,
+                                                                            finRecurrence: e.target.value
+                                                                        }
+                                                                    }))}
+                                                                    className="w-4 h-4 text-purple-600"
+                                                                />
+                                                                <span>Après un nombre d'occurrences</span>
+                                                            </label>
+                                                            {formData.recurrence?.finRecurrence === 'occurrences' && (
+                                                                <div className="ml-7 flex items-center gap-2">
+                                                                    <input
+                                                                        type="number"
+                                                                        min="1"
+                                                                        max="999"
+                                                                        value={formData.recurrence?.nombreOccurrences || 10}
+                                                                        onChange={(e) => setFormData(prev => ({
+                                                                            ...prev,
+                                                                            recurrence: {
+                                                                                ...prev.recurrence,
+                                                                                nombreOccurrences: parseInt(e.target.value) || 10
+                                                                            }
+                                                                        }))}
+                                                                        className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                                                    />
+                                                                    <span className="text-sm text-gray-600">occurrences</span>
+                                                                </div>
+                                                            )}
+
+                                                            <label className="flex items-center gap-3">
+                                                                <input
+                                                                    type="radio"
+                                                                    name="fin-recurrence"
+                                                                    value="jamais"
+                                                                    checked={formData.recurrence?.finRecurrence === 'jamais'}
+                                                                    onChange={(e) => setFormData(prev => ({
+                                                                        ...prev,
+                                                                        recurrence: {
+                                                                            ...prev.recurrence,
+                                                                            finRecurrence: e.target.value
+                                                                        }
+                                                                    }))}
+                                                                    className="w-4 h-4 text-purple-600"
+                                                                />
+                                                                <span>Jamais (récurrence infinie)</span>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Aperçu de la récurrence */}
+                                            <div className="bg-white border rounded-lg overflow-hidden">
+                                                <div className="bg-green-50 p-4 border-b">
+                                                    <h4 className="font-medium text-green-800 flex items-center gap-2">
+                                                        👁️ Aperçu de la Récurrence
+                                                    </h4>
+                                                </div>
+                                                <div className="p-6">
+                                                    <div className="bg-gray-50 rounded-lg p-4">
+                                                        <div className="text-sm text-gray-600 mb-2">Configuration actuelle :</div>
+                                                        <div className="font-medium text-gray-900">
+                                                            Répéter tous les {formData.recurrence?.intervalle || 1} {
+                                                                formData.recurrence?.type === 'quotidienne' ? 'jour(s)' :
+                                                                formData.recurrence?.type === 'hebdomadaire' ? 'semaine(s)' :
+                                                                formData.recurrence?.type === 'mensuelle' ? 'mois' :
+                                                                'année(s)'
+                                                            }
+                                                            {formData.recurrence?.finRecurrence === 'date' && formData.recurrence?.dateFinRecurrence &&
+                                                                `, jusqu'au ${formatLocalizedDate(formData.recurrence.dateFinRecurrence, currentLanguage)}`
+                                                            }
+                                                            {formData.recurrence?.finRecurrence === 'occurrences' &&
+                                                                `, pour ${formData.recurrence?.nombreOccurrences || 10} occurrences`
+                                                            }
+                                                            {formData.recurrence?.finRecurrence === 'jamais' &&
+                                                                ', indéfiniment'
+                                                            }
+                                                        </div>
+
+                                                        {formData.dateDebut && (
+                                                            <div className="mt-4 p-3 bg-blue-50 rounded border border-blue-200">
+                                                                <div className="text-sm text-blue-700 font-medium mb-2">📅 Prochaines occurrences :</div>
+                                                                <div className="text-sm text-blue-600 space-y-1">
+                                                                    {(() => {
+                                                                        const dates = [];
+                                                                        let currentDate = new Date(formData.dateDebut);
+                                                                        const interval = formData.recurrence?.intervalle || 1;
+                                                                        const type = formData.recurrence?.type || 'hebdomadaire';
+
+                                                                        for (let i = 0; i < Math.min(5, formData.recurrence?.nombreOccurrences || 5); i++) {
+                                                                            dates.push(new Date(currentDate));
+
+                                                                            if (type === 'quotidienne') {
+                                                                                currentDate.setDate(currentDate.getDate() + interval);
+                                                                            } else if (type === 'hebdomadaire') {
+                                                                                currentDate.setDate(currentDate.getDate() + (interval * 7));
+                                                                            } else if (type === 'mensuelle') {
+                                                                                currentDate.setMonth(currentDate.getMonth() + interval);
+                                                                            } else if (type === 'annuelle') {
+                                                                                currentDate.setFullYear(currentDate.getFullYear() + interval);
+                                                                            }
+                                                                        }
+
+                                                                        return dates.map((date, index) => (
+                                                                            <div key={index}>
+                                                                                {index + 1}. {formatLocalizedDate(date.toISOString().split('T')[0], currentLanguage)} ({getLocalizedDayName(date, currentLanguage)})
+                                                                            </div>
+                                                                        ));
+                                                                    })()}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Options avancées */}
+                                            <div className="bg-white border rounded-lg overflow-hidden">
+                                                <div className="bg-yellow-50 p-4 border-b">
+                                                    <h4 className="font-medium text-yellow-800 flex items-center gap-2">
+                                                        🔧 Options Avancées
+                                                    </h4>
+                                                </div>
+                                                <div className="p-6 space-y-4">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                        <div>
+                                                            <h5 className="font-medium text-gray-700 mb-3">Gestion des ressources</h5>
+                                                            <div className="space-y-2">
+                                                                <label className="flex items-center gap-2">
+                                                                    <input type="checkbox" className="w-4 h-4 text-purple-600" defaultChecked />
+                                                                    <span className="text-sm">Conserver les mêmes ressources</span>
+                                                                </label>
+                                                                <label className="flex items-center gap-2">
+                                                                    <input type="checkbox" className="w-4 h-4 text-purple-600" />
+                                                                    <span className="text-sm">Vérifier la disponibilité automatiquement</span>
+                                                                </label>
+                                                                <label className="flex items-center gap-2">
+                                                                    <input type="checkbox" className="w-4 h-4 text-purple-600" />
+                                                                    <span className="text-sm">Notifier en cas de conflit</span>
+                                                                </label>
+                                                            </div>
+                                                        </div>
+
+                                                        <div>
+                                                            <h5 className="font-medium text-gray-700 mb-3">Notifications</h5>
+                                                            <div className="space-y-2">
+                                                                <label className="flex items-center gap-2">
+                                                                    <input type="checkbox" className="w-4 h-4 text-purple-600" defaultChecked />
+                                                                    <span className="text-sm">Création automatique de tâches</span>
+                                                                </label>
+                                                                <label className="flex items-center gap-2">
+                                                                    <input type="checkbox" className="w-4 h-4 text-purple-600" />
+                                                                    <span className="text-sm">Rappels avant échéance</span>
+                                                                </label>
+                                                                <label className="flex items-center gap-2">
+                                                                    <input type="checkbox" className="w-4 h-4 text-purple-600" />
+                                                                    <span className="text-sm">Rapport de récurrence mensuel</span>
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* Message si récurrence désactivée */}
+                                    {!formData.recurrence?.active && (
+                                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 text-center">
+                                            <div className="text-4xl mb-4">🔄</div>
+                                            <h3 className="text-lg font-medium text-gray-700 mb-2">Récurrence désactivée</h3>
+                                            <p className="text-gray-600 mb-4">
+                                                Activez la récurrence pour programmer automatiquement cette tâche à des intervalles réguliers.
+                                            </p>
+                                            <button
+                                                onClick={() => setFormData(prev => ({
+                                                    ...prev,
+                                                    recurrence: {
+                                                        ...prev.recurrence,
+                                                        active: true
+                                                    }
+                                                }))}
+                                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                                            >
+                                                ⚡ Activer la récurrence
+                                            </button>
                                         </div>
                                     )}
                                 </div>
