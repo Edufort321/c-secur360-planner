@@ -190,11 +190,14 @@ export function JobModal({
     };
 
     const addNewTask = () => {
+        const lastTask = formData.etapes[formData.etapes.length - 1];
+        const nextStartHour = lastTask ? lastTask.startHour + lastTask.duration : 0;
+
         const newTask = {
             id: Date.now().toString(),
             name: 'Nouvelle tâche',
             duration: 8,
-            startHour: 0,
+            startHour: nextStartHour,
             description: '',
             priority: 'normale',
             status: 'planifie',
@@ -205,6 +208,8 @@ export function JobModal({
             ...prev,
             etapes: [...prev.etapes, newTask]
         }));
+
+        addNotification?.('Nouvelle tâche ajoutée au planning', 'success');
     };
 
     const updateTask = (taskId, updates) => {
@@ -253,6 +258,7 @@ export function JobModal({
             }
         }
     };
+
 
     const isResourceAvailable = (resourceId, resourceType, dateDebut, dateFin) => {
         // Logique de base pour vérifier la disponibilité
@@ -520,12 +526,61 @@ export function JobModal({
                                     {/* Contrôles Gantt */}
                                     <div className="bg-gray-50 p-4 rounded-lg">
                                         <div className="flex items-center justify-between mb-4">
-                                            <div className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2 flex-wrap">
                                                 <button
                                                     onClick={addNewTask}
                                                     className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
                                                 >
                                                     ➕ Ajouter une tâche
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        const projectTemplate = [
+                                                            { name: 'Inspection initiale', duration: 2, priority: 'haute' },
+                                                            { name: 'Préparation matériel', duration: 1, priority: 'normale' },
+                                                            { name: 'Installation système', duration: 6, priority: 'haute' },
+                                                            { name: 'Tests et validation', duration: 2, priority: 'haute' },
+                                                            { name: 'Formation client', duration: 1, priority: 'normale' }
+                                                        ];
+
+                                                        const newTasks = projectTemplate.map((template, index) => ({
+                                                            id: (Date.now() + index).toString(),
+                                                            name: template.name,
+                                                            duration: template.duration,
+                                                            startHour: index * template.duration,
+                                                            description: `Tâche générée automatiquement: ${template.name}`,
+                                                            priority: template.priority,
+                                                            status: 'planifie',
+                                                            resources: [],
+                                                            dependencies: index > 0 ? [(Date.now() + index - 1).toString()] : []
+                                                        }));
+
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            etapes: [...prev.etapes, ...newTasks]
+                                                        }));
+
+                                                        addNotification?.(`${newTasks.length} tâches de projet type ajoutées`, 'success');
+                                                    }}
+                                                    className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm"
+                                                >
+                                                    🛠️ Projet type
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        const randomStatuses = ['planifie', 'en_cours', 'termine', 'bloque'];
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            etapes: prev.etapes.map(task => ({
+                                                                ...task,
+                                                                status: randomStatuses[Math.floor(Math.random() * randomStatuses.length)]
+                                                            }))
+                                                        }));
+                                                        addNotification?.('Statuts mis à jour aléatoirement pour démonstration', 'info');
+                                                    }}
+                                                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm"
+                                                >
+                                                    🎲 Simulation
                                                 </button>
                                                 <button
                                                     onClick={() => updateField('showCriticalPath', !formData.showCriticalPath)}
@@ -535,7 +590,7 @@ export function JobModal({
                                                             : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                                     }`}
                                                 >
-                                                    🚨 Chemin critique
+                                                    🚨 Critique
                                                 </button>
                                             </div>
                                             <div className="flex items-center gap-2">
@@ -716,6 +771,16 @@ export function JobModal({
                                             <div className="text-yellow-600">
                                                 ⚠️ Veuillez définir une date de début dans l'onglet Formulaire pour utiliser le Gantt
                                             </div>
+                                            <button
+                                                onClick={() => {
+                                                    const today = new Date().toISOString().split('T')[0];
+                                                    setFormData(prev => ({ ...prev, dateDebut: today }));
+                                                    setActiveTab('gantt');
+                                                }}
+                                                className="mt-2 px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
+                                            >
+                                                📅 Définir aujourd'hui et voir le Gantt
+                                            </button>
                                         </div>
                                     )}
                                 </div>
@@ -742,9 +807,32 @@ export function JobModal({
                                     {/* Personnel */}
                                     <div className="bg-white border rounded-lg overflow-hidden">
                                         <div className="bg-blue-50 p-4 border-b">
-                                            <h4 className="font-medium text-blue-800 flex items-center gap-2">
-                                                👤 Personnel ({formData.personnel?.length || 0} assigné{(formData.personnel?.length || 0) > 1 ? 's' : ''})
-                                            </h4>
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="font-medium text-blue-800 flex items-center gap-2">
+                                                    👤 Personnel ({formData.personnel?.length || 0} assigné{(formData.personnel?.length || 0) > 1 ? 's' : ''})
+                                                </h4>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            const allPersonnelIds = personnel.map(p => p.id);
+                                                            setFormData(prev => ({ ...prev, personnel: allPersonnelIds }));
+                                                            addNotification?.('Tout le personnel sélectionné', 'success');
+                                                        }}
+                                                        className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                                                    >
+                                                        ✓ Tout sélectionner
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setFormData(prev => ({ ...prev, personnel: [] }));
+                                                            addNotification?.('Personnel désélectionné', 'info');
+                                                        }}
+                                                        className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+                                                    >
+                                                        ✗ Tout désélectionner
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div className="p-4">
                                             {personnel && personnel.length > 0 ? (
@@ -799,9 +887,32 @@ export function JobModal({
                                     {/* Équipements */}
                                     <div className="bg-white border rounded-lg overflow-hidden">
                                         <div className="bg-green-50 p-4 border-b">
-                                            <h4 className="font-medium text-green-800 flex items-center gap-2">
-                                                🔧 Équipements ({formData.equipements?.length || 0} assigné{(formData.equipements?.length || 0) > 1 ? 's' : ''})
-                                            </h4>
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="font-medium text-green-800 flex items-center gap-2">
+                                                    🔧 Équipements ({formData.equipements?.length || 0} assigné{(formData.equipements?.length || 0) > 1 ? 's' : ''})
+                                                </h4>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            const allEquipementIds = equipements.map(e => e.id);
+                                                            setFormData(prev => ({ ...prev, equipements: allEquipementIds }));
+                                                            addNotification?.('Tous les équipements sélectionnés', 'success');
+                                                        }}
+                                                        className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
+                                                    >
+                                                        ✓ Tout sélectionner
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setFormData(prev => ({ ...prev, equipements: [] }));
+                                                            addNotification?.('Équipements désélectionnés', 'info');
+                                                        }}
+                                                        className="px-2 py-1 text-xs bg-gray-500 text-white rounded hover:bg-gray-600"
+                                                    >
+                                                        ✗ Tout désélectionner
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div className="p-4">
                                             {equipements && equipements.length > 0 ? (
@@ -861,7 +972,7 @@ export function JobModal({
                                         <div className="p-4">
                                             {/* Ajouter nouveau sous-traitant */}
                                             <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                                                <div className="flex gap-2">
+                                                <div className="flex gap-2 mb-2">
                                                     <input
                                                         type="text"
                                                         value={newSousTraitant}
@@ -877,6 +988,26 @@ export function JobModal({
                                                         className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                                     >
                                                         ➕ Ajouter
+                                                    </button>
+                                                </div>
+                                                <div className="flex gap-2 text-xs">
+                                                    <button
+                                                        onClick={() => setNewSousTraitant('Électricien Pro')}
+                                                        className="px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                                                    >
+                                                        ⚡ Électricien Pro
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setNewSousTraitant('Plomberie Expert')}
+                                                        className="px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                                                    >
+                                                        🔧 Plomberie Expert
+                                                    </button>
+                                                    <button
+                                                        onClick={() => setNewSousTraitant('Sécurité Plus')}
+                                                        className="px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                                                    >
+                                                        🔒 Sécurité Plus
                                                     </button>
                                                 </div>
                                             </div>
