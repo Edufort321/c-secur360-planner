@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Admin - C-Secur360</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .button { background: #3b82f6; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 5px; }
+        .button:hover { background: #2563eb; }
+        .danger { background: #dc2626; }
+        .danger:hover { background: #b91c1c; }
+        .success { background: #10b981; color: white; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .error { background: #dc2626; color: white; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        pre { background: #f3f4f6; padding: 15px; border-radius: 4px; overflow-x: auto; max-height: 300px; overflow-y: auto; }
+        .admin-box { background: #dbeafe; border: 2px solid #3b82f6; padding: 20px; border-radius: 8px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Debug Admin - C-Secur360</h1>
+
+        <div class="admin-box">
+            <h3>👤 Identifiants Admin</h3>
+            <p><strong>Nom:</strong> <code>Administrateur</code></p>
+            <p><strong>Mot de passe:</strong> <code>MdlAdm321!$</code></p>
+        </div>
+
+        <h3>🔍 Diagnostic</h3>
+        <button class="button" onclick="diagnostic()">Diagnostic Complet</button>
+        <div id="diagnosticResult"></div>
+
+        <h3>🗑️ Actions de Correction</h3>
+        <button class="button danger" onclick="resetTotal()">Reset Total + Force Admin</button>
+        <button class="button" onclick="forceAdmin()">Forcer Ajout Admin Seulement</button>
+        <button class="button" onclick="testLogin()">Tester Connexion Admin</button>
+
+        <div id="actionResult"></div>
+
+        <h3>📊 État Actuel des Données</h3>
+        <button class="button" onclick="voirEtat()">Voir État</button>
+        <div id="etatResult"></div>
+    </div>
+
+    <script>
+        function diagnostic() {
+            const data = localStorage.getItem('planificateur-data-v4');
+            let result = '<h4>📋 Diagnostic:</h4>';
+
+            if (!data) {
+                result += '<div class="error">❌ Aucune donnée localStorage - les défauts devraient se charger</div>';
+            } else {
+                try {
+                    const parsed = JSON.parse(data);
+                    result += '<div class="success">✅ localStorage trouvé</div>';
+                    result += '<p><strong>Personnel trouvé:</strong> ' + (parsed.personnel ? parsed.personnel.length : 0) + '</p>';
+
+                    if (parsed.personnel) {
+                        const admin = parsed.personnel.find(p => p.nom === 'Administrateur');
+                        if (admin) {
+                            result += '<div class="success">✅ Admin trouvé dans les données</div>';
+                            result += '<p><strong>ID Admin:</strong> ' + admin.id + '</p>';
+                            result += '<p><strong>Mot de passe Admin:</strong> ' + admin.password + '</p>';
+                        } else {
+                            result += '<div class="error">❌ Admin NOT trouvé dans les données</div>';
+                        }
+                    }
+                } catch (e) {
+                    result += '<div class="error">❌ Erreur parsing localStorage: ' + e.message + '</div>';
+                }
+            }
+
+            document.getElementById('diagnosticResult').innerHTML = result;
+        }
+
+        function resetTotal() {
+            // Supprimer tout localStorage
+            localStorage.removeItem('planificateur-data-v4');
+
+            // Créer données avec admin
+            const adminData = {
+                jobs: [],
+                personnel: [{
+                    id: 'admin-001',
+                    nom: 'Administrateur',
+                    poste: 'Administrateur Système',
+                    email: 'admin@c-secur360.com',
+                    telephone: '',
+                    succursale: 'Administration',
+                    password: 'MdlAdm321!$',
+                    role: 'coordonnateur',
+                    disponible: true,
+                    visibleChantier: false,
+                    couleur: '#dc2626',
+                    dateCreation: new Date().toISOString()
+                }],
+                equipements: [],
+                sousTraitants: [],
+                conges: [],
+                selectedView: 'month',
+                selectedDate: new Date().toISOString(),
+                lastSaved: new Date().toISOString()
+            };
+
+            localStorage.setItem('planificateur-data-v4', JSON.stringify(adminData));
+
+            document.getElementById('actionResult').innerHTML =
+                '<div class="success">✅ Reset total effectué avec admin forcé! Rechargez http://localhost:3009</div>';
+        }
+
+        function forceAdmin() {
+            let data = localStorage.getItem('planificateur-data-v4');
+            let parsed;
+
+            if (data) {
+                try {
+                    parsed = JSON.parse(data);
+                } catch (e) {
+                    parsed = {
+                        jobs: [],
+                        personnel: [],
+                        equipements: [],
+                        sousTraitants: [],
+                        conges: [],
+                        selectedView: 'month',
+                        selectedDate: new Date().toISOString(),
+                        lastSaved: new Date().toISOString()
+                    };
+                }
+            } else {
+                parsed = {
+                    jobs: [],
+                    personnel: [],
+                    equipements: [],
+                    sousTraitants: [],
+                    conges: [],
+                    selectedView: 'month',
+                    selectedDate: new Date().toISOString(),
+                    lastSaved: new Date().toISOString()
+                };
+            }
+
+            // Supprimer ancien admin s'il existe
+            parsed.personnel = parsed.personnel.filter(p => p.nom !== 'Administrateur');
+
+            // Ajouter nouvel admin
+            const admin = {
+                id: 'admin-001',
+                nom: 'Administrateur',
+                poste: 'Administrateur Système',
+                email: 'admin@c-secur360.com',
+                telephone: '',
+                succursale: 'Administration',
+                password: 'MdlAdm321!$',
+                role: 'coordonnateur',
+                disponible: true,
+                visibleChantier: false,
+                couleur: '#dc2626',
+                dateCreation: new Date().toISOString()
+            };
+
+            parsed.personnel.push(admin);
+            localStorage.setItem('planificateur-data-v4', JSON.stringify(parsed));
+
+            document.getElementById('actionResult').innerHTML =
+                '<div class="success">✅ Admin forcé ajouté! Rechargez http://localhost:3009</div>';
+        }
+
+        function testLogin() {
+            const data = localStorage.getItem('planificateur-data-v4');
+            if (data) {
+                const parsed = JSON.parse(data);
+                const admin = parsed.personnel.find(p => p.nom === 'Administrateur' && p.password === 'MdlAdm321!$');
+
+                if (admin) {
+                    document.getElementById('actionResult').innerHTML =
+                        '<div class="success">✅ Test LOGIN OK - Admin trouvé avec bon mot de passe</div>';
+                } else {
+                    document.getElementById('actionResult').innerHTML =
+                        '<div class="error">❌ Test LOGIN ÉCHEC - Admin pas trouvé ou mauvais mot de passe</div>';
+                }
+            } else {
+                document.getElementById('actionResult').innerHTML =
+                    '<div class="error">❌ Aucune donnée pour tester</div>';
+            }
+        }
+
+        function voirEtat() {
+            const data = localStorage.getItem('planificateur-data-v4');
+            if (data) {
+                const parsed = JSON.parse(data);
+                document.getElementById('etatResult').innerHTML =
+                    '<pre>' + JSON.stringify(parsed, null, 2) + '</pre>';
+            } else {
+                document.getElementById('etatResult').innerHTML =
+                    '<div class="error">Aucune donnée localStorage</div>';
+            }
+        }
+
+        // Auto-diagnostic au chargement
+        window.onload = function() {
+            diagnostic();
+        }
+    </script>
+</body>
+</html>

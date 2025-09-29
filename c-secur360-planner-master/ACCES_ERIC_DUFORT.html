@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accès Eric Dufort - C-Secur360</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1f2937; color: white; }
+        .container { max-width: 700px; margin: 0 auto; background: white; color: #1f2937; padding: 30px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+        .button { background: #1f2937; color: white; padding: 15px 30px; border: none; border-radius: 6px; cursor: pointer; font-size: 18px; margin: 10px; font-weight: bold; }
+        .button:hover { background: #374151; }
+        .success { background: #10b981; color: white; padding: 15px; border-radius: 6px; margin: 15px 0; font-weight: bold; }
+        .info { background: #3b82f6; color: white; padding: 15px; border-radius: 6px; margin: 15px 0; }
+        .credentials { background: #f3f4f6; border: 3px solid #1f2937; padding: 20px; border-radius: 8px; margin: 20px 0; }
+        .logo { text-align: center; font-size: 28px; font-weight: bold; color: #1f2937; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🔐 C-SECUR360 - ACCÈS PROPRIÉTAIRE</div>
+
+        <div class="credentials">
+            <h3>👤 VOS IDENTIFIANTS DE CONNEXION</h3>
+            <p><strong>Nom d'utilisateur:</strong> <code style="background: #1f2937; color: white; padding: 5px 10px; border-radius: 4px; font-size: 16px;">Eric Dufort</code></p>
+            <p><strong>Mot de passe:</strong> <code style="background: #1f2937; color: white; padding: 5px 10px; border-radius: 4px; font-size: 16px;">321Eduf!$</code></p>
+            <p><strong>Statut:</strong> Président-Directeur Général - Accès Complet</p>
+        </div>
+
+        <div class="info">
+            <strong>🎯 MISSION:</strong> Forcer l'accès à votre application C-Secur360 avec votre profil personnalisé
+        </div>
+
+        <h3>🚀 ACTIVATION DE VOTRE ACCÈS</h3>
+        <button class="button" onclick="activerEricDufort()" style="width: 100%; font-size: 20px;">
+            🔓 ACTIVER ACCÈS ERIC DUFORT
+        </button>
+
+        <div id="resultat"></div>
+
+        <div class="info" style="margin-top: 20px;">
+            <strong>🔄 APRÈS ACTIVATION:</strong><br>
+            1. Retournez sur <strong>http://localhost:3009</strong><br>
+            2. Rechargez la page (Ctrl+F5)<br>
+            3. Connectez-vous avec vos identifiants ci-dessus
+        </div>
+
+        <h3>🛠️ OPTIONS DE DÉPANNAGE</h3>
+        <button class="button" onclick="diagnosticComplet()">🔍 Diagnostic</button>
+        <button class="button" onclick="voirDonnees()">👁️ Voir Données</button>
+        <button class="button" onclick="resetTotal()">⚠️ Reset Total</button>
+
+        <div id="debug"></div>
+    </div>
+
+    <script>
+        function activerEricDufort() {
+            // Supprimer complètement les anciennes données
+            localStorage.removeItem('planificateur-data-v4');
+
+            // Créer les données avec Eric Dufort
+            const donneesEricDufort = {
+                jobs: [],
+                personnel: [
+                    {
+                        id: 'eric-dufort-001',
+                        nom: 'Eric Dufort',
+                        prenom: 'Eric',
+                        nomComplet: 'Eric Dufort',
+                        poste: 'Président-Directeur Général',
+                        email: 'eric.dufort@c-secur360.com',
+                        telephone: '',
+                        succursale: 'C-Secur360 - Siège Social',
+                        password: '321Eduf!$',
+                        role: 'coordonnateur',
+                        permissions: {
+                            admin: true,
+                            coordonnateur: true,
+                            gestionPersonnel: true,
+                            gestionEquipement: true,
+                            gestionJobs: true,
+                            gestionSuccursales: true,
+                            export: true,
+                            import: true,
+                            configuration: true
+                        },
+                        disponible: true,
+                        visibleChantier: true,
+                        couleur: '#1f2937',
+                        dateCreation: new Date().toISOString(),
+                        estProprietaire: true
+                    },
+                    {
+                        id: 'admin-backup-001',
+                        nom: 'Administrateur',
+                        poste: 'Administrateur Système',
+                        email: 'admin@c-secur360.com',
+                        telephone: '',
+                        succursale: 'Administration',
+                        password: 'MdlAdm321!$',
+                        role: 'coordonnateur',
+                        disponible: true,
+                        visibleChantier: false,
+                        couleur: '#dc2626',
+                        dateCreation: new Date().toISOString()
+                    }
+                ],
+                equipements: [],
+                sousTraitants: [],
+                conges: [],
+                selectedView: 'month',
+                selectedDate: new Date().toISOString(),
+                lastSaved: new Date().toISOString()
+            };
+
+            localStorage.setItem('planificateur-data-v4', JSON.stringify(donneesEricDufort));
+
+            document.getElementById('resultat').innerHTML = `
+                <div class="success">
+                    ✅ ACTIVATION RÉUSSIE !<br><br>
+                    🎯 Votre profil Eric Dufort est maintenant actif<br>
+                    🔐 Accès complet configuré<br>
+                    🚀 Retournez sur <strong><a href="http://localhost:3009" target="_blank">http://localhost:3009</a></strong>
+                </div>`;
+        }
+
+        function diagnosticComplet() {
+            const data = localStorage.getItem('planificateur-data-v4');
+            let result = '<h4>🔍 Diagnostic Complet:</h4>';
+
+            if (!data) {
+                result += '<p style="color: red;">❌ Aucune donnée localStorage</p>';
+            } else {
+                try {
+                    const parsed = JSON.parse(data);
+                    result += '<p style="color: green;">✅ localStorage trouvé</p>';
+                    result += '<p><strong>Personnel:</strong> ' + (parsed.personnel ? parsed.personnel.length : 0) + '</p>';
+
+                    if (parsed.personnel) {
+                        const eric = parsed.personnel.find(p => p.nom === 'Eric Dufort');
+                        if (eric) {
+                            result += '<p style="color: green;">✅ Eric Dufort trouvé</p>';
+                            result += '<p><strong>Mot de passe:</strong> ' + eric.password + '</p>';
+                            result += '<p><strong>Rôle:</strong> ' + eric.role + '</p>';
+                        } else {
+                            result += '<p style="color: red;">❌ Eric Dufort NOT trouvé</p>';
+                        }
+
+                        const admin = parsed.personnel.find(p => p.nom === 'Administrateur');
+                        if (admin) {
+                            result += '<p style="color: green;">✅ Admin backup trouvé</p>';
+                        }
+                    }
+                } catch (e) {
+                    result += '<p style="color: red;">❌ Erreur: ' + e.message + '</p>';
+                }
+            }
+
+            document.getElementById('debug').innerHTML = result;
+        }
+
+        function voirDonnees() {
+            const data = localStorage.getItem('planificateur-data-v4');
+            if (data) {
+                const parsed = JSON.parse(data);
+                document.getElementById('debug').innerHTML =
+                    '<h4>📊 Données Actuelles:</h4><pre style="background: #f3f4f6; padding: 15px; border-radius: 4px; max-height: 300px; overflow-y: auto;">' +
+                    JSON.stringify(parsed, null, 2) + '</pre>';
+            } else {
+                document.getElementById('debug').innerHTML = '<p style="color: red;">Aucune donnée</p>';
+            }
+        }
+
+        function resetTotal() {
+            localStorage.clear();
+            document.getElementById('debug').innerHTML = '<div class="success">🗑️ Reset total effectué. Cliquez "Activer Eric Dufort"</div>';
+        }
+
+        // Auto-diagnostic au chargement
+        window.onload = function() {
+            diagnosticComplet();
+        }
+    </script>
+</body>
+</html>

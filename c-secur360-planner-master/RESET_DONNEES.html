@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Données - C-Secur360</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #dc2626; }
+        .button { background: #dc2626; color: white; padding: 12px 24px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 10px 0; }
+        .button:hover { background: #b91c1c; }
+        .success { background: #10b981; color: white; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .info { background: #3b82f6; color: white; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        pre { background: #f3f4f6; padding: 15px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Reset des Données - C-Secur360</h1>
+
+        <div class="info">
+            <strong>Problème:</strong> Les données en cache empêchent l'accès avec le nouvel utilisateur administrateur.
+        </div>
+
+        <h3>Option 1: Reset Complet (Recommandé)</h3>
+        <p>Efface toutes les données et recharge les nouveaux paramètres par défaut:</p>
+        <button class="button" onclick="resetComplete()">🗑️ Reset Complet</button>
+        <div id="resetStatus"></div>
+
+        <h3>Option 2: Voir les Données Actuelles</h3>
+        <button class="button" onclick="voirDonnees()">👁️ Voir Données</button>
+        <div id="donnees"></div>
+
+        <h3>Option 3: Ajouter l'Admin Manuellement</h3>
+        <button class="button" onclick="ajouterAdmin()">👤 Ajouter Administrateur</button>
+        <div id="adminStatus"></div>
+
+        <div class="info">
+            <strong>Après le reset:</strong><br>
+            - Utilisateur: <code>Administrateur</code><br>
+            - Mot de passe: <code>MdlAdm321!$</code>
+        </div>
+    </div>
+
+    <script>
+        function resetComplete() {
+            localStorage.removeItem('planificateur-data-v4');
+            document.getElementById('resetStatus').innerHTML = '<div class="success">✅ Reset terminé! Retournez à http://localhost:3009 et rechargez la page.</div>';
+        }
+
+        function voirDonnees() {
+            const data = localStorage.getItem('planificateur-data-v4');
+            if (data) {
+                const parsed = JSON.parse(data);
+                document.getElementById('donnees').innerHTML =
+                    '<h4>Personnel actuel:</h4>' +
+                    '<pre>' + JSON.stringify(parsed.personnel || [], null, 2) + '</pre>';
+            } else {
+                document.getElementById('donnees').innerHTML = '<div class="info">Aucune donnée en cache</div>';
+            }
+        }
+
+        function ajouterAdmin() {
+            const data = localStorage.getItem('planificateur-data-v4');
+            let parsed = data ? JSON.parse(data) : {
+                jobs: [],
+                personnel: [],
+                equipements: [],
+                sousTraitants: [],
+                conges: [],
+                selectedView: 'month',
+                selectedDate: new Date().toISOString(),
+                lastSaved: new Date().toISOString()
+            };
+
+            // Vérifier si l'admin existe déjà
+            const adminExists = parsed.personnel.some(p => p.nom === 'Administrateur');
+
+            if (!adminExists) {
+                const admin = {
+                    id: 'admin-001',
+                    nom: 'Administrateur',
+                    poste: 'Administrateur Système',
+                    email: 'admin@c-secur360.com',
+                    telephone: '',
+                    succursale: 'Administration',
+                    password: 'MdlAdm321!$',
+                    role: 'coordonnateur',
+                    disponible: true,
+                    visibleChantier: false,
+                    couleur: '#dc2626',
+                    dateCreation: new Date().toISOString()
+                };
+
+                parsed.personnel.push(admin);
+                localStorage.setItem('planificateur-data-v4', JSON.stringify(parsed));
+
+                document.getElementById('adminStatus').innerHTML =
+                    '<div class="success">✅ Utilisateur Administrateur ajouté! Retournez à l\'application.</div>';
+            } else {
+                document.getElementById('adminStatus').innerHTML =
+                    '<div class="info">ℹ️ L\'utilisateur Administrateur existe déjà.</div>';
+            }
+        }
+    </script>
+</body>
+</html>
