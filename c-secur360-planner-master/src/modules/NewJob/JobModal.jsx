@@ -1115,6 +1115,154 @@ export function JobModal({
         return addNewTask(parentId);
     };
 
+    // ====== FONCTIONS AVANCÉES DE GESTION D'ÉQUIPES ======
+
+    // Fonctions avancées pour la gestion du personnel quotidien
+
+
+    // Fonction pour appliquer rapidement le personnel à différents types de jours
+    const applyPersonnelToAllDays = (selectedPersonnel) => {
+        const allDays = getAllDays();
+        allDays.forEach(day => {
+            selectedPersonnel.forEach(person => {
+                togglePersonnelForDay(day.dateString, person.id);
+            });
+        });
+        addNotification?.('Personnel assigné à tous les jours', 'success');
+    };
+
+    const applyPersonnelToWeekdays = (selectedPersonnel) => {
+        const allDays = getAllDays();
+        allDays.filter(day => ![0, 6].includes(new Date(day.dateString).getDay())).forEach(day => {
+            selectedPersonnel.forEach(person => {
+                togglePersonnelForDay(day.dateString, person.id);
+            });
+        });
+        addNotification?.('Personnel assigné aux jours ouvrables', 'success');
+    };
+
+    const applyPersonnelToWeekends = (selectedPersonnel) => {
+        const allDays = getAllDays();
+        allDays.filter(day => [0, 6].includes(new Date(day.dateString).getDay())).forEach(day => {
+            selectedPersonnel.forEach(person => {
+                togglePersonnelForDay(day.dateString, person.id);
+            });
+        });
+        addNotification?.('Personnel assigné aux weekends', 'success');
+    };
+
+    // Fonction pour optimiser automatiquement l'assignation basée sur les compétences
+    const optimizePersonnelAssignment = () => {
+        if (!formData.etapes || formData.etapes.length === 0) return;
+
+        const allDays = getAllDays();
+        let optimizations = 0;
+
+        allDays.forEach(day => {
+            formData.etapes.forEach(etape => {
+                if (etape.competencesRequises && etape.competencesRequises.length > 0) {
+                    // Trouver le personnel avec les compétences requises
+                    const suitablePersonnel = personnel.filter(person =>
+                        etape.competencesRequises.some(competence =>
+                            person.competences?.includes(competence)
+                        )
+                    );
+
+                    // Assigner automatiquement le personnel le plus adapté
+                    if (suitablePersonnel.length > 0) {
+                        const bestMatch = suitablePersonnel[0]; // Simplification
+                        const currentAssigned = getAssignedPersonnelForDay(day.dateString);
+
+                        if (!currentAssigned.some(p => p.id === bestMatch.id)) {
+                            togglePersonnelForDay(day.dateString, bestMatch.id);
+                            optimizations++;
+                        }
+                    }
+                }
+            });
+        });
+
+        if (optimizations > 0) {
+            addNotification?.(`${optimizations} optimisations appliquées automatiquement`, 'success');
+        } else {
+            addNotification?.('Aucune optimisation nécessaire', 'info');
+        }
+    };
+
+    // Fonction pour détecter et résoudre les conflits d'horaires
+    const resolveScheduleConflicts = () => {
+        const allDays = getAllDays();
+        let conflictsResolved = 0;
+
+        allDays.forEach(day => {
+            const assignedPersonnel = getAssignedPersonnelForDay(day.dateString);
+
+            assignedPersonnel.forEach(person => {
+                // Vérifier les conflits avec les congés
+                const hasCongeConflict = conges?.some(conge =>
+                    conge.personnelId === person.id &&
+                    new Date(conge.dateDebut) <= new Date(day.dateString) &&
+                    new Date(conge.dateFin) >= new Date(day.dateString)
+                );
+
+                if (hasCongeConflict) {
+                    togglePersonnelForDay(day.dateString, person.id); // Retirer
+                    conflictsResolved++;
+                }
+            });
+        });
+
+        if (conflictsResolved > 0) {
+            addNotification?.(`${conflictsResolved} conflits d'horaires résolus`, 'warning');
+        } else {
+            addNotification?.('Aucun conflit détecté', 'success');
+        }
+    };
+
+    // État pour la gestion avancée des équipes (déjà défini plus haut)
+
+    // Fonction pour obtenir les statistiques de personnel par département/succursale et poste
+    const getPersonnelStats = () => {
+        const stats = {
+            total: personnel.length,
+            selected: formData.personnel.length,
+            'byDépartement/Succursale': {},
+            byPoste: {},
+            available: personnel.length - formData.personnel.length
+        };
+
+        // Statistiques par département/succursale
+        personnel.forEach(person => {
+            const departement = person.succursale || 'Non assigné';
+            if (!stats['byDépartement/Succursale'][departement]) {
+                stats['byDépartement/Succursale'][departement] = { total: 0, selected: 0, available: 0 };
+            }
+            stats['byDépartement/Succursale'][departement].total++;
+
+            if (formData.personnel.includes(person.id)) {
+                stats['byDépartement/Succursale'][departement].selected++;
+            } else {
+                stats['byDépartement/Succursale'][departement].available++;
+            }
+        });
+
+        // Statistiques par poste
+        personnel.forEach(person => {
+            const poste = person.poste || 'Non défini';
+            if (!stats.byPoste[poste]) {
+                stats.byPoste[poste] = { total: 0, selected: 0, available: 0 };
+            }
+            stats.byPoste[poste].total++;
+
+            if (formData.personnel.includes(person.id)) {
+                stats.byPoste[poste].selected++;
+            } else {
+                stats.byPoste[poste].available++;
+            }
+        });
+
+        return stats;
+    };
 
     // Gestionnaires d'événements
     const handleSubmit = async () => {
@@ -1220,6 +1368,16 @@ export function JobModal({
                             }`}
                         >
                             🔄 Récurrence {formData.recurrence?.active ? '(Activé)' : ''}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('teams')}
+                            className={`px-6 py-3 font-medium transition-colors ${
+                                activeTab === 'teams'
+                                    ? 'text-purple-600 border-b-2 border-purple-600 bg-white'
+                                    : 'text-gray-600 hover:text-gray-900'
+                            }`}
+                        >
+                            🎯 Équipes {formData.horaireMode === 'personnalise' ? '(Avancé)' : ''}
                         </button>
                     </div>
 
@@ -2862,6 +3020,275 @@ export function JobModal({
                                             </button>
                                         </div>
                                     )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Onglet Équipes Avancées */}
+                        {activeTab === 'teams' && (
+                            <div className="h-full overflow-y-auto p-6">
+                                <div className="space-y-6">
+                                    {/* Header Équipes */}
+                                    <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-lg">
+                                        <div className="text-4xl">🎯</div>
+                                        <div>
+                                            <h3 className="text-lg font-bold text-white flex items-center">
+                                                Gestion Avancée des Équipes
+                                            </h3>
+                                            <p className="text-sm text-gray-200">
+                                                Optimisation automatique et gestion personnalisée des horaires d'équipe
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Actions Rapides */}
+                                    <div className="bg-white border rounded-lg overflow-hidden">
+                                        <div className="bg-emerald-50 p-4 border-b">
+                                            <h4 className="font-medium text-emerald-800 flex items-center gap-2">
+                                                ⚡ Actions Rapides
+                                            </h4>
+                                        </div>
+                                        <div className="p-6">
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <button
+                                                    type="button"
+                                                    onClick={optimizePersonnelAssignment}
+                                                    className="flex flex-col items-center gap-2 p-4 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors"
+                                                >
+                                                    <div className="text-2xl">🧠</div>
+                                                    <div className="text-sm font-medium text-blue-800">Optimisation IA</div>
+                                                    <div className="text-xs text-blue-600 text-center">Assignation automatique basée sur les compétences</div>
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={resolveScheduleConflicts}
+                                                    className="flex flex-col items-center gap-2 p-4 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors"
+                                                >
+                                                    <div className="text-2xl">🔍</div>
+                                                    <div className="text-sm font-medium text-red-800">Résoudre Conflits</div>
+                                                    <div className="text-xs text-red-600 text-center">Détection et résolution automatique</div>
+                                                </button>
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const assignedPersonnel = getAssignedPersonnelForDay(selectedDay);
+                                                        applyPersonnelToAllDays(assignedPersonnel);
+                                                    }}
+                                                    className="flex flex-col items-center gap-2 p-4 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors"
+                                                >
+                                                    <div className="text-2xl">📅</div>
+                                                    <div className="text-sm font-medium text-green-800">Appliquer à Tout</div>
+                                                    <div className="text-xs text-green-600 text-center">Copier la sélection actuelle</div>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Sélection de Jour */}
+                                    <div className="bg-white border rounded-lg overflow-hidden">
+                                        <div className="bg-teal-50 p-4 border-b">
+                                            <h4 className="font-medium text-teal-800 flex items-center gap-2">
+                                                📅 Sélection de Jour
+                                            </h4>
+                                        </div>
+                                        <div className="p-6">
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                        Jour sélectionné:
+                                                    </label>
+                                                    <input
+                                                        type="date"
+                                                        value={selectedDay}
+                                                        min={formData.dateDebut}
+                                                        max={formData.dateFin}
+                                                        onChange={(e) => setSelectedDay(e.target.value)}
+                                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                                                    />
+                                                </div>
+
+                                                {/* Navigation rapide entre les jours */}
+                                                <div className="flex gap-2 flex-wrap">
+                                                    {getAllDays().slice(0, 7).map((day, index) => (
+                                                        <button
+                                                            key={day.dateString}
+                                                            type="button"
+                                                            onClick={() => setSelectedDay(day.dateString)}
+                                                            className={`px-3 py-2 text-xs rounded-lg transition-colors ${
+                                                                selectedDay === day.dateString
+                                                                    ? 'bg-teal-600 text-white'
+                                                                    : day.isWeekend
+                                                                        ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                                                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                                            }`}
+                                                        >
+                                                            {day.dayName.slice(0, 3)} {day.date.getDate()}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Gestion Personnel pour le Jour Sélectionné */}
+                                    <div className="bg-white border rounded-lg overflow-hidden">
+                                        <div className="bg-purple-50 p-4 border-b flex items-center justify-between">
+                                            <h4 className="font-medium text-purple-800 flex items-center gap-2">
+                                                👥 Personnel du {new Date(selectedDay).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                            </h4>
+                                            <div className="flex gap-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDailyPersonnelTab('assigned')}
+                                                    className={`px-3 py-1 text-sm rounded ${
+                                                        dailyPersonnelTab === 'assigned'
+                                                            ? 'bg-purple-600 text-white'
+                                                            : 'text-purple-600 hover:bg-purple-100'
+                                                    }`}
+                                                >
+                                                    Assignés
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDailyPersonnelTab('available')}
+                                                    className={`px-3 py-1 text-sm rounded ${
+                                                        dailyPersonnelTab === 'available'
+                                                            ? 'bg-purple-600 text-white'
+                                                            : 'text-purple-600 hover:bg-purple-100'
+                                                    }`}
+                                                >
+                                                    Disponibles
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div className="p-6">
+                                            {dailyPersonnelTab === 'assigned' ? (
+                                                <div className="space-y-4">
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {getAssignedPersonnelForDay(selectedDay).map(person => (
+                                                            <div
+                                                                key={person.id}
+                                                                className="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-2 rounded-lg"
+                                                            >
+                                                                <span className="font-medium">{person.nom}</span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => togglePersonnelForDay(selectedDay, person.id)}
+                                                                    className="text-green-600 hover:text-green-800"
+                                                                >
+                                                                    ✕
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    {/* Actions rapides */}
+                                                    <div className="mt-3 pt-3 border-t border-purple-200">
+                                                        <div className="text-sm font-medium text-purple-900 mb-2">📅 Sélection rapide par jour</div>
+                                                        <div className="flex gap-2 flex-wrap">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const assignedPersonnel = getAssignedPersonnelForDay(selectedDay);
+                                                                    applyPersonnelToAllDays(assignedPersonnel);
+                                                                }}
+                                                                className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors"
+                                                            >
+                                                                ✓ Tous les jours
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const assignedPersonnel = getAssignedPersonnelForDay(selectedDay);
+                                                                    applyPersonnelToWeekdays(assignedPersonnel);
+                                                                }}
+                                                                className="px-2 py-1 text-xs bg-indigo-100 text-indigo-700 rounded hover:bg-indigo-200 transition-colors"
+                                                            >
+                                                                📅 Jours ouvrables
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const assignedPersonnel = getAssignedPersonnelForDay(selectedDay);
+                                                                    applyPersonnelToWeekends(assignedPersonnel);
+                                                                }}
+                                                                className="px-2 py-1 text-xs bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition-colors"
+                                                            >
+                                                                🏖️ Weekends
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-4">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                        {personnel?.filter(person =>
+                                                            !getAssignedPersonnelForDay(selectedDay).some(assigned => assigned.id === person.id)
+                                                        ).map(person => (
+                                                            <div
+                                                                key={person.id}
+                                                                className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                                                            >
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center text-sm font-medium">
+                                                                        {person.nom?.charAt(0)}
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="font-medium text-sm">{person.nom}</div>
+                                                                        <div className="text-xs text-gray-500">{person.poste}</div>
+                                                                    </div>
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => togglePersonnelForDay(selectedDay, person.id)}
+                                                                    className="px-3 py-1 text-sm bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200 transition-colors"
+                                                                >
+                                                                    + Ajouter
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Statistiques */}
+                                    <div className="bg-white border rounded-lg overflow-hidden">
+                                        <div className="bg-gray-50 p-4 border-b">
+                                            <h4 className="font-medium text-gray-800 flex items-center gap-2">
+                                                📊 Statistiques du Projet
+                                            </h4>
+                                        </div>
+                                        <div className="p-6">
+                                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                                                    <div className="text-2xl font-bold text-blue-600">{getAllDays().length}</div>
+                                                    <div className="text-sm text-blue-800">Jours Total</div>
+                                                </div>
+                                                <div className="text-center p-4 bg-green-50 rounded-lg">
+                                                    <div className="text-2xl font-bold text-green-600">{personnel?.length || 0}</div>
+                                                    <div className="text-sm text-green-800">Personnel Disponible</div>
+                                                </div>
+                                                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                                                    <div className="text-2xl font-bold text-purple-600">
+                                                        {Object.keys(formData.horairesPersonnalises || {}).length}
+                                                    </div>
+                                                    <div className="text-sm text-purple-800">Jours Configurés</div>
+                                                </div>
+                                                <div className="text-center p-4 bg-orange-50 rounded-lg">
+                                                    <div className="text-2xl font-bold text-orange-600">
+                                                        {Math.round(
+                                                            (Object.keys(formData.horairesPersonnalises || {}).length / Math.max(getAllDays().length, 1)) * 100
+                                                        )}%
+                                                    </div>
+                                                    <div className="text-sm text-orange-800">Completion</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}

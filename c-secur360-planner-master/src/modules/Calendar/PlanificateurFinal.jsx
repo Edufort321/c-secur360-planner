@@ -2,6 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Icon } from '../../components/UI/Icon';
 import { JobModal } from '../NewJob/JobModal';
 import { AnalyticsDashboard } from '../../components/Analytics/AnalyticsDashboard';
+import { BUREAU_COLORS } from '../../../config/constants.js';
+import { useLanguage } from '../../contexts/LanguageContext.jsx';
+import {
+    generateLocalizedDays,
+    formatLocalizedDate,
+    getLocalizedDayName,
+    getLocalizedMonthName
+} from '../../utils/localizedDateUtils.js';
 
 export function PlanificateurFinal({
     jobs = [],
@@ -9,6 +17,7 @@ export function PlanificateurFinal({
     equipements = [],
     sousTraitants = [],
     conges = [],
+    succursales = [],
     onSaveJob,
     onDeleteJob,
     onSavePersonnel,
@@ -23,16 +32,74 @@ export function PlanificateurFinal({
     peutModifier = () => false,
     estCoordonnateur = () => false
 }) {
+    // Hook de traduction
+    const { t, currentLanguage } = useLanguage();
+
+    // Hauteur uniforme simple
+    const CELL_HEIGHT = 80; // pixels
     // États pour la vue calendrier
     const [startDate, setStartDate] = useState(new Date());
     const [numberOfDays, setNumberOfDays] = useState(14);
+    const [timeView, setTimeView] = useState('2weeks'); // '1day', '1week', '2weeks'
     const [filterType, setFilterType] = useState('personnel'); // 'personnel', 'equipements', 'global'
     const [filterBureau, setFilterBureau] = useState('tous');
+    const [filterPoste, setFilterPoste] = useState('tous');
     const [searchTerm, setSearchTerm] = useState('');
     const [modeVueIndividuel, setModeVueIndividuel] = useState(false);
     const [travailleurSelectionne, setTravailleurSelectionne] = useState('');
     const [selectedJob, setSelectedJob] = useState(null);
+    const [conflictJob, setConflictJob] = useState(null); // Job en conflit ouvert en parallèle
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+    // Effet pour ajuster numberOfDays selon la vue temporelle
+    useEffect(() => {
+        if (timeView.startsWith('period-')) {
+            // Les périodes étendues sont déjà gérées dans le onChange du select
+            return;
+        }
+
+        switch(timeView) {
+            case '1day':
+                setNumberOfDays(1);
+                break;
+            case '1week':
+                setNumberOfDays(7);
+                break;
+            case '2weeks':
+            default:
+                setNumberOfDays(14);
+                break;
+        }
+    }, [timeView]);
+
+    // Fonction pour calculer les largeurs des cellules selon la vue
+    const getCellWidth = () => {
+        if (isMobile) {
+            switch(timeView) {
+                case '1day': return 'w-32'; // 128px - très large pour 1 jour
+                case '1week': return 'w-20'; // 80px - large pour 7 jours
+                case '2weeks': return 'w-10'; // 40px - normal pour 14 jours
+                case 'period-21': return 'w-8'; // 32px - compact pour 3 semaines
+                case 'period-30': return 'w-6'; // 24px - très compact pour 1 mois
+                case 'period-90': return 'w-4'; // 16px - minimal pour 3 mois
+                case 'period-180': return 'w-3'; // 12px - très minimal pour 6 mois
+                case 'period-365': return 'w-2'; // 8px - ultra minimal pour 1 an
+                default: return 'w-10';
+            }
+        } else {
+            switch(timeView) {
+                case '1day': return 'w-48'; // 192px - très large pour 1 jour
+                case '1week': return 'w-32'; // 128px - large pour 7 jours
+                case '2weeks': return 'w-16'; // 64px - normal pour 14 jours
+                case 'period-21': return 'w-12'; // 48px - compact pour 3 semaines
+                case 'period-30': return 'w-10'; // 40px - compact pour 1 mois
+                case 'period-90': return 'w-6'; // 24px - minimal pour 3 mois
+                case 'period-180': return 'w-4'; // 16px - très minimal pour 6 mois
+                case 'period-365': return 'w-3'; // 12px - ultra minimal pour 1 an
+                default: return 'w-16';
+            }
+        }
+    };
 
     // États pour la navigation de date rapide
     const [showDateSearch, setShowDateSearch] = useState(false);
@@ -41,16 +108,49 @@ export function PlanificateurFinal({
     // États pour le dashboard
     const [dashboardFilter, setDashboardFilter] = useState('global'); // 'global', 'personnel', 'equipements'
 
+    // État pour le menu hamburger
+    const [showFilterMenu, setShowFilterMenu] = useState(false);
+    const [activeFilterTab, setActiveFilterTab] = useState('type'); // 'type', 'bureau', 'poste', 'vue'
+
+    // État pour le mode de couleur
+    const [colorMode, setColorMode] = useState('succursale'); // 'succursale' ou 'priorite'
+
     // Fonction pour obtenir les options de bureau
     const getBureauOptions = () => {
         const bureaux = new Set();
         personnel.forEach(p => p.succursale && bureaux.add(p.succursale));
         equipements.forEach(e => e.succursale && bureaux.add(e.succursale));
 
-        const options = [{ value: 'tous', label: 'Tous les bureaux' }];
+        const options = [{ value: 'tous', label: t ? t('resource.allOffices') : 'Tous les bureaux' }];
         Array.from(bureaux).sort().forEach(bureau => {
             options.push({ value: bureau, label: bureau });
         });
+        return options;
+    };
+
+    // Obtenir la couleur d'une succursale
+    const getSuccursaleColor = (nomSuccursale) => {
+        const succursaleObj = succursales.find(s => s.nom === nomSuccursale);
+        return succursaleObj?.couleur || '#6B7280'; // Couleur grise par défaut
+    };
+
+    // Fonction pour obtenir les options de poste
+    const getPosteOptions = () => {
+        const postes = new Set();
+        personnel.forEach(p => {
+            if (p.poste) {
+                const posteLabel = p.departement ? `${p.poste} - ${p.departement}` : p.poste;
+                postes.add(JSON.stringify({ value: p.poste, label: posteLabel }));
+            }
+        });
+
+        const options = [{ value: 'tous', label: t ? t('resource.allPositions') : 'Tous les postes' }];
+        Array.from(postes)
+            .map(p => JSON.parse(p))
+            .sort((a, b) => a.label.localeCompare(b.label))
+            .forEach(poste => {
+                options.push(poste);
+            });
         return options;
     };
 
@@ -66,14 +166,22 @@ export function PlanificateurFinal({
         }
     };
 
+    // Fonction pour afficher la date complète lors du double-clic
+    const handleDateDoubleClick = (date) => {
+        const dateComplete = formatLocalizedDate(date, currentLanguage, 'full');
+        alert(`📅 ${t ? t('calendar.fullDate') : 'Date complète'} :\n${dateComplete}`);
+    };
+
     // Période prédéfinies
     const periodOptions = [
-        { value: 14, label: '2S', days: 14 },
-        { value: 21, label: '3S', days: 21 },
-        { value: 30, label: '1M', days: 30 },
-        { value: 90, label: '3M', days: 90 },
-        { value: 180, label: '6M', days: 180 },
-        { value: 365, label: '1AN', days: 365 }
+        { value: 1, label: '1J', days: 1, timeView: '1day' },
+        { value: 7, label: '1S', days: 7, timeView: '1week' },
+        { value: 14, label: '2S', days: 14, timeView: '2weeks' },
+        { value: 21, label: '3S', days: 21, timeView: 'period-21' },
+        { value: 30, label: '1M', days: 30, timeView: 'period-30' },
+        { value: 90, label: '3M', days: 90, timeView: 'period-90' },
+        { value: 180, label: '6M', days: 180, timeView: 'period-180' },
+        { value: 365, label: '1AN', days: 365, timeView: 'period-365' }
     ];
 
     // Calculer les statistiques du dashboard
@@ -176,30 +284,10 @@ export function PlanificateurFinal({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [showDateSearch]);
 
-    // Générer les jours continus
+    // Générer les jours continus avec traduction
     const continuousDays = useMemo(() => {
-        const days = [];
-        const current = new Date(startDate);
-
-        for (let i = 0; i < numberOfDays; i++) {
-            const date = new Date(current);
-            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-            const isToday = date.toDateString() === new Date().toDateString();
-
-            days.push({
-                date: new Date(date),
-                dayName: date.toLocaleDateString('fr-FR', { weekday: 'short' }),
-                dayNumber: date.getDate(),
-                monthName: date.toLocaleDateString('fr-FR', { month: 'short' }),
-                isWeekend,
-                isToday,
-                fullDate: date.toISOString().split('T')[0]
-            });
-
-            current.setDate(current.getDate() + 1);
-        }
-        return days;
-    }, [startDate, numberOfDays]);
+        return generateLocalizedDays(startDate, numberOfDays, currentLanguage, isMobile);
+    }, [startDate, numberOfDays, currentLanguage, isMobile]);
 
     // Trier le personnel par bureau puis alphabétique (nom, prénom)
     const sortPersonnel = (personnelList) => {
@@ -223,8 +311,9 @@ export function PlanificateurFinal({
                 let filteredPersonnel = personnel.filter(person => {
                     const matchesSearch = person.nom.toLowerCase().includes(searchTerm.toLowerCase());
                     const matchesBureau = filterBureau === 'tous' || person.succursale === filterBureau;
+                    const matchesPoste = filterPoste === 'tous' || person.poste === filterPoste;
                     const visibleCalendrier = person.visibleChantier === true;
-                    return matchesSearch && matchesBureau && visibleCalendrier && person.id === travailleurSelectionne;
+                    return matchesSearch && matchesBureau && matchesPoste && visibleCalendrier && person.id === travailleurSelectionne;
                 });
                 return sortPersonnel(filteredPersonnel).map(p => ({...p, type: 'personnel'}));
             } else if (filterType === 'equipements') {
@@ -239,8 +328,9 @@ export function PlanificateurFinal({
                 let filteredPersonnel = personnel.filter(person => {
                     const matchesSearch = person.nom.toLowerCase().includes(searchTerm.toLowerCase());
                     const matchesBureau = filterBureau === 'tous' || person.succursale === filterBureau;
+                    const matchesPoste = filterPoste === 'tous' || person.poste === filterPoste;
                     const visibleCalendrier = person.visibleChantier === true;
-                    return matchesSearch && matchesBureau && visibleCalendrier && person.id === travailleurSelectionne;
+                    return matchesSearch && matchesBureau && matchesPoste && visibleCalendrier && person.id === travailleurSelectionne;
                 }).map(p => ({...p, type: 'personnel'}));
 
                 const filteredEquipements = equipements.filter(equipement => {
@@ -257,8 +347,9 @@ export function PlanificateurFinal({
             let filteredPersonnel = personnel.filter(person => {
                 const matchesSearch = person.nom.toLowerCase().includes(searchTerm.toLowerCase());
                 const matchesBureau = filterBureau === 'tous' || person.succursale === filterBureau;
+                const matchesPoste = filterPoste === 'tous' || person.poste === filterPoste;
                 const visibleCalendrier = person.visibleChantier === true;
-                return matchesSearch && matchesBureau && visibleCalendrier;
+                return matchesSearch && matchesBureau && matchesPoste && visibleCalendrier;
             });
             return sortPersonnel(filteredPersonnel).map(p => ({...p, type: 'personnel'}));
         } else if (filterType === 'equipements') {
@@ -293,8 +384,9 @@ export function PlanificateurFinal({
             let filteredPersonnel = personnel.filter(person => {
                 const matchesSearch = person.nom.toLowerCase().includes(searchTerm.toLowerCase());
                 const matchesBureau = filterBureau === 'tous' || person.succursale === filterBureau;
+                const matchesPoste = filterPoste === 'tous' || person.poste === filterPoste;
                 const visibleCalendrier = person.visibleChantier === true;
-                return matchesSearch && matchesBureau && visibleCalendrier;
+                return matchesSearch && matchesBureau && matchesPoste && visibleCalendrier;
             }).map(p => ({...p, type: 'personnel'}));
 
             const filteredEquipements = equipements.filter(equipement => {
@@ -305,7 +397,7 @@ export function PlanificateurFinal({
 
             return [...filteredPersonnel, ...filteredEquipements];
         }
-    }, [personnel, equipements, filterType, filterBureau, searchTerm, modeVueIndividuel, travailleurSelectionne]);
+    }, [personnel, equipements, filterType, filterBureau, filterPoste, searchTerm, modeVueIndividuel, travailleurSelectionne]);
 
     // Obtenir le job pour une cellule donnée
     const getJobForCell = (resourceId, day, resourceType) => {
@@ -411,7 +503,13 @@ export function PlanificateurFinal({
                         {/* Sélecteur de période */}
                         <select
                             value={numberOfDays}
-                            onChange={(e) => setNumberOfDays(parseInt(e.target.value))}
+                            onChange={(e) => {
+                                const selectedPeriod = periodOptions.find(p => p.value === parseInt(e.target.value));
+                                if (selectedPeriod) {
+                                    setNumberOfDays(selectedPeriod.days);
+                                    setTimeView(selectedPeriod.timeView);
+                                }
+                            }}
                             className="px-2 py-1 text-sm border rounded-lg"
                         >
                             {periodOptions.map(option => (
@@ -507,6 +605,19 @@ export function PlanificateurFinal({
                             )}
                         </select>
 
+                        {/* Filtre poste - seulement pour personnel */}
+                        {(filterType === 'personnel' || filterType === 'global') && (
+                            <select
+                                value={filterPoste}
+                                onChange={(e) => setFilterPoste(e.target.value)}
+                                className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                            >
+                                {getPosteOptions().map(poste =>
+                                    <option key={poste.value} value={poste.value}>{poste.label}</option>
+                                )}
+                            </select>
+                        )}
+
                         {/* Filtre dashboard */}
                         {filterType === 'dashboard' && (
                             <select
@@ -518,6 +629,23 @@ export function PlanificateurFinal({
                                 <option value="personnel">👥 Focus Personnel</option>
                                 <option value="equipements">🔧 Focus Équipements</option>
                             </select>
+                        )}
+
+                        {/* Toggle couleur priorité vs succursale - seulement pour vue calendrier */}
+                        {filterType !== 'dashboard' && (
+                            <div className="flex items-center gap-2">
+                                <label className="text-sm text-gray-600">Couleur:</label>
+                                <button
+                                    onClick={() => setColorMode(colorMode === 'priorite' ? 'succursale' : 'priorite')}
+                                    className={`px-3 py-2 text-sm rounded-lg border ${
+                                        colorMode === 'priorite'
+                                            ? 'bg-orange-100 border-orange-300 text-orange-700'
+                                            : 'bg-blue-100 border-blue-300 text-blue-700'
+                                    }`}
+                                >
+                                    {colorMode === 'priorite' ? '🎯 Priorité' : '🏢 Bureau'}
+                                </button>
+                            </div>
                         )}
 
                         {/* Mode vue individuel */}
@@ -809,7 +937,7 @@ export function PlanificateurFinal({
                                             return (
                                                 <th
                                                     key={index}
-                                                    className={`px-1 py-2 text-center font-semibold text-gray-700 ${isMobile ? 'w-10' : 'w-16'} border-r ${day.isWeekend ? 'bg-gray-100' : ''}`}
+                                                    className={`px-1 py-2 text-center font-semibold text-gray-700 ${getCellWidth()} border-r ${day.isWeekend ? 'bg-gray-100' : ''}`}
                                                 >
                                                     {showMonth && (
                                                         <div className="text-xs text-gray-500 font-normal">
@@ -826,7 +954,7 @@ export function PlanificateurFinal({
                                         {continuousDays.map((day, index) =>
                                             <th
                                                 key={index}
-                                                className={`px-1 py-2 text-center text-xs border-r ${
+                                                className={`px-1 py-2 text-center text-xs border-r ${getCellWidth()} ${
                                                     day.isWeekend ? 'bg-gray-100' : 'bg-gray-50'
                                                 } ${
                                                     day.isToday ? 'bg-blue-100 text-blue-600 font-bold' : 'text-gray-600'
@@ -854,16 +982,26 @@ export function PlanificateurFinal({
                                                         key={dayIndex}
                                                         className={`relative p-1 border-r cursor-pointer hover:bg-blue-50 ${
                                                             day.isWeekend ? 'bg-gray-50' : 'bg-white'
-                                                        } ${isMobile ? 'w-10 h-12' : 'w-16 h-16'}`}
+                                                        } ${getCellWidth()}`}
+                                                        style={{ height: `${CELL_HEIGHT}px` }}
                                                         onClick={() => handleCellClick(resource.id, day, resource.type)}
                                                     >
                                                         {job && (
-                                                            <div className={`w-full h-full rounded text-xs p-1 ${
-                                                                job.priorite === 'urgente' ? 'bg-red-100 border border-red-300 text-red-800' :
-                                                                job.priorite === 'haute' ? 'bg-orange-100 border border-orange-300 text-orange-800' :
-                                                                job.priorite === 'normale' ? 'bg-yellow-100 border border-yellow-300 text-yellow-800' :
-                                                                'bg-green-100 border border-green-300 text-green-800'
-                                                            }`}>
+                                                            <div
+                                                                className={`w-full h-full rounded text-xs p-1 ${
+                                                                    colorMode === 'priorite' ? (
+                                                                        job.priorite === 'urgente' ? 'bg-red-100 border border-red-300 text-red-800' :
+                                                                        job.priorite === 'haute' ? 'bg-orange-100 border border-orange-300 text-orange-800' :
+                                                                        job.priorite === 'normale' ? 'bg-yellow-100 border border-yellow-300 text-yellow-800' :
+                                                                        'bg-green-100 border border-green-300 text-green-800'
+                                                                    ) : 'border'
+                                                                }`}
+                                                                style={colorMode === 'succursale' && job.bureau ? {
+                                                                    backgroundColor: getSuccursaleColor(job.bureau) + '20',
+                                                                    borderColor: getSuccursaleColor(job.bureau),
+                                                                    color: getSuccursaleColor(job.bureau)
+                                                                } : {}}
+                                                            >
                                                                 <div className="font-bold truncate text-xs" title={`Job #${job.numRef || job.id} - ${job.client}`}>
                                                                     #{job.numRef || job.id}
                                                                 </div>

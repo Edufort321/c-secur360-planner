@@ -4,6 +4,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
+import { LanguageProvider } from './contexts/LanguageContext.jsx';
 
 console.log('🚀 Chargement de l\'application C-Secur360 V6.7 - Version Modulaire');
 
@@ -30,7 +31,11 @@ try {
     }
 
     const root = ReactDOM.createRoot(rootElement);
-    root.render(<App />);
+    root.render(
+        <LanguageProvider>
+            <App />
+        </LanguageProvider>
+    );
 
     console.log('🎉 Application React initialisée avec succès');
 
