@@ -559,6 +559,246 @@ export function PlanificateurFinal({
                 {/* Filtres et recherche */}
                 <div className="flex flex-col lg:flex-row gap-4 mt-4">
                     <div className="flex flex-1 gap-2">
+                        {/* Menu hamburger avec titre */}
+                        <div className="relative flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-700">{t ? t('filter.filters') : 'Filtres'}</span>
+                            <button
+                                onClick={() => setShowFilterMenu(!showFilterMenu)}
+                                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border"
+                                title={t ? t('filter.menuFilters') : 'Menu des filtres'}
+                            >
+                                <svg
+                                    width="20"
+                                    height="20"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    className={`transition-transform duration-200 ${showFilterMenu ? 'rotate-90' : ''}`}
+                                >
+                                    <path d="M3 12h18M3 6h18M3 18h18" />
+                                </svg>
+                            </button>
+
+                            {/* Menu déroulant avec onglets */}
+                            {showFilterMenu && (
+                                <>
+                                    <div className="absolute top-full left-0 mt-2 w-96 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+                                        <div className="p-4">
+                                            {/* Header du menu */}
+                                            <div className="border-b border-gray-200 pb-3 mb-4">
+                                                <h3 className="text-sm font-semibold text-gray-900">
+                                                    {t ? t('filter.filtersAndOptions') : 'Filtres et Options'}
+                                                </h3>
+                                            </div>
+
+                                            {/* Onglets */}
+                                            <div className="flex border-b border-gray-200 mb-4">
+                                                {[
+                                                    { key: 'type', label: t ? t('filter.type') : 'Type', icon: '🔍' },
+                                                    { key: 'bureau', label: t ? t('filter.office') : 'Bureau', icon: '🏢' },
+                                                    { key: 'poste', label: t ? t('filter.position') : 'Poste', icon: '👔' },
+                                                    { key: 'vue', label: t ? t('filter.view') : 'Vue', icon: '👁️' }
+                                                ].map((tab) => (
+                                                    <button
+                                                        key={tab.key}
+                                                        onClick={() => setActiveFilterTab(tab.key)}
+                                                        className={`flex-1 py-2 px-3 text-sm font-medium border-b-2 transition-colors ${
+                                                            activeFilterTab === tab.key
+                                                                ? 'border-blue-500 text-blue-600'
+                                                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                                                        }`}
+                                                    >
+                                                        <span className="mr-1">{tab.icon}</span>
+                                                        {tab.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+
+                                            {/* Contenu des onglets */}
+                                            <div className="min-h-[200px]">
+                                                {/* Onglet Type de vue */}
+                                                {activeFilterTab === 'type' && (
+                                                    <div className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                                                            {t ? t('filter.selectViewType') : 'Sélectionner le type de vue'}
+                                                        </label>
+                                                        {[
+                                                            { value: 'personnel', label: 'Personnel', desc: 'Afficher uniquement le personnel' },
+                                                            { value: 'equipements', label: 'Équipements', desc: 'Afficher uniquement les équipements' },
+                                                            { value: 'global', label: 'Vue globale', desc: 'Personnel et équipements ensemble' },
+                                                            { value: 'jobs', label: 'Événements', desc: 'Afficher uniquement les événements' },
+                                                            { value: 'dashboard', label: 'Dashboard', desc: 'Vue analytique complète' }
+                                                        ].map((type) => (
+                                                            <button
+                                                                key={type.value}
+                                                                onClick={() => {
+                                                                    setFilterType(type.value);
+                                                                    if (type.value === 'equipements') {
+                                                                        setModeVueIndividuel(false);
+                                                                        setTravailleurSelectionne('');
+                                                                    }
+                                                                }}
+                                                                className={`w-full text-left px-3 py-3 rounded-lg transition-colors ${
+                                                                    filterType === type.value
+                                                                        ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                                                        : 'hover:bg-gray-100 text-gray-700 border border-transparent'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="font-medium">{type.label}</span>
+                                                                    {filterType === type.value && (
+                                                                        <span className="ml-auto text-blue-600">✓</span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="text-xs text-gray-500 mt-1">{type.desc}</div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* Onglet Bureau */}
+                                                {activeFilterTab === 'bureau' && (
+                                                    <div className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                                                            {t ? t('filter.selectOffice') : 'Sélectionner le bureau'}
+                                                        </label>
+                                                        {getBureauOptions().map((bureau) => (
+                                                            <button
+                                                                key={bureau.value}
+                                                                onClick={() => setFilterBureau(bureau.value)}
+                                                                className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                                                                    filterBureau === bureau.value
+                                                                        ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                                                        : 'hover:bg-gray-100 text-gray-700 border border-transparent'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center gap-2">
+                                                                    <span>{bureau.label}</span>
+                                                                    {filterBureau === bureau.value && (
+                                                                        <span className="ml-auto text-blue-600">✓</span>
+                                                                    )}
+                                                                </div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* Onglet Poste */}
+                                                {activeFilterTab === 'poste' && (
+                                                    <div className="space-y-2">
+                                                        <label className="block text-sm font-medium text-gray-700 mb-3">
+                                                            {t ? t('filter.selectPosition') : 'Sélectionner le poste'}
+                                                        </label>
+                                                        {getPosteOptions().map((poste) => (
+                                                            <button
+                                                                key={poste.value}
+                                                                onClick={() => setFilterPoste(poste.value)}
+                                                                className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                                                                    filterPoste === poste.value
+                                                                        ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                                                        : 'hover:bg-gray-100 text-gray-700 border border-transparent'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center gap-2">
+                                                                    <span>{poste.label}</span>
+                                                                    {filterPoste === poste.value && (
+                                                                        <span className="ml-auto text-blue-600">✓</span>
+                                                                    )}
+                                                                </div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+
+                                                {/* Onglet Vue */}
+                                                {activeFilterTab === 'vue' && (
+                                                    <div className="space-y-4">
+                                                        {/* Mode couleur */}
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                                                Mode de couleur
+                                                            </label>
+                                                            <div className="space-y-2">
+                                                                <button
+                                                                    onClick={() => setColorMode('priorite')}
+                                                                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                                                                        colorMode === 'priorite'
+                                                                            ? 'bg-orange-100 text-orange-800 border border-orange-300'
+                                                                            : 'hover:bg-gray-100 text-gray-700 border border-transparent'
+                                                                    }`}
+                                                                >
+                                                                    🎯 Couleur par priorité
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setColorMode('succursale')}
+                                                                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                                                                        colorMode === 'succursale'
+                                                                            ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                                                            : 'hover:bg-gray-100 text-gray-700 border border-transparent'
+                                                                    }`}
+                                                                >
+                                                                    🏢 Couleur par bureau
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Vue individuelle */}
+                                                        {(filterType === 'personnel' || filterType === 'global') && (
+                                                            <div>
+                                                                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={modeVueIndividuel}
+                                                                        onChange={(e) => {
+                                                                            setModeVueIndividuel(e.target.checked);
+                                                                            if (!e.target.checked) {
+                                                                                setTravailleurSelectionne('');
+                                                                            }
+                                                                        }}
+                                                                        className="rounded"
+                                                                    />
+                                                                    Vue individuelle
+                                                                </label>
+                                                                {modeVueIndividuel && (
+                                                                    <select
+                                                                        value={travailleurSelectionne}
+                                                                        onChange={(e) => setTravailleurSelectionne(e.target.value)}
+                                                                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                                    >
+                                                                        <option value="">Sélectionner...</option>
+                                                                        {filterType === 'personnel' && personnel.map(person =>
+                                                                            <option key={person.id} value={person.id}>{person.nom}</option>
+                                                                        )}
+                                                                        {filterType === 'global' && [
+                                                                            ...personnel.map(person =>
+                                                                                <option key={person.id} value={person.id}>👤 {person.nom}</option>
+                                                                            ),
+                                                                            ...equipements.map(equipement =>
+                                                                                <option key={equipement.id} value={equipement.id}>🔧 {equipement.nom}</option>
+                                                                            )
+                                                                        ]}
+                                                                    </select>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Overlay pour fermer le menu */}
+                                    <div
+                                        className="fixed inset-0 z-40"
+                                        onClick={() => setShowFilterMenu(false)}
+                                    ></div>
+                                </>
+                            )}
+                        </div>
+
                         {/* Recherche */}
                         <div className="relative flex-1 max-w-md">
                             <Icon
@@ -575,117 +815,19 @@ export function PlanificateurFinal({
                             />
                         </div>
 
-                        {/* Filtre type */}
-                        <select
-                            value={filterType}
-                            onChange={(e) => {
-                                setFilterType(e.target.value);
-                                if (e.target.value === 'equipements') {
-                                    setModeVueIndividuel(false);
-                                    setTravailleurSelectionne('');
-                                }
-                            }}
-                            className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="personnel">Personnel</option>
-                            <option value="equipements">Équipements</option>
-                            <option value="global">Vue globale</option>
-                            <option value="jobs">📋 Événements seulement</option>
-                            <option value="dashboard">📊 Dashboard</option>
-                        </select>
-
-                        {/* Filtre bureau */}
-                        <select
-                            value={filterBureau}
-                            onChange={(e) => setFilterBureau(e.target.value)}
-                            className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                        >
-                            {getBureauOptions().map(bureau =>
-                                <option key={bureau.value} value={bureau.value}>{bureau.label}</option>
-                            )}
-                        </select>
-
-                        {/* Filtre poste - seulement pour personnel */}
-                        {(filterType === 'personnel' || filterType === 'global') && (
-                            <select
-                                value={filterPoste}
-                                onChange={(e) => setFilterPoste(e.target.value)}
-                                className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                            >
-                                {getPosteOptions().map(poste =>
-                                    <option key={poste.value} value={poste.value}>{poste.label}</option>
-                                )}
-                            </select>
-                        )}
-
-                        {/* Filtre dashboard */}
-                        {filterType === 'dashboard' && (
-                            <select
-                                value={dashboardFilter}
-                                onChange={(e) => setDashboardFilter(e.target.value)}
-                                className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                            >
-                                <option value="global">📊 Vue globale</option>
-                                <option value="personnel">👥 Focus Personnel</option>
-                                <option value="equipements">🔧 Focus Équipements</option>
-                            </select>
-                        )}
-
-                        {/* Toggle couleur priorité vs succursale - seulement pour vue calendrier */}
+                        {/* Toggle couleur priorité vs succursale - raccourci rapide */}
                         {filterType !== 'dashboard' && (
-                            <div className="flex items-center gap-2">
-                                <label className="text-sm text-gray-600">Couleur:</label>
-                                <button
-                                    onClick={() => setColorMode(colorMode === 'priorite' ? 'succursale' : 'priorite')}
-                                    className={`px-3 py-2 text-sm rounded-lg border ${
-                                        colorMode === 'priorite'
-                                            ? 'bg-orange-100 border-orange-300 text-orange-700'
-                                            : 'bg-blue-100 border-blue-300 text-blue-700'
-                                    }`}
-                                >
-                                    {colorMode === 'priorite' ? '🎯 Priorité' : '🏢 Bureau'}
-                                </button>
-                            </div>
-                        )}
-
-                        {/* Mode vue individuel */}
-                        {(filterType === 'personnel' || filterType === 'global') && (
-                            <div className="flex items-center gap-2">
-                                <label className="flex items-center gap-2 text-sm">
-                                    <input
-                                        type="checkbox"
-                                        checked={modeVueIndividuel}
-                                        onChange={(e) => {
-                                            setModeVueIndividuel(e.target.checked);
-                                            if (!e.target.checked) {
-                                                setTravailleurSelectionne('');
-                                            }
-                                        }}
-                                        className="rounded"
-                                    />
-                                    <span>Vue individuel</span>
-                                </label>
-                                {modeVueIndividuel && (
-                                    <select
-                                        value={travailleurSelectionne}
-                                        onChange={(e) => setTravailleurSelectionne(e.target.value)}
-                                        className="px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 min-w-[200px]"
-                                    >
-                                        <option value="">Sélectionner...</option>
-                                        {filterType === 'personnel' && personnel.map(person =>
-                                            <option key={person.id} value={person.id}>{person.nom}</option>
-                                        )}
-                                        {filterType === 'global' && [
-                                            ...personnel.map(person =>
-                                                <option key={person.id} value={person.id}>👤 {person.nom}</option>
-                                            ),
-                                            ...equipements.map(equipement =>
-                                                <option key={equipement.id} value={equipement.id}>🔧 {equipement.nom}</option>
-                                            )
-                                        ]}
-                                    </select>
-                                )}
-                            </div>
+                            <button
+                                onClick={() => setColorMode(colorMode === 'priorite' ? 'succursale' : 'priorite')}
+                                className={`px-3 py-2 text-sm rounded-lg border ${
+                                    colorMode === 'priorite'
+                                        ? 'bg-orange-100 border-orange-300 text-orange-700'
+                                        : 'bg-blue-100 border-blue-300 text-blue-700'
+                                }`}
+                                title={`Mode: ${colorMode === 'priorite' ? 'Priorité' : 'Bureau'}`}
+                            >
+                                {colorMode === 'priorite' ? '🎯' : '🏢'}
+                            </button>
                         )}
                     </div>
                 </div>
@@ -870,26 +1012,22 @@ export function PlanificateurFinal({
                     <div className="flex">
                         {/* Colonnes fixes pour noms et postes */}
                         <div className="flex-shrink-0 border-r-2 border-gray-300">
-                            <table className="border-collapse">
-                                <thead className="bg-gray-50 sticky top-0">
-                                    <tr>
-                                        <th className={`px-3 py-2 text-left font-semibold text-gray-700 bg-gray-50 border-r ${isMobile ? 'w-[120px]' : 'w-[180px]'}`}>
+                            <table className="border-collapse w-full">
+                                <thead className="bg-gray-900 sticky top-0">
+                                    <tr className="h-20">
+                                        <th className={`px-3 py-4 text-left font-semibold text-white bg-gray-900 border-r border-gray-600 ${isMobile ? 'w-[120px]' : 'w-[180px]'}`}>
                                             {filterType === 'global' ? "Ressource" :
                                              filterType === 'personnel' ? (isMobile ? "Nom" : "Nom / Prénom") :
                                              filterType === 'jobs' ? (isMobile ? "Événement" : "Événement / Client") :
                                              (isMobile ? "Équip." : "Équipement")}
                                         </th>
                                         {!isMobile && (
-                                            <th className="px-2 py-2 text-left font-semibold text-gray-700 bg-gray-50 w-[100px]">
+                                            <th className="px-2 py-4 text-left font-semibold text-white bg-gray-900 border-r border-gray-600 w-[100px]">
                                                 {filterType === 'global' ? "Type" :
                                                  filterType === 'personnel' ? "Poste" :
                                                  filterType === 'jobs' ? "Statut" : "Type"}
                                             </th>
                                         )}
-                                    </tr>
-                                    <tr>
-                                        <th className={`px-3 py-2 bg-gray-50 border-r ${isMobile ? 'w-[120px]' : 'w-[180px]'}`} />
-                                        {!isMobile && <th className="px-2 py-2 bg-gray-50 w-[100px]" />}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -929,46 +1067,36 @@ export function PlanificateurFinal({
                         {/* Section scrollable pour les dates */}
                         <div className="flex-1 overflow-x-auto">
                             <table className="w-full min-w-max border-collapse">
-                                <thead className="bg-gray-50 sticky top-0">
-                                    {/* En-tête avec mois */}
-                                    <tr>
+                                <thead className="bg-gray-900 sticky top-0">
+                                    {/* En-tête avec dates - UNE seule ligne synchronisée */}
+                                    <tr className="h-20">
                                         {continuousDays.map((day, index) => {
                                             const showMonth = index === 0 || day.date.getDate() === 1;
                                             return (
                                                 <th
                                                     key={index}
-                                                    className={`px-1 py-2 text-center font-semibold text-gray-700 ${getCellWidth()} border-r ${day.isWeekend ? 'bg-gray-100' : ''}`}
+                                                    className={`px-1 py-4 text-center font-semibold text-white bg-gray-900 border-r border-gray-600 ${getCellWidth()} ${day.isWeekend ? 'bg-gray-800' : ''}`}
+                                                    onDoubleClick={() => handleDateDoubleClick(day.date)}
+                                                    style={{ minWidth: '60px' }}
                                                 >
-                                                    {showMonth && (
-                                                        <div className="text-xs text-gray-500 font-normal">
-                                                            {isMobile ? day.monthName.substr(0, 3) : day.monthName}
+                                                    <div className="flex flex-col items-center justify-center">
+                                                        {showMonth && (
+                                                            <div className="text-xs text-gray-300 font-normal mb-1">
+                                                                {isMobile ? day.monthName.substr(0, 3) : day.monthName}
+                                                            </div>
+                                                        )}
+                                                        <div className="font-medium">
+                                                            {isMobile ? day.dayName.substr(0, 1) : day.dayName}
                                                         </div>
-                                                    )}
+                                                        <div className={`${isMobile ? 'text-xs' : 'text-sm'} ${day.isToday ? 'font-bold text-blue-300' : ''}`}>
+                                                            {day.dayNumber}
+                                                        </div>
+                                                    </div>
                                                 </th>
                                             );
                                         })}
                                     </tr>
 
-                                    {/* En-tête avec jours */}
-                                    <tr>
-                                        {continuousDays.map((day, index) =>
-                                            <th
-                                                key={index}
-                                                className={`px-1 py-2 text-center text-xs border-r ${getCellWidth()} ${
-                                                    day.isWeekend ? 'bg-gray-100' : 'bg-gray-50'
-                                                } ${
-                                                    day.isToday ? 'bg-blue-100 text-blue-600 font-bold' : 'text-gray-600'
-                                                }`}
-                                            >
-                                                <div className="font-medium">
-                                                    {isMobile ? day.dayName.substr(0, 1) : day.dayName}
-                                                </div>
-                                                <div className={`${isMobile ? 'text-xs' : 'text-sm'} ${day.isToday ? 'font-bold' : ''}`}>
-                                                    {day.dayNumber}
-                                                </div>
-                                            </th>
-                                        )}
-                                    </tr>
                                 </thead>
 
                                 <tbody>
