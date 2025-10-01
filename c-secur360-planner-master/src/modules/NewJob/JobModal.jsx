@@ -947,6 +947,295 @@ export function JobModal({
         return stats;
     };
 
+    // ============== GESTION HORAIRES PAR JOUR (Partie 1/2) ==============
+    // Restauré depuis OLD - Gestion complète jour-par-jour des ressources
+
+    const getAllDays = () => {
+        if (!formData.dateDebut || !formData.dateFin) return [];
+
+        const allDays = [];
+        const startDate = new Date(formData.dateDebut);
+        const endDate = new Date(formData.dateFin);
+
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+            const dateString = d.toISOString().split('T')[0];
+            const dayOfWeek = d.getDay();
+            const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+            // Un jour est inclus par défaut sauf si:
+            // 1. C'est un week-end ET la case "inclure fins de semaine" n'est pas cochée
+            // 2. Il a été explicitement exclu (horairesParJour[date] === null)
+            let included = true;
+            let isExplicitlyExcluded = false;
+
+            if (formData.horairesParJour[dateString] === null) {
+                // Explicitement exclu
+                included = false;
+                isExplicitlyExcluded = true;
+            } else if (isWeekend && !formData.includeWeekendsInDuration && !formData.horairesParJour[dateString]) {
+                // Week-end pas inclus et pas de personnalisation
+                included = false;
+            }
+
+            allDays.push({
+                date: dateString,
+                dayName: d.toLocaleDateString('fr-FR', { weekday: 'long' }),
+                dayNumber: d.getDate(),
+                isWeekend: isWeekend,
+                included: included,
+                isExplicitlyExcluded: isExplicitlyExcluded,
+                hasCustomSchedule: formData.horairesParJour[dateString] !== undefined && formData.horairesParJour[dateString] !== null
+            });
+        }
+
+        return allDays;
+    };
+
+    const getDayWeekendStatus = (dateString) => {
+        const date = new Date(dateString);
+        const dayOfWeek = date.getDay();
+        return dayOfWeek === 0 || dayOfWeek === 6; // Dimanche ou samedi
+    };
+
+    const getDayStats = (dateString) => {
+        const daySchedule = formData.horairesParJour[dateString];
+        const dayAssignations = formData.assignationsParJour[dateString];
+
+        // Compter le personnel planifié pour ce jour
+        let personnelPlanifie = 0;
+        if (daySchedule || (!getDayWeekendStatus(dateString) || formData.includeWeekendsInDuration)) {
+            // Si il y a des assignations spécifiques pour ce jour, les utiliser
+            if (dayAssignations && dayAssignations.personnel.length > 0) {
+                personnelPlanifie = dayAssignations.personnel.length;
+            } else {
+                // Sinon, utiliser les assignations globales
+                personnelPlanifie = formData.personnel.length;
+            }
+        }
+
+        return {
+            personnelPlanifie,
+            available: personnel.length - personnelPlanifie,
+            mode: daySchedule?.mode || 'jour',
+            heureDebut: daySchedule?.heureDebut,
+            heureFin: daySchedule?.heureFin
+        };
+    };
+
+    const getAvailablePersonnelForDay = (dateString) => {
+        return personnel.filter(person => {
+            // Vérifier si la personne est disponible ce jour-là (pas de conflit)
+            const conflicts = checkResourceConflicts(person.id, 'personnel', dateString, dateString, formData.id);
+            return conflicts.length === 0;
+        });
+    };
+
+    const filterPersonnelByDay = (dateString, personnelList) => {
+        return personnelList.filter(person => {
+            // Filtre par département/succursale
+            if (personnelFilters && personnelFilters.succursale !== 'global' && person.succursale !== personnelFilters.succursale) {
+                return false;
+            }
+
+            // Filtre par poste
+            if (personnelFilters && personnelFilters.poste !== 'tous' && person.poste !== personnelFilters.poste) {
+                return false;
+            }
+
+            // Filtre disponible vs tout le personnel
+            if (personnelFilters && !personnelFilters.showAll) {
+                const conflicts = checkResourceConflicts(person.id, 'personnel', dateString, dateString, formData.id);
+                return conflicts.length === 0;
+            }
+
+            return true;
+        });
+    };
+
+    const getAssignedPersonnelForDay = (dateString) => {
+        const dayAssignations = formData.assignationsParJour[dateString];
+        if (dayAssignations && dayAssignations.personnel.length > 0) {
+            // Utiliser les assignations spécifiques au jour
+            return dayAssignations.personnel.map(personnelId =>
+                personnel.find(p => p.id === personnelId)
+            ).filter(Boolean);
+        }
+
+        // Si pas d'assignations spécifiques, utiliser les assignations globales
+        return formData.personnel.map(personnelId => personnel.find(p => p.id === personnelId)).filter(Boolean);
+    };
+
+    const togglePersonnelForDay = (dateString, personnelId) => {
+        setFormData(prev => {
+            const dayAssignations = prev.assignationsParJour[dateString] || { personnel: [], equipements: [] };
+            const isCurrentlyAssigned = dayAssignations.personnel.includes(personnelId);
+
+            if (isCurrentlyAssigned) {
+                // Désassigner du personnel pour ce jour spécifique
+                const updatedPersonnel = dayAssignations.personnel.filter(id => id !== personnelId);
+                return {
+                    ...prev,
+                    assignationsParJour: {
+                        ...prev.assignationsParJour,
+                        [dateString]: {
+                            ...dayAssignations,
+                            personnel: updatedPersonnel
+                        }
+                    }
+                };
+            } else {
+                // Assigner au personnel pour ce jour spécifique
+                const updatedPersonnel = [...dayAssignations.personnel, personnelId];
+                return {
+                    ...prev,
+                    assignationsParJour: {
+                        ...prev.assignationsParJour,
+                        [dateString]: {
+                            ...dayAssignations,
+                            personnel: updatedPersonnel
+                        }
+                    }
+                };
+            }
+        });
+    };
+
+    // ============== GESTION HORAIRES PAR JOUR (Partie 2/2) ==============
+    // Fonctions équipements + gestion jours
+
+    const getAvailableEquipementForDay = (dateString) => {
+        return equipements.filter(equipement => {
+            const conflicts = checkResourceConflicts(equipement.id, 'equipement', dateString, dateString, formData.id);
+            return conflicts.length === 0;
+        });
+    };
+
+    const filterEquipementByDay = (dateString, equipementList) => {
+        return equipementList.filter(equipement => {
+            // Filtre par département/succursale
+            if (personnelFilters && personnelFilters.succursale !== 'global' && equipement.succursale !== personnelFilters.succursale) {
+                return false;
+            }
+
+            // Filtre disponible vs tout l'équipement
+            if (personnelFilters && !personnelFilters.showAll) {
+                const conflicts = checkResourceConflicts(equipement.id, 'equipement', dateString, dateString, formData.id);
+                return conflicts.length === 0;
+            }
+
+            return true;
+        });
+    };
+
+    const getAssignedEquipementForDay = (dateString) => {
+        const dayAssignations = formData.assignationsParJour[dateString];
+        if (dayAssignations && dayAssignations.equipements.length > 0) {
+            // Utiliser les assignations spécifiques au jour
+            return dayAssignations.equipements.map(equipementId =>
+                equipements.find(e => e.id === equipementId)
+            ).filter(Boolean);
+        }
+
+        // Si pas d'assignations spécifiques, utiliser les assignations globales
+        return formData.equipements.map(equipementId => equipements.find(e => e.id === equipementId)).filter(Boolean);
+    };
+
+    const toggleEquipementForDay = (dateString, equipementId) => {
+        setFormData(prev => {
+            const dayAssignations = prev.assignationsParJour[dateString] || { personnel: [], equipements: [] };
+            const isCurrentlyAssigned = dayAssignations.equipements.includes(equipementId);
+
+            if (isCurrentlyAssigned) {
+                // Désassigner l'équipement pour ce jour spécifique
+                const updatedEquipements = dayAssignations.equipements.filter(id => id !== equipementId);
+                return {
+                    ...prev,
+                    assignationsParJour: {
+                        ...prev.assignationsParJour,
+                        [dateString]: {
+                            ...dayAssignations,
+                            equipements: updatedEquipements
+                        }
+                    }
+                };
+            } else {
+                // Assigner à l'équipement pour ce jour spécifique
+                const updatedEquipements = [...dayAssignations.equipements, equipementId];
+                return {
+                    ...prev,
+                    assignationsParJour: {
+                        ...prev.assignationsParJour,
+                        [dateString]: {
+                            ...dayAssignations,
+                            equipements: updatedEquipements
+                        }
+                    }
+                };
+            }
+        });
+    };
+
+    const updateDailySchedule = (date, heureDebut, heureFin, mode = 'jour') => {
+        setFormData(prev => ({
+            ...prev,
+            horairesParJour: {
+                ...prev.horairesParJour,
+                [date]: {
+                    heureDebut: mode === '24h' ? '00:00' : heureDebut,
+                    heureFin: mode === '24h' ? '23:59' : heureFin,
+                    mode: mode
+                }
+            }
+        }));
+    };
+
+    const toggleDay24h = (date) => {
+        const currentSchedule = formData.horairesParJour[date];
+        const is24h = currentSchedule?.mode === '24h';
+
+        updateDailySchedule(
+            date,
+            is24h ? formData.heureDebut : '00:00',
+            is24h ? formData.heureFin : '23:59',
+            is24h ? 'jour' : '24h'
+        );
+    };
+
+    const toggleDayInclusion = (date) => {
+        if (formData.horairesParJour[date] === null) {
+            // Jour explicitement exclu → l'inclure avec horaires par défaut
+            updateDailySchedule(date, formData.heureDebut, formData.heureFin, 'jour');
+        } else if (formData.horairesParJour[date]) {
+            // Jour avec horaire personnalisé → l'exclure explicitement
+            setFormData(prev => ({
+                ...prev,
+                horairesParJour: {
+                    ...prev.horairesParJour,
+                    [date]: null  // null = explicitement exclu
+                }
+            }));
+        } else {
+            // Jour avec horaire global par défaut → l'exclure explicitement
+            setFormData(prev => ({
+                ...prev,
+                horairesParJour: {
+                    ...prev.horairesParJour,
+                    [date]: null  // null = explicitement exclu
+                }
+            }));
+        }
+    };
+
+    const excludeDay = (date) => {
+        setFormData(prev => ({
+            ...prev,
+            horairesParJour: {
+                ...prev.horairesParJour,
+                [date]: null  // null = explicitement exclu
+            }
+        }));
+    };
+
     const handleFilesAdded = (files, type) => {
         setFormData(prev => ({
             ...prev,
