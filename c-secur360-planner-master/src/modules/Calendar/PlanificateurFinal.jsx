@@ -907,7 +907,8 @@ export function PlanificateurFinal({
                                                     { key: 'type', label: t ? t('filter.type') : 'Type', icon: '🔍' },
                                                     { key: 'bureau', label: t ? t('filter.office') : 'Bureau', icon: '🏢' },
                                                     { key: 'poste', label: t ? t('filter.position') : 'Poste', icon: '👔' },
-                                                    { key: 'vue', label: t ? t('filter.view') : 'Vue', icon: '👁️' }
+                                                    { key: 'vue', label: t ? t('filter.view') : 'Vue', icon: '👁️' },
+                                                    { key: 'gestion', label: t ? t('filter.settings') : 'Gestion', icon: '⚙️' }
                                                 ].map((tab) => (
                                                     <button
                                                         key={tab.key}
@@ -1106,6 +1107,95 @@ export function PlanificateurFinal({
                                                                 )}
                                                             </div>
                                                         )}
+                                                    </div>
+                                                )}
+
+                                                {/* Onglet Gestion */}
+                                                {activeFilterTab === 'gestion' && (
+                                                    <div className="space-y-4">
+                                                        {/* Section Mode écran */}
+                                                        <div>
+                                                            <label className="block text-sm font-medium text-gray-700 mb-3">
+                                                                📱 {t ? t('settings.screenMode') : 'Mode d\'écran'}
+                                                            </label>
+                                                            <div className="space-y-2">
+                                                                <button
+                                                                    onClick={() => setIsMobile(false)}
+                                                                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                                                                        !isMobile
+                                                                            ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                                                            : 'hover:bg-gray-100 text-gray-700 border border-transparent'
+                                                                    }`}
+                                                                >
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span>🖥️ Mode Bureau</span>
+                                                                        {!isMobile && (
+                                                                            <span className="ml-auto text-blue-600">✓</span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="text-xs text-gray-500 mt-1">
+                                                                        Affichage complet avec toutes les colonnes
+                                                                    </div>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => setIsMobile(true)}
+                                                                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                                                                        isMobile
+                                                                            ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                                                                            : 'hover:bg-gray-100 text-gray-700 border border-transparent'
+                                                                    }`}
+                                                                >
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span>📱 Mode Mobile</span>
+                                                                        {isMobile && (
+                                                                            <span className="ml-auto text-blue-600">✓</span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="text-xs text-gray-500 mt-1">
+                                                                        Affichage compact et optimisé
+                                                                    </div>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Section Mode jour/nuit */}
+                                                        <div className="pt-4 border-t border-gray-200">
+                                                            <label className="block text-sm font-medium text-gray-700 mb-3">
+                                                                🌓 {t ? t('settings.themeMode') : 'Thème'}
+                                                            </label>
+                                                            <div className="space-y-2">
+                                                                <button
+                                                                    className="w-full text-left px-3 py-2 rounded-lg transition-colors bg-blue-100 text-blue-800 border border-blue-300"
+                                                                >
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span>☀️ Mode Jour</span>
+                                                                        <span className="ml-auto text-blue-600">✓</span>
+                                                                    </div>
+                                                                    <div className="text-xs text-gray-500 mt-1">
+                                                                        Thème clair (actif)
+                                                                    </div>
+                                                                </button>
+                                                                <button
+                                                                    className="w-full text-left px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 text-gray-700 border border-transparent opacity-50 cursor-not-allowed"
+                                                                    disabled
+                                                                >
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span>🌙 Mode Nuit</span>
+                                                                    </div>
+                                                                    <div className="text-xs text-gray-500 mt-1">
+                                                                        Thème sombre (bientôt disponible)
+                                                                    </div>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Info section */}
+                                                        <div className="pt-4 border-t border-gray-200">
+                                                            <div className="text-xs text-gray-500 space-y-1">
+                                                                <p>💡 <strong>Conseil :</strong> Le mode bureau affiche plus d'informations.</p>
+                                                                <p>🔄 Les changements s'appliquent immédiatement.</p>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
