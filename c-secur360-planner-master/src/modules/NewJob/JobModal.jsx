@@ -447,17 +447,182 @@ export function JobModal({
     };
 
 
-    const isResourceAvailable = (resourceId, resourceType, dateDebut, dateFin) => {
-        // Logique de base pour vérifier la disponibilité
-        // Dans une version complète, ceci vérifierait les conflits avec d'autres jobs
-        return true;
-    };
+    // ============== SYSTÈME DE DÉTECTION DE CONFLITS COMPLET ==============
+    // Restauré depuis OLD version - Détecte conflits avec jobs, congés, maintenances
 
     const checkResourceConflicts = (resourceId, resourceType, dateDebut, dateFin, excludeJobId = null) => {
-        // Logique de base pour détecter les conflits
-        // Dans une version complète, ceci retournerait une liste des conflits détectés
-        return [];
+        if (!dateDebut || !dateFin) return [];
+
+        const conflicts = [];
+        const startDate = new Date(dateDebut);
+        const endDate = new Date(dateFin);
+
+        // 1. Vérifier les conflits avec d'autres événements
+        jobs.forEach(job => {
+            // Exclure le job actuel si on modifie
+            if (excludeJobId && job.id === excludeJobId) return;
+
+            const jobStart = new Date(job.dateDebut);
+            const jobEnd = new Date(job.dateFin);
+
+            // Vérifier s'il y a chevauchement de dates
+            const hasDateOverlap = startDate < jobEnd && endDate > jobStart;
+
+            if (hasDateOverlap) {
+                let hasResourceConflict = false;
+
+                // Vérifier selon le type de ressource
+                if (resourceType === 'personnel' && job.personnel.includes(resourceId)) {
+                    hasResourceConflict = true;
+                } else if (resourceType === 'equipement' && job.equipements.includes(resourceId)) {
+                    hasResourceConflict = true;
+                } else if (resourceType === 'sousTraitant' && job.sousTraitants.includes(resourceId)) {
+                    hasResourceConflict = true;
+                }
+
+                if (hasResourceConflict) {
+                    conflicts.push({
+                        type: 'event',
+                        priority: 'normal',
+                        jobId: job.id,
+                        jobNom: job.nom || job.numeroJob,
+                        dateDebut: job.dateDebut,
+                        dateFin: job.dateFin,
+                        resourceType,
+                        resourceId
+                    });
+                }
+            }
+        });
+
+        // 2. Vérifier les conflits avec les congés selon leur statut d'autorisation
+        if (resourceType === 'personnel' && conges) {
+            conges.forEach(conge => {
+                if (conge.personnelId === resourceId) {
+                    const congeStart = new Date(conge.dateDebut);
+                    const congeEnd = new Date(conge.dateFin);
+
+                    const hasDateOverlap = startDate < congeEnd && endDate > congeStart;
+
+                    if (hasDateOverlap) {
+                        // Déterminer la priorité selon le statut du congé
+                        let priority = 'normal';
+                        let conflictType = 'conge_pending';
+                        let jobNom = `Demande de congé ${conge.type || 'vacances'}`;
+
+                        if (conge.statut === 'approuve') {
+                            priority = 'high';
+                            conflictType = 'conge_approved';
+                            jobNom = `Congé ${conge.type || 'vacances'} (Approuvé)`;
+                        } else if (conge.statut === 'en_attente') {
+                            priority = 'medium';
+                            conflictType = 'conge_pending';
+                            jobNom = `Demande de congé ${conge.type || 'vacances'} (En attente)`;
+                        } else if (conge.statut === 'refuse') {
+                            // Les congés refusés ne créent pas de conflit
+                            return;
+                        }
+
+                        conflicts.push({
+                            type: conflictType,
+                            priority: priority,
+                            congeId: conge.id,
+                            typeConge: conge.type || 'vacances',
+                            statutConge: conge.statut,
+                            jobNom: jobNom,
+                            dateDebut: conge.dateDebut,
+                            dateFin: conge.dateFin,
+                            resourceType,
+                            resourceId,
+                            motif: conge.motif,
+                            peutEtreAutorise: conge.statut === 'en_attente'
+                        });
+                    }
+                }
+            });
+        }
+
+        // 3. Vérifier les conflits avec les maintenances d'équipements (PRIORITÉ HAUTE)
+        if (resourceType === 'equipement') {
+            const equipement = equipements.find(eq => eq.id === resourceId);
+            if (equipement && equipement.maintenances) {
+                equipement.maintenances.forEach(maintenance => {
+                    const maintenanceStart = new Date(maintenance.dateDebut);
+                    const maintenanceEnd = new Date(maintenance.dateFin || maintenance.dateDebut);
+
+                    const hasDateOverlap = startDate < maintenanceEnd && endDate > maintenanceStart;
+
+                    if (hasDateOverlap) {
+                        conflicts.push({
+                            type: 'maintenance',
+                            priority: 'high',
+                            maintenanceId: maintenance.id,
+                            jobNom: `Maintenance ${maintenance.type || 'préventive'}`,
+                            dateDebut: maintenance.dateDebut,
+                            dateFin: maintenance.dateFin || maintenance.dateDebut,
+                            resourceType,
+                            resourceId,
+                            description: maintenance.description
+                        });
+                    }
+                });
+            }
+
+            // Vérifier aussi si l'équipement est hors service
+            if (equipement && equipement.statut === 'hors_service') {
+                conflicts.push({
+                    type: 'hors_service',
+                    priority: 'critical',
+                    jobNom: 'Équipement hors service',
+                    dateDebut: dateDebut,
+                    dateFin: dateFin,
+                    resourceType,
+                    resourceId,
+                    description: 'Cet équipement est actuellement hors service'
+                });
+            }
+        }
+
+        // Trier les conflits par priorité (critical > high > medium > normal)
+        return conflicts.sort((a, b) => {
+            const priorityOrder = { critical: 4, high: 3, medium: 2, normal: 1 };
+            return priorityOrder[b.priority] - priorityOrder[a.priority];
+        });
     };
+
+    const isResourceAvailable = (resourceId, resourceType, dateDebut, dateFin) => {
+        const conflicts = checkResourceConflicts(resourceId, resourceType, dateDebut, dateFin, job?.id);
+        return conflicts.length === 0;
+    };
+
+    // Fonction pour obtenir tous les conflits de l'événement actuel
+    const getCurrentEventConflicts = () => {
+        if (!formData.dateDebut || !formData.dateFin) return [];
+
+        let allConflicts = [];
+
+        // Vérifier les conflits pour le personnel
+        formData.personnel.forEach(personnelId => {
+            const conflicts = checkResourceConflicts(personnelId, 'personnel', formData.dateDebut, formData.dateFin, job?.id);
+            allConflicts = [...allConflicts, ...conflicts];
+        });
+
+        // Vérifier les conflits pour les équipements
+        formData.equipements.forEach(equipementId => {
+            const conflicts = checkResourceConflicts(equipementId, 'equipement', formData.dateDebut, formData.dateFin, job?.id);
+            allConflicts = [...allConflicts, ...conflicts];
+        });
+
+        // Vérifier les conflits pour les sous-traitants
+        formData.sousTraitants.forEach(sousTraitantId => {
+            const conflicts = checkResourceConflicts(sousTraitantId, 'sousTraitant', formData.dateDebut, formData.dateFin, job?.id);
+            allConflicts = [...allConflicts, ...conflicts];
+        });
+
+        return allConflicts;
+    };
+
+    const currentConflicts = getCurrentEventConflicts();
 
     const handleFilesAdded = (files, type) => {
         setFormData(prev => ({

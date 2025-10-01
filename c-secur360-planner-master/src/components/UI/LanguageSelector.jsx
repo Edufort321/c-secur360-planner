@@ -5,7 +5,7 @@ import React from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 
 export function LanguageSelector({ showLabel = false, size = 'normal', className = '' }) {
-    const { language, setLanguage } = useLanguage();
+    const { currentLanguage, changeLanguage } = useLanguage();
 
     const sizeClasses = {
         small: 'text-xs',
@@ -17,29 +17,29 @@ export function LanguageSelector({ showLabel = false, size = 'normal', className
         <div className={`flex items-center gap-2 ${className}`}>
             {showLabel && (
                 <span className={`${sizeClasses[size]} text-gray-700 dark:text-gray-300 font-medium`}>
-                    🌐 Langue:
+                    🌐
                 </span>
             )}
             <div className="flex bg-gray-200 dark:bg-gray-700 rounded-lg p-1">
                 <button
-                    onClick={() => setLanguage('fr')}
+                    onClick={() => changeLanguage('fr')}
                     className={`px-3 py-1 rounded-md transition-colors ${sizeClasses[size]} font-medium ${
-                        language === 'fr'
+                        currentLanguage === 'fr'
                             ? 'bg-blue-600 text-white shadow-sm'
                             : 'text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                     }`}
                 >
-                    🇫🇷 FR
+                    FR
                 </button>
                 <button
-                    onClick={() => setLanguage('en')}
+                    onClick={() => changeLanguage('en')}
                     className={`px-3 py-1 rounded-md transition-colors ${sizeClasses[size]} font-medium ${
-                        language === 'en'
+                        currentLanguage === 'en'
                             ? 'bg-blue-600 text-white shadow-sm'
                             : 'text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                     }`}
                 >
-                    🇬🇧 EN
+                    EN
                 </button>
             </div>
         </div>
