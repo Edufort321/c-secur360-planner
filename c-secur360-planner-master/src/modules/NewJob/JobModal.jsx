@@ -1551,6 +1551,217 @@ export function JobModal({
                         {/* Onglet Formulaire */}
                         {activeTab === 'form' && (
                             <div className="p-6">
+                                {/* ============== UI ALERTES DE CONFLITS ============== */}
+                                {currentConflicts.length > 0 && (
+                                    <div className="mb-6 space-y-3">
+                                        {/* Conflits critiques (équipements hors service) */}
+                                        {currentConflicts.filter(c => c.priority === 'critical').length > 0 && (
+                                            <div className="p-4 bg-red-100 border border-red-300 rounded-lg">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="text-red-700 mt-1">🚨</div>
+                                                    <div className="flex-1">
+                                                        <h4 className="font-semibold text-red-900 mb-2">
+                                                            Conflits critiques - Action immédiate requise
+                                                        </h4>
+                                                        <div className="space-y-2">
+                                                            {currentConflicts.filter(c => c.priority === 'critical').map((conflict, index) => {
+                                                                const resource = (() => {
+                                                                    if (conflict.resourceType === 'equipement') {
+                                                                        const equipement = equipements.find(e => e.id === conflict.resourceId);
+                                                                        return equipement ? equipement.nom : 'Équipement inconnu';
+                                                                    }
+                                                                    return 'Ressource inconnue';
+                                                                })();
+
+                                                                return (
+                                                                    <div key={index} className="text-sm text-red-800 font-medium">
+                                                                        <strong>{resource}</strong> : {conflict.description}
+                                                                        <div className="text-xs text-red-600 ml-4 font-normal">
+                                                                            Conflit avec: {conflict.type === 'hors_service' ? 'Équipement hors service' : 'Maintenance'}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Conflits haute priorité (congés approuvés, maintenances) */}
+                                        {currentConflicts.filter(c => c.priority === 'high').length > 0 && (
+                                            <div className="p-4 bg-orange-50 border border-orange-300 rounded-lg">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="text-orange-600 mt-1">⚠️</div>
+                                                    <div className="flex-1">
+                                                        <h4 className="font-semibold text-orange-900 mb-2">
+                                                            Conflits prioritaires - Personnalisation automatique activée
+                                                        </h4>
+                                                        <div className="space-y-2">
+                                                            {currentConflicts.filter(c => c.priority === 'high').map((conflict, index) => {
+                                                                const resource = (() => {
+                                                                    if (conflict.resourceType === 'personnel') {
+                                                                        const person = personnel.find(p => p.id === conflict.resourceId);
+                                                                        return person ? `${person.prenom ? `${person.prenom} ${person.nom}` : person.nom}` : 'Personnel inconnu';
+                                                                    } else if (conflict.resourceType === 'equipement') {
+                                                                        const equipement = equipements.find(e => e.id === conflict.resourceId);
+                                                                        return equipement ? equipement.nom : 'Équipement inconnu';
+                                                                    }
+                                                                    return 'Ressource inconnue';
+                                                                })();
+
+                                                                const conflictIcon = (() => {
+                                                                    if (conflict.type === 'conge_approved') return '🏖️';
+                                                                    if (conflict.type === 'maintenance') return '🔧';
+                                                                    return '⚠️';
+                                                                })();
+
+                                                                return (
+                                                                    <div key={index} className="text-sm text-orange-800">
+                                                                        {conflictIcon} <strong>{resource}</strong> : {conflict.jobNom} du{' '}
+                                                                        {formatLocalizedDate(new Date(conflict.dateDebut), currentLanguage, 'short')} au{' '}
+                                                                        {formatLocalizedDate(new Date(conflict.dateFin), currentLanguage, 'short')}
+                                                                        <div className="text-xs text-orange-600 ml-4">
+                                                                            Conflit avec: {conflict.type === 'conge_approved' ? `Congé ${conflict.typeConge}` :
+                                                                                          conflict.type === 'maintenance' ? `Maintenance ${conflict.description}` :
+                                                                                          'Autre'}
+                                                                            {conflict.motif && (
+                                                                                <div className="mt-1">Motif: {conflict.motif}</div>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        <p className="text-xs text-orange-700 mt-2 font-medium">
+                                                            ✅ L'événement a été automatiquement personnalisé pour respecter ces priorités.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Conflits priorité moyenne (demandes de congés en attente) */}
+                                        {currentConflicts.filter(c => c.priority === 'medium').length > 0 && (
+                                            <div className="p-4 bg-blue-50 border border-blue-300 rounded-lg">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="text-blue-600 mt-1">🕒</div>
+                                                    <div className="flex-1">
+                                                        <h4 className="font-semibold text-blue-900 mb-2">
+                                                            Demandes de congés en attente d'autorisation
+                                                        </h4>
+                                                        <div className="space-y-2">
+                                                            {currentConflicts.filter(c => c.priority === 'medium').map((conflict, index) => {
+                                                                const resource = (() => {
+                                                                    if (conflict.resourceType === 'personnel') {
+                                                                        const person = personnel.find(p => p.id === conflict.resourceId);
+                                                                        return person ? `${person.prenom ? `${person.prenom} ${person.nom}` : person.nom}` : 'Personnel inconnu';
+                                                                    }
+                                                                    return 'Ressource inconnue';
+                                                                })();
+
+                                                                return (
+                                                                    <div key={index} className="text-sm text-blue-800">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <div>
+                                                                                🏖️ <strong>{resource}</strong> : {conflict.jobNom} du{' '}
+                                                                                {formatLocalizedDate(new Date(conflict.dateDebut), currentLanguage, 'short')} au{' '}
+                                                                                {formatLocalizedDate(new Date(conflict.dateFin), currentLanguage, 'short')}
+                                                                                <div className="text-xs text-blue-600 ml-4">
+                                                                                    Conflit avec: Demande de congé {conflict.typeConge}
+                                                                                    {conflict.motif && (
+                                                                                        <div className="mt-1">Motif: {conflict.motif}</div>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                            <span className="text-xs px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full font-medium">
+                                                                                En attente
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        <p className="text-xs text-blue-700 mt-2">
+                                                            ⏳ Ces demandes doivent être autorisées par un coordonnateur. En cas d'approbation, l'événement sera automatiquement personnalisé.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Conflits normaux (autres événements) */}
+                                        {currentConflicts.filter(c => c.priority === 'normal').length > 0 && (
+                                            <div className="p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="text-yellow-600 mt-1">⚠️</div>
+                                                    <div className="flex-1">
+                                                        <h4 className="font-semibold text-yellow-900 mb-2">
+                                                            Conflits d'événements détectés
+                                                        </h4>
+                                                        <div className="space-y-2">
+                                                            {currentConflicts.filter(c => c.priority === 'normal').map((conflict, index) => {
+                                                                const resource = (() => {
+                                                                    if (conflict.resourceType === 'personnel') {
+                                                                        const person = personnel.find(p => p.id === conflict.resourceId);
+                                                                        return person ? `${person.prenom ? `${person.prenom} ${person.nom}` : person.nom} (Personnel)` : 'Personnel inconnu';
+                                                                    } else if (conflict.resourceType === 'equipement') {
+                                                                        const equipement = equipements.find(e => e.id === conflict.resourceId);
+                                                                        return equipement ? `${equipement.nom} (Équipement)` : 'Équipement inconnu';
+                                                                    } else if (conflict.resourceType === 'sousTraitant') {
+                                                                        const sousTraitant = sousTraitants.find(s => s.id === conflict.resourceId);
+                                                                        return sousTraitant ? `${sousTraitant.nom} (Sous-traitant)` : 'Sous-traitant inconnu';
+                                                                    }
+                                                                    return 'Ressource inconnue';
+                                                                })();
+
+                                                                const jobInConflict = jobs.find(j => j.id === conflict.jobId);
+                                                                const clientInfo = jobInConflict?.client ? ` - Client: ${jobInConflict.client}` : '';
+
+                                                                return (
+                                                                    <div key={index} className="text-sm text-yellow-800">
+                                                                        <div className="flex items-start justify-between">
+                                                                            <div className="flex-1">
+                                                                                📅 <strong>{resource}</strong> est déjà assigné(e) à l'événement{' '}
+                                                                                <strong>"{conflict.jobNom}"</strong> du{' '}
+                                                                                {formatLocalizedDate(new Date(conflict.dateDebut), currentLanguage, 'short')} au{' '}
+                                                                                {formatLocalizedDate(new Date(conflict.dateFin), currentLanguage, 'short')}
+                                                                                {clientInfo && (
+                                                                                    <div className="text-xs text-yellow-600 ml-4">
+                                                                                        Conflit avec: Projet{clientInfo}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                            {onOpenConflictJob && jobInConflict && (
+                                                                                <button
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        onClose();
+                                                                                        setTimeout(() => {
+                                                                                            onOpenConflictJob(jobInConflict);
+                                                                                        }, 150);
+                                                                                    }}
+                                                                                    className="ml-3 px-3 py-1 text-xs bg-yellow-100 text-yellow-800 border border-yellow-300 rounded hover:bg-yellow-200 transition-colors flex items-center gap-1"
+                                                                                    title="Ouvrir l'événement en conflit"
+                                                                                >
+                                                                                    Voir l'événement
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                        <p className="text-xs text-yellow-700 mt-2">
+                                                            💡 Vérifiez la planification ou utilisez le mode personnalisé pour gérer ces conflits.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
                                 <div className="space-y-6">
                                     {/* Informations de base */}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
