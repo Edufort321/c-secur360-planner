@@ -2626,6 +2626,54 @@ export function JobModal({
         return formData.etapes.reduce((sum, etape) => sum + (etape.duration || 0), 0);
     };
 
+    // ============== P6-1: GESTION ÉQUIPES ==============
+    const createTeam = (teamName, memberIds) => {
+        const newTeam = {
+            id: `team-${Date.now()}`,
+            nom: teamName,
+            membres: memberIds,
+            dateCreation: new Date().toISOString()
+        };
+
+        setFormData(prev => ({
+            ...prev,
+            equipes: [...prev.equipes, newTeam]
+        }));
+
+        return newTeam.id;
+    };
+
+    const updateTeam = (teamId, updates) => {
+        setFormData(prev => ({
+            ...prev,
+            equipes: prev.equipes.map(team =>
+                team.id === teamId ? { ...team, ...updates } : team
+            )
+        }));
+    };
+
+    const deleteTeam = (teamId) => {
+        setFormData(prev => ({
+            ...prev,
+            equipes: prev.equipes.filter(team => team.id !== teamId),
+            horairesEquipes: {
+                ...prev.horairesEquipes,
+                [teamId]: undefined
+            }
+        }));
+    };
+
+    // ============== P6-2: HORAIRES ÉQUIPES ==============
+    const setTeamSchedule = (teamId, scheduleData) => {
+        setFormData(prev => ({
+            ...prev,
+            horairesEquipes: {
+                ...prev.horairesEquipes,
+                [teamId]: scheduleData
+            }
+        }));
+    };
+
     const handleFilesAdded = (files, type) => {
         setFormData(prev => ({
             ...prev,
