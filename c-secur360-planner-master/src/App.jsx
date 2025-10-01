@@ -6,6 +6,8 @@ import { UserLoginModal } from './components/Auth/UserLoginModal.jsx';
 import { PlanificateurFinal } from './modules/Calendar/PlanificateurFinal.jsx';
 import { NotificationContainer } from './components/UI/NotificationContainer.jsx';
 import { ThemeProvider } from './contexts/ThemeContext.jsx';
+import { LanguageProvider } from './contexts/LanguageContext.jsx';
+import { useLanguage } from './contexts/LanguageContext.jsx';
 import { Header } from './components/Header/Header.jsx';
 import { useNotifications } from './hooks/useNotifications.js';
 import { useAppDataWithSync } from './hooks/useAppDataWithSync.js';
@@ -18,11 +20,12 @@ import { JobModal } from './modules/NewJob/JobModal.jsx';
 // Import des styles de la version originale
 import './styles/original.css';
 
-export function App() {
+function AppContent() {
     // Hook pour les données de l'application
     const appData = useAppDataWithSync();
     const { notifications, addNotification } = useNotifications();
     const { isMobile, isTablet } = useScreenSize();
+    const { t } = useLanguage();
 
     // États d'authentification utilisateur - VERSION ORIGINALE
     const [utilisateurConnecte, setUtilisateurConnecte] = useState(null);
@@ -33,6 +36,9 @@ export function App() {
     const [showCreateEvent, setShowCreateEvent] = useState(false);
     const [showCongesManagement, setShowCongesManagement] = useState(false);
     const [showResourcesManagement, setShowResourcesManagement] = useState(false);
+
+    // Authentification ressources persistante pour la session
+    const [isResourcesAuthenticated, setIsResourcesAuthenticated] = useState(false);
 
     // Authentification utilisateur - VERSION ORIGINALE
     const handleUserLogin = (utilisateurIdentifie, motDePasse) => {
@@ -77,14 +83,46 @@ export function App() {
     // Fonctions de permissions - VERSION ORIGINALE
     const peutModifier = () => {
         if (!utilisateurConnecte) return false;
+        // Nouveau système avec niveauAcces
+        if (utilisateurConnecte.niveauAcces) {
+            return ['modification', 'coordination', 'administration'].includes(utilisateurConnecte.niveauAcces);
+        }
+        // Fallback ancien système
         if (!utilisateurConnecte.permissions) return false;
         return utilisateurConnecte.permissions.peutModifier === true;
     };
 
     const estCoordonnateur = () => {
         if (!utilisateurConnecte) return false;
+        // Nouveau système avec niveauAcces
+        if (utilisateurConnecte.niveauAcces) {
+            return ['coordination', 'administration'].includes(utilisateurConnecte.niveauAcces);
+        }
+        // Fallback ancien système
         if (!utilisateurConnecte.permissions) return false;
         return utilisateurConnecte.permissions.estCoordonnateur === true;
+    };
+
+    const estAdministrateur = () => {
+        if (!utilisateurConnecte) return false;
+        // Nouveau système avec niveauAcces
+        if (utilisateurConnecte.niveauAcces) {
+            return utilisateurConnecte.niveauAcces === 'administration';
+        }
+        // Fallback ancien système - vérifier nom
+        return utilisateurConnecte.nom === 'Administrateur' || utilisateurConnecte.nom === 'Eric Dufort';
+    };
+
+    // Fonction d'authentification des ressources
+    const handleResourcesAuthentication = (motDePasse) => {
+        if (motDePasse === 'MdlAdm321!$' || estAdministrateur()) {
+            setIsResourcesAuthenticated(true);
+            addNotification(t('notification.resourcesAccess'), 'success');
+            return true;
+        } else {
+            addNotification(t('login.error'), 'error');
+            return false;
+        }
     };
 
     // Fonction pour ajouter un sous-traitant - VERSION ORIGINALE
@@ -238,14 +276,25 @@ export function App() {
                                 onDeleteEquipement={appData.deleteEquipement}
                                 utilisateurConnecte={utilisateurConnecte}
                                 estCoordonnateur={estCoordonnateur}
+                                estAdministrateur={estAdministrateur}
                                 peutModifier={peutModifier}
                                 addNotification={addNotification}
+                                isResourcesAuthenticated={isResourcesAuthenticated}
+                                onResourcesAuthentication={handleResourcesAuthentication}
                             />
                         )}
                     </>
                 )}
             </div>
         </ThemeProvider>
+    );
+}
+
+export function App() {
+    return (
+        <LanguageProvider>
+            <AppContent />
+        </LanguageProvider>
     );
 }
 

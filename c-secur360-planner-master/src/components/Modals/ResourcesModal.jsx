@@ -19,8 +19,11 @@ export function ResourcesModal({
     onDeleteEquipement,
     utilisateurConnecte,
     estCoordonnateur,
+    estAdministrateur,
     peutModifier,
-    addNotification
+    addNotification,
+    isResourcesAuthenticated = false,
+    onResourcesAuthentication
 }) {
     const [activeTab, setActiveTab] = useState('personnel');
     const [showPersonnelModal, setShowPersonnelModal] = useState(false);
@@ -50,9 +53,32 @@ export function ResourcesModal({
     });
     const [showNewFilterForm, setShowNewFilterForm] = useState(false);
 
+    // États pour les onglets Succursales et Postes
+    const [succursales, setSuccursales] = useState([
+        { id: 1, nom: 'Montréal', adresse: '123 Rue Principale, Montréal', telephone: '514-123-4567', color: '#3B82F6' },
+        { id: 2, nom: 'Québec', adresse: '456 Avenue Central, Québec', telephone: '418-123-4567', color: '#10B981' },
+        { id: 3, nom: 'Laval', adresse: '789 Boulevard Nord, Laval', telephone: '450-123-4567', color: '#F59E0B' }
+    ]);
+    const [postes, setPostes] = useState([
+        { id: 1, nom: 'Gardien de sécurité', description: 'Surveillance et protection des lieux', niveau: 'Base' },
+        { id: 2, nom: 'Agent de prévention', description: 'Prévention des risques et incidents', niveau: 'Intermédiaire' },
+        { id: 3, nom: 'Superviseur', description: 'Supervision des équipes terrain', niveau: 'Avancé' },
+        { id: 4, nom: 'Coordonnateur', description: 'Coordination des opérations', niveau: 'Expert' }
+    ]);
+    const [showSuccursaleForm, setShowSuccursaleForm] = useState(false);
+    const [showPosteForm, setShowPosteForm] = useState(false);
+    const [editingSuccursale, setEditingSuccursale] = useState(null);
+    const [editingPoste, setEditingPoste] = useState(null);
+
     // Vérifier si l'utilisateur peut accéder aux ressources
     const peutAccederRessources = () => {
         return estCoordonnateur() || isAuthenticated;
+    };
+
+    // Fonction pour obtenir la couleur d'une succursale
+    const getSuccursaleColor = (nomSuccursale) => {
+        const succursale = succursales.find(s => s.nom === nomSuccursale);
+        return succursale?.color || '#6B7280'; // Gris par défaut
     };
 
     // Obtenir les bureaux uniques
@@ -355,6 +381,28 @@ export function ResourcesModal({
                                     >
                                         <Icon name="filter" size={16} className="inline mr-2" />
                                         Gestion Filtres ({filtresSauvegardes.length})
+                                    </button>
+                                    <button
+                                        onClick={() => handleTabChange('succursales')}
+                                        className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                                            activeTab === 'succursales'
+                                                ? 'border-green-500 text-green-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <Icon name="building" size={16} className="inline mr-2" />
+                                        Succursales ({succursales.length})
+                                    </button>
+                                    <button
+                                        onClick={() => handleTabChange('postes')}
+                                        className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                                            activeTab === 'postes'
+                                                ? 'border-pink-500 text-pink-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <Icon name="briefcase" size={16} className="inline mr-2" />
+                                        Postes ({postes.length})
                                     </button>
                                 </nav>
 
@@ -913,6 +961,121 @@ export function ResourcesModal({
                                                 ))}
                                             </div>
                                         )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Contenu Succursales */}
+                            {activeTab === 'succursales' && (
+                                <div className="space-y-6">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            Gestion des Succursales
+                                        </h3>
+                                        {estAdministrateur && estAdministrateur() && (
+                                            <button
+                                                onClick={() => {
+                                                    setEditingSuccursale(null);
+                                                    setShowSuccursaleForm(true);
+                                                }}
+                                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                            >
+                                                <Icon name="plus" size={16} className="mr-1" />
+                                                Nouvelle Succursale
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {succursales.map(succursale => (
+                                            <div key={succursale.id} className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow">
+                                                <div className="flex items-start justify-between mb-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div
+                                                            className="w-4 h-4 rounded-full"
+                                                            style={{ backgroundColor: succursale.color }}
+                                                        />
+                                                        <h4 className="font-semibold text-lg">{succursale.nom}</h4>
+                                                    </div>
+                                                    {estAdministrateur && estAdministrateur() && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingSuccursale(succursale);
+                                                                setShowSuccursaleForm(true);
+                                                            }}
+                                                            className="text-blue-600 hover:text-blue-800"
+                                                        >
+                                                            <Icon name="edit" size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="space-y-2 text-sm text-gray-600">
+                                                    <div className="flex items-center gap-2">
+                                                        <Icon name="map-pin" size={14} />
+                                                        <span>{succursale.adresse}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Icon name="phone" size={14} />
+                                                        <span>{succursale.telephone}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Contenu Postes */}
+                            {activeTab === 'postes' && (
+                                <div className="space-y-6">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            Gestion des Postes
+                                        </h3>
+                                        {estAdministrateur && estAdministrateur() && (
+                                            <button
+                                                onClick={() => {
+                                                    setEditingPoste(null);
+                                                    setShowPosteForm(true);
+                                                }}
+                                                className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
+                                            >
+                                                <Icon name="plus" size={16} className="mr-1" />
+                                                Nouveau Poste
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {postes.map(poste => (
+                                            <div key={poste.id} className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow">
+                                                <div className="flex items-start justify-between mb-3">
+                                                    <div>
+                                                        <h4 className="font-semibold text-lg">{poste.nom}</h4>
+                                                        <span className={`inline-block px-2 py-1 text-xs rounded ${
+                                                            poste.niveau === 'Base' ? 'bg-green-100 text-green-800' :
+                                                            poste.niveau === 'Intermédiaire' ? 'bg-blue-100 text-blue-800' :
+                                                            poste.niveau === 'Avancé' ? 'bg-orange-100 text-orange-800' :
+                                                            'bg-purple-100 text-purple-800'
+                                                        }`}>
+                                                            {poste.niveau}
+                                                        </span>
+                                                    </div>
+                                                    {estAdministrateur && estAdministrateur() && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setEditingPoste(poste);
+                                                                setShowPosteForm(true);
+                                                            }}
+                                                            className="text-blue-600 hover:text-blue-800"
+                                                        >
+                                                            <Icon name="edit" size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <p className="text-sm text-gray-600">{poste.description}</p>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             )}

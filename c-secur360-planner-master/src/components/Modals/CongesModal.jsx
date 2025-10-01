@@ -104,7 +104,7 @@ export function CongesModal({
     };
 
     const verifierConflits = () => {
-        if (!formData.personnelId || !formData.dateDebut || !formData.dateFin) return [];
+        if (!formData.personnelId || !formData.dateDebut || !formData.dateFin || !conges) return [];
 
         return conges.filter(c =>
             c.id !== formData.id &&

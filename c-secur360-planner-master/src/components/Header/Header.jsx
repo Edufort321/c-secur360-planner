@@ -5,6 +5,7 @@ import React from 'react';
 import { Icon } from '../UI/Icon';
 import { Logo } from '../UI/Logo';
 import { MenuDropdown } from '../UI/MenuDropdown';
+import { LanguageSelector } from '../UI/LanguageSelector';
 
 export function Header({
     utilisateurConnecte,
@@ -21,6 +22,9 @@ export function Header({
 
                 {/* Actions droite */}
                 <div className="flex items-center gap-4">
+                    {/* Sélecteur de langue */}
+                    <LanguageSelector showLabel={false} size="normal" />
+
                     {/* Menu hamburger avec fonctions principales */}
                     <MenuDropdown
                         onCreateEvent={onCreateEvent}
