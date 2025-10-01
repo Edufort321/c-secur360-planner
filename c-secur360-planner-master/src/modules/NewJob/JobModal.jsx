@@ -2674,6 +2674,140 @@ export function JobModal({
         }));
     };
 
+    // ============== P7-1: TÂCHES PARALLÈLES ==============
+    const addParallelTask = (etapeId, parallelEtapeId) => {
+        setFormData(prev => ({
+            ...prev,
+            etapes: prev.etapes.map(etape => {
+                if (etape.id === etapeId) {
+                    return {
+                        ...etape,
+                        parallelWith: etape.parallelWith.includes(parallelEtapeId)
+                            ? etape.parallelWith
+                            : [...etape.parallelWith, parallelEtapeId]
+                    };
+                }
+                if (etape.id === parallelEtapeId) {
+                    return {
+                        ...etape,
+                        parallelWith: etape.parallelWith.includes(etapeId)
+                            ? etape.parallelWith
+                            : [...etape.parallelWith, etapeId]
+                    };
+                }
+                return etape;
+            })
+        }));
+    };
+
+    const removeParallelTask = (etapeId, parallelEtapeId) => {
+        setFormData(prev => ({
+            ...prev,
+            etapes: prev.etapes.map(etape => {
+                if (etape.id === etapeId || etape.id === parallelEtapeId) {
+                    return {
+                        ...etape,
+                        parallelWith: etape.parallelWith.filter(id => id !== (etape.id === etapeId ? parallelEtapeId : etapeId))
+                    };
+                }
+                return etape;
+            })
+        }));
+    };
+
+    // ============== P7-2: CRÉATION SOUS-TÂCHES ==============
+    const addSubTask = (parentId) => {
+        addEtape(parentId);
+    };
+
+    // ============== P7-3: OPTIONS HIÉRARCHIQUES ==============
+    const generateHierarchicalOptions = (excludeId = null, existingDeps = []) => {
+        const availableSteps = formData.etapes.filter(e =>
+            e.id !== excludeId && !existingDeps.some(d => d.id === e.id)
+        );
+
+        const renderHierarchicalOptions = (parentId = null, level = 0) => {
+            return availableSteps
+                .filter(etape => etape.parentId === parentId)
+                .sort((a, b) => (a.order || 0) - (b.order || 0))
+                .flatMap(etape => {
+                    const prefix = '  '.repeat(level); // Indentation avec des espaces
+                    const hasChildren = availableSteps.some(e => e.parentId === etape.id);
+                    const displayText = `${prefix}${hasChildren ? '📁' : '📄'} ${etape.text || `Étape ${etape.id}`}`;
+
+                    return [
+                        <option key={etape.id} value={etape.id}>
+                            {displayText}
+                        </option>,
+                        ...renderHierarchicalOptions(etape.id, level + 1)
+                    ];
+                });
+        };
+
+        return renderHierarchicalOptions();
+    };
+
+    // ============== P7-4: CHECKBOXES HIÉRARCHIQUES ==============
+    const generateHierarchicalCheckboxes = (selectedStep) => {
+        const availableSteps = formData.etapes.filter(e => e.id !== selectedStep.id);
+
+        const renderHierarchicalCheckboxes = (parentId = null, level = 0) => {
+            return availableSteps
+                .filter(etape => etape.parentId === parentId)
+                .sort((a, b) => (a.order || 0) - (b.order || 0))
+                .flatMap(etape => {
+                    const indent = level * 20; // Indentation en pixels
+                    const hasChildren = availableSteps.some(e => e.parentId === etape.id);
+                    const isParallel = selectedStep.parallelWith?.includes(etape.id);
+
+                    return [
+                        <label key={etape.id} className="flex items-center gap-2 p-1 hover:bg-gray-50 rounded">
+                            <div style={{ marginLeft: `${indent}px` }} className="flex items-center gap-2">
+                                <span className="text-xs">
+                                    {hasChildren ? '📁' : '📄'}
+                                </span>
+                                <input
+                                    type="checkbox"
+                                    checked={isParallel}
+                                    onChange={(e) => {
+                                        if (e.target.checked) {
+                                            addParallelTask(selectedStep.id, etape.id);
+                                        } else {
+                                            removeParallelTask(selectedStep.id, etape.id);
+                                        }
+                                    }}
+                                    className="rounded border-gray-300"
+                                />
+                                <span className="text-sm">{etape.text || `Étape ${etape.id}`}</span>
+                            </div>
+                        </label>,
+                        ...renderHierarchicalCheckboxes(etape.id, level + 1)
+                    ];
+                });
+        };
+
+        return renderHierarchicalCheckboxes();
+    };
+
+    // ============== P7-5: CALCUL ÉCHELLE TEMPS (Legacy) ==============
+    const calculateTimeScale = () => {
+        if (!formData.dateDebut || !formData.dateFin) return 'days';
+
+        const startDate = new Date(formData.dateDebut);
+        const endDate = new Date(formData.dateFin);
+        const diffTime = Math.abs(endDate - startDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        // Calcul de la durée totale des tâches en heures
+        const totalHours = formData.etapes.reduce((sum, etape) => sum + (etape.duration || 0), 0);
+
+        // Logique adaptative selon la durée
+        if (totalHours <= 24 && diffDays <= 1) return 'hours';
+        if (diffDays <= 7) return 'days';
+        if (diffDays <= 60) return 'weeks';
+        return 'months';
+    };
+
     const handleFilesAdded = (files, type) => {
         setFormData(prev => ({
             ...prev,
