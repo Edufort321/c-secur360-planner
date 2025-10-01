@@ -902,6 +902,51 @@ export function JobModal({
         window.print();
     };
 
+    // ============== STATISTIQUES PERSONNEL ==============
+    // Restauré depuis OLD - Dashboard statistiques ressources
+
+    const getPersonnelStats = () => {
+        const stats = {
+            total: personnel.length,
+            selected: formData.personnel.length,
+            'byDépartement/Succursale': {},
+            byPoste: {},
+            available: personnel.length - formData.personnel.length
+        };
+
+        // Statistiques par département/succursale
+        personnel.forEach(person => {
+            const departement = person.succursale || 'Non assigné';
+            if (!stats['byDépartement/Succursale'][departement]) {
+                stats['byDépartement/Succursale'][departement] = { total: 0, selected: 0, available: 0 };
+            }
+            stats['byDépartement/Succursale'][departement].total++;
+
+            if (formData.personnel.includes(person.id)) {
+                stats['byDépartement/Succursale'][departement].selected++;
+            } else {
+                stats['byDépartement/Succursale'][departement].available++;
+            }
+        });
+
+        // Statistiques par poste
+        personnel.forEach(person => {
+            const poste = person.poste || 'Non défini';
+            if (!stats.byPoste[poste]) {
+                stats.byPoste[poste] = { total: 0, selected: 0, available: 0 };
+            }
+            stats.byPoste[poste].total++;
+
+            if (formData.personnel.includes(person.id)) {
+                stats.byPoste[poste].selected++;
+            } else {
+                stats.byPoste[poste].available++;
+            }
+        });
+
+        return stats;
+    };
+
     const handleFilesAdded = (files, type) => {
         setFormData(prev => ({
             ...prev,
