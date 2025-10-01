@@ -3,6 +3,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Icon } from './Icon';
+import { ThemeSelector } from './ThemeSelector';
 
 export function MenuDropdown({
     onCreateEvent,
@@ -108,8 +109,19 @@ export function MenuDropdown({
                             ))}
                         </div>
 
+                        {/* Séparateur */}
+                        <div className="border-t border-gray-200 dark:border-gray-600 my-2"></div>
+
+                        {/* Section Paramètres - Thème */}
+                        <div className="px-4 py-2">
+                            <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">
+                                ⚙️ PARAMÈTRES
+                            </div>
+                            <ThemeSelector showLabel={true} size="normal" className="w-full" />
+                        </div>
+
                         {/* Séparateur et info */}
-                        <div className="border-t border-gray-200 dark:border-gray-600 mt-1 pt-2">
+                        <div className="border-t border-gray-200 dark:border-gray-600 mt-2 pt-2">
                             <div className="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">
                                 Version 6.7 - Interface modernisée
                             </div>

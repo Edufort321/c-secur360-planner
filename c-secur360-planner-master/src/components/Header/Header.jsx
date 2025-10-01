@@ -2,7 +2,6 @@
 // Header simple pour tester le système de thème
 
 import React from 'react';
-import { ThemeSelector } from '../UI/ThemeSelector';
 import { Icon } from '../UI/Icon';
 import { Logo } from '../UI/Logo';
 import { MenuDropdown } from '../UI/MenuDropdown';
@@ -45,9 +44,6 @@ export function Header({
                             </div>
                         </div>
                     )}
-
-                    {/* Sélecteur de thème */}
-                    <ThemeSelector />
 
                     {/* Bouton déconnexion */}
                     {utilisateurConnecte && onLogout && (
