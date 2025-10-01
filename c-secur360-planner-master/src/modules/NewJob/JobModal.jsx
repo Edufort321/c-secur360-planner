@@ -1801,6 +1801,376 @@ export function JobModal({
         }
     };
 
+    // ============== P2-1: SÉLECTION VUE GANTT AUTOMATIQUE ==============
+    const getDefaultViewMode = () => {
+        const totalTaskHours = getTotalProjectHours();
+        console.log('🐛 DEBUG getDefaultViewMode - totalTaskHours:', totalTaskHours);
+
+        // Sélectionner la vue automatique selon la durée du projet
+        if (totalTaskHours <= 6) {
+            console.log('🐛 DEBUG - Returning 6h view for <=6h project');
+            return '6h';
+        }
+        if (totalTaskHours <= 12) {
+            console.log('🐛 DEBUG - Returning 12h view for <=12h project');
+            return '12h';
+        }
+        if (totalTaskHours <= 24) {
+            console.log('🐛 DEBUG - Returning 24h view for <=24h project');
+            return '24h';
+        }
+        if (totalTaskHours <= 168) { // 7 jours
+            console.log('🐛 DEBUG - Returning day view for <=7 days project');
+            return 'day';
+        }
+        if (totalTaskHours <= 720) { // 30 jours
+            console.log('🐛 DEBUG - Returning week view for <=30 days project');
+            return 'week';
+        }
+        if (totalTaskHours <= 8760) { // 1 an
+            console.log('🐛 DEBUG - Returning month view for <=1 year project');
+            return 'month';
+        }
+        console.log('🐛 DEBUG - Returning year view for >1 year project');
+        return 'year';
+    };
+
+    // ============== P2-2: GÉNÉRATION ÉCHELLE TEMPS GANTT ==============
+    const generateTimeScale = (viewMode = null) => {
+        console.log('🐛 DEBUG generateTimeScale called with viewMode:', viewMode);
+        console.log('🐛 DEBUG formData.dateDebut:', formData.dateDebut);
+        console.log('🐛 DEBUG formData.ganttViewMode:', formData.ganttViewMode);
+
+        if (!formData.dateDebut) return [];
+
+        // **FORCER LA VUE AUTOMATIQUE** pour corriger le problème
+        const autoViewMode = getDefaultViewMode();
+        const currentViewMode = viewMode || autoViewMode;
+        console.log('🐛 DEBUG auto view mode:', autoViewMode);
+        console.log('🐛 DEBUG currentViewMode selected:', currentViewMode);
+
+        const startDate = new Date(formData.dateDebut);
+        const scale = [];
+
+        switch (currentViewMode) {
+            case '6h':
+                // Vue 6 heures fixe - toujours 6 cellules d'1h chacune
+                console.log('🐛 DEBUG - Generating 6h fixed view');
+                for (let hour = 0; hour < 6; hour++) {
+                    const currentTime = new Date(startDate.getTime() + (hour * 60 * 60 * 1000));
+                    const timeLabel = currentTime.toLocaleTimeString('fr-FR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    scale.push({
+                        date: currentTime,
+                        label: timeLabel,
+                        key: `hour-${hour}`,
+                        value: hour
+                    });
+                }
+                break;
+
+            case '12h':
+                // Vue 12 heures fixe - toujours 12 cellules d'1h chacune
+                console.log('🐛 DEBUG - Generating 12h fixed view');
+                for (let hour = 0; hour < 12; hour++) {
+                    const currentTime = new Date(startDate.getTime() + (hour * 60 * 60 * 1000));
+                    const timeLabel = currentTime.toLocaleTimeString('fr-FR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    scale.push({
+                        date: currentTime,
+                        label: timeLabel,
+                        key: `hour-${hour}`,
+                        value: hour
+                    });
+                }
+                break;
+
+            case '24h':
+                // Vue 24 heures fixe - toujours 24 cellules d'1h chacune
+                console.log('🐛 DEBUG - Generating 24h fixed view');
+                for (let hour = 0; hour < 24; hour++) {
+                    const currentTime = new Date(startDate.getTime() + (hour * 60 * 60 * 1000));
+                    const timeLabel = currentTime.toLocaleTimeString('fr-FR', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    scale.push({
+                        date: currentTime,
+                        label: timeLabel,
+                        key: `hour-${hour}`,
+                        value: hour
+                    });
+                }
+                break;
+
+            case 'day':
+                // Vue journalière adaptative selon la durée du projet
+                const totalTaskHours = formData.etapes.reduce((sum, etape) => sum + (etape.duration || 0), 0);
+                const totalDays = Math.max(1, Math.ceil(totalTaskHours / 24));
+                console.log('🐛 DEBUG - Generating day view with totalDays:', totalDays);
+                for (let day = 0; day < totalDays; day++) {
+                    const currentDate = new Date(startDate.getTime() + (day * 24 * 60 * 60 * 1000));
+                    scale.push({
+                        date: currentDate,
+                        label: currentDate.toLocaleDateString('fr-FR', {
+                            day: '2-digit',
+                            month: 'short'
+                        }),
+                        key: `day-${day}`,
+                        value: day
+                    });
+                }
+                break;
+
+            case 'week':
+                // Vue hebdomadaire adaptative selon la durée du projet
+                const totalTaskHoursWeek = formData.etapes.reduce((sum, etape) => sum + (etape.duration || 0), 0);
+                const totalWeeks = Math.max(1, Math.ceil(totalTaskHoursWeek / (7 * 24)));
+                console.log('🐛 DEBUG - Generating week view with totalWeeks:', totalWeeks);
+                for (let week = 0; week < totalWeeks; week++) {
+                    const weekStart = new Date(startDate.getTime() + (week * 7 * 24 * 60 * 60 * 1000));
+                    scale.push({
+                        date: weekStart,
+                        label: `S${week + 1}`,
+                        longLabel: weekStart.toLocaleDateString('fr-FR', {
+                            day: '2-digit',
+                            month: 'short'
+                        }),
+                        key: `week-${week}`,
+                        value: week
+                    });
+                }
+                break;
+
+            case 'month':
+                // Vue mensuelle adaptative selon la durée du projet
+                const totalTaskHoursMonth = formData.etapes.reduce((sum, etape) => sum + (etape.duration || 0), 0);
+                const totalMonths = Math.max(1, Math.ceil(totalTaskHoursMonth / (30 * 24)));
+                console.log('🐛 DEBUG - Generating month view with totalMonths:', totalMonths);
+                for (let month = 0; month < totalMonths; month++) {
+                    const monthStart = new Date(startDate.getTime() + (month * 30 * 24 * 60 * 60 * 1000));
+                    scale.push({
+                        date: monthStart,
+                        label: monthStart.toLocaleDateString('fr-FR', {
+                            month: 'short',
+                            year: '2-digit'
+                        }),
+                        key: `month-${month}`,
+                        value: month
+                    });
+                }
+                break;
+
+            case 'year':
+                // Vue annuelle adaptative selon la durée du projet
+                const totalTaskHoursYear = formData.etapes.reduce((sum, etape) => sum + (etape.duration || 0), 0);
+                const totalYears = Math.max(1, Math.ceil(totalTaskHoursYear / (365 * 24)));
+                console.log('🐛 DEBUG - Generating year view with totalYears:', totalYears);
+                for (let year = 0; year < totalYears; year++) {
+                    const yearStart = new Date(startDate.getTime() + (year * 365 * 24 * 60 * 60 * 1000));
+                    scale.push({
+                        date: yearStart,
+                        label: yearStart.getFullYear().toString(),
+                        key: `year-${year}`,
+                        value: year
+                    });
+                }
+                break;
+        }
+
+        return scale;
+    };
+
+    // ============== P2-3: POSITIONNEMENT TÂCHES DANS GANTT ==============
+    const calculateTaskPosition = (task, timeScale, viewMode = null) => {
+        if (!formData.dateDebut || !task.calculatedStart || !task.calculatedEnd || timeScale.length === 0) {
+            return { startIndex: -1, endIndex: -1, duration: 0 };
+        }
+
+        const currentViewMode = viewMode || formData.ganttViewMode || getDefaultViewMode();
+        const projectStart = new Date(formData.dateDebut);
+        const taskStart = task.calculatedStart;
+        const taskEnd = task.calculatedEnd;
+
+        // Position en heures depuis le début du projet
+        const taskStartHours = Math.floor((taskStart - projectStart) / (1000 * 60 * 60));
+        const taskDurationHours = Math.ceil((taskEnd - taskStart) / (1000 * 60 * 60));
+
+        let startIndex = -1;
+        let endIndex = -1;
+
+        switch (currentViewMode) {
+            case '6h':
+            case '12h':
+            case '24h':
+                // Vues horaires fixes - calcul précis proportionnel
+                const totalHours = parseInt(currentViewMode.replace('h', ''));
+                const hourlyUnitWidth = 100 / totalHours; // % par heure
+
+                // Position de début (en % de la timeline)
+                const startPercent = Math.max(0, (taskStartHours / totalHours) * 100);
+                // Largeur proportionnelle (en % de la timeline)
+                const widthPercent = (taskDurationHours / totalHours) * 100;
+
+                console.log(`🎯 GANTT - Tâche "${task.text}": ${taskStartHours}h→${taskStartHours + taskDurationHours}h (${taskDurationHours}h) = ${startPercent.toFixed(1)}%→${widthPercent.toFixed(1)}%`);
+
+                return {
+                    startIndex: startPercent,
+                    endIndex: startPercent + widthPercent,
+                    duration: widthPercent,
+                    startPercent: startPercent,
+                    widthPercent: widthPercent
+                };
+
+            case 'day':
+                // Mode jour adaptatif - chaque index = 1 jour (24h)
+                startIndex = Math.max(0, Math.floor(taskStartHours / 24));
+                endIndex = Math.max(startIndex, Math.floor((taskStartHours + taskDurationHours - 1) / 24));
+                break;
+
+            case 'week':
+                // Mode semaine - chaque index = 1 semaine (168h)
+                startIndex = Math.max(0, Math.floor(taskStartHours / (7 * 24)));
+                endIndex = Math.max(startIndex, Math.floor((taskStartHours + taskDurationHours - 1) / (7 * 24)));
+                break;
+
+            case 'month':
+                // Mode mois - chaque index = 1 mois (720h)
+                startIndex = Math.max(0, Math.floor(taskStartHours / (30 * 24)));
+                endIndex = Math.max(startIndex, Math.floor((taskStartHours + taskDurationHours - 1) / (30 * 24)));
+                break;
+
+            case 'years':
+                // Mode année - chaque index = 1 année (8760h)
+                startIndex = Math.max(0, Math.floor(taskStartHours / (365 * 24)));
+                endIndex = Math.max(startIndex, Math.floor((taskStartHours + taskDurationHours - 1) / (365 * 24)));
+                break;
+        }
+
+        return {
+            startIndex: Math.max(0, startIndex),
+            endIndex: Math.min(timeScale.length - 1, Math.max(startIndex, endIndex)),
+            duration: Math.max(1, endIndex - startIndex + 1)
+        };
+    };
+
+    // ============== P2-4: CALCUL DATES TÂCHES AVEC DÉPENDANCES ==============
+    const DEPENDENCY_TYPES = {
+        FS: 'FS', // Finish to Start (défaut) - Fin → Début
+        SS: 'SS', // Start to Start - Début → Début
+        FF: 'FF', // Finish to Finish - Fin → Fin
+        SF: 'SF'  // Start to Finish - Début → Fin (rare)
+    };
+
+    const calculateTaskDates = (task, processedTasks, allTasksSorted, projectStart) => {
+        const taskDuration = task.duration || 1;
+        let calculatedStartHours = 0;
+        let calculatedEndHours = taskDuration;
+
+        console.log(`📅 CALC - Calcul pour "${task.text}" (durée: ${taskDuration}h)`);
+
+        // 1. Vérifier les dépendances explicites
+        if (task.dependencies && task.dependencies.length > 0) {
+            console.log(`📎 DEPS - ${task.dependencies.length} dépendance(s) trouvée(s)`);
+
+            task.dependencies.forEach(dep => {
+                const depTask = processedTasks.find(t => t.id === dep.id);
+                if (depTask) {
+                    const depStartHours = (depTask.calculatedStart.getTime() - projectStart.getTime()) / (1000 * 60 * 60);
+                    const depEndHours = (depTask.calculatedEnd.getTime() - projectStart.getTime()) / (1000 * 60 * 60);
+                    const lag = dep.lag || 0;
+
+                    switch (dep.type || 'FS') {
+                        case 'FS': // Fin → Début (défaut)
+                            calculatedStartHours = Math.max(calculatedStartHours, depEndHours + lag);
+                            console.log(`🔗 FS - "${task.text}" commence après fin de "${depTask.text}" à ${depEndHours + lag}h`);
+                            break;
+                        case 'SS': // Début → Début
+                            calculatedStartHours = Math.max(calculatedStartHours, depStartHours + lag);
+                            console.log(`🔗 SS - "${task.text}" commence avec "${depTask.text}" à ${depStartHours + lag}h`);
+                            break;
+                        case 'FF': // Fin → Fin
+                            calculatedStartHours = Math.max(calculatedStartHours, depEndHours - taskDuration + lag);
+                            console.log(`🔗 FF - "${task.text}" finit avec "${depTask.text}" à ${depEndHours + lag}h`);
+                            break;
+                        case 'SF': // Début → Fin (rare)
+                            calculatedStartHours = Math.max(calculatedStartHours, depStartHours - taskDuration + lag);
+                            console.log(`🔗 SF - "${task.text}" finit quand "${depTask.text}" commence`);
+                            break;
+                    }
+                }
+            });
+        }
+        // 2. Gestion du mode parallèle explicite
+        else if (task.isParallel && task.parallelWith && task.parallelWith.length > 0) {
+            const parallelTasks = processedTasks.filter(t => task.parallelWith.includes(t.id));
+            if (parallelTasks.length > 0) {
+                // Démarrer en même temps que la première tâche parallèle
+                const firstParallelStart = Math.min(...parallelTasks.map(t =>
+                    (t.calculatedStart.getTime() - projectStart.getTime()) / (1000 * 60 * 60)
+                ));
+                calculatedStartHours = firstParallelStart;
+                console.log(`🔄 PARALLEL - "${task.text}" démarre en parallèle à ${calculatedStartHours}h`);
+            }
+        }
+        // 3. Succession séquentielle par défaut (cas par défaut)
+        else {
+            if (task.parentId) {
+                // C'est une sous-tâche : suit la précédente sous-tâche du même parent
+                const siblingTasks = processedTasks.filter(t => t.parentId === task.parentId);
+                if (siblingTasks.length > 0) {
+                    const lastSibling = siblingTasks[siblingTasks.length - 1];
+                    calculatedStartHours = Math.max(calculatedStartHours, lastSibling.endHours || 0);
+                    console.log(`➡️  SUB-SEQ - "${task.text}" suit sa sous-tâche précédente "${lastSibling.text}" à ${calculatedStartHours}h`);
+                } else {
+                    // Première sous-tâche : hérite de la position de son parent
+                    const parent = processedTasks.find(t => t.id === task.parentId);
+                    if (parent) {
+                        calculatedStartHours = Math.max(calculatedStartHours, parent.startHours || 0);
+                        console.log(`🔢 FIRST-SUB - "${task.text}" première sous-tâche hérite du parent à ${calculatedStartHours}h`);
+                    } else {
+                        // Parent pas encore calculé, on restera à 0 pour l'instant
+                        calculatedStartHours = 0;
+                        console.log(`⏳ FIRST-SUB - "${task.text}" parent pas encore calculé, démarre à ${calculatedStartHours}h`);
+                    }
+                }
+            } else {
+                // C'est une tâche parent : suit la précédente tâche parent
+                const parentTasks = processedTasks.filter(t => !t.parentId);
+                if (parentTasks.length > 0) {
+                    const lastParent = parentTasks[parentTasks.length - 1];
+                    calculatedStartHours = Math.max(calculatedStartHours, lastParent.endHours || 0);
+                    console.log(`➡️  PARENT-SEQ - "${task.text}" suit le parent précédent "${lastParent.text}" à ${calculatedStartHours}h`);
+                }
+            }
+        }
+
+        calculatedEndHours = calculatedStartHours + taskDuration;
+
+        const calculatedStart = new Date(projectStart.getTime() + (calculatedStartHours * 60 * 60 * 1000));
+        const calculatedEnd = new Date(projectStart.getTime() + (calculatedEndHours * 60 * 60 * 1000));
+
+        console.log(`✅ FINAL - "${task.text}": ${calculatedStartHours}h → ${calculatedEndHours}h`);
+
+        return {
+            calculatedStart,
+            calculatedEnd,
+            startHours: calculatedStartHours,
+            endHours: calculatedEndHours
+        };
+    };
+
+    // ============== P2-5: CALCUL NIVEAUX HIÉRARCHIE ==============
+    const calculateTaskLevel = (taskId, allTasks, level = 0) => {
+        const task = allTasks.find(t => t.id === taskId);
+        if (!task || !task.parentId) return level;
+        return calculateTaskLevel(task.parentId, allTasks, level + 1);
+    };
+
     const handleFilesAdded = (files, type) => {
         setFormData(prev => ({
             ...prev,
