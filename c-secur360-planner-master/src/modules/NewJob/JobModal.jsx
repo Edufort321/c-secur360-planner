@@ -1493,6 +1493,151 @@ export function JobModal({
         }));
     };
 
+    // ============== P1-5: CALCUL CHEMIN CRITIQUE (CPM) ==============
+    const calculateCriticalPath = useCallback((tasks) => {
+        if (!tasks || tasks.length === 0) return [];
+
+        try {
+            const taskMap = {};
+            tasks.forEach(task => {
+                taskMap[task.id] = {
+                    ...task,
+                    earlyStart: 0,
+                    earlyFinish: task.duration || 1,
+                    lateStart: 0,
+                    lateFinish: task.duration || 1,
+                    slack: 0
+                };
+            });
+
+            // Forward Pass - Calculate Early Start/Finish
+            const calculateEarlyDates = () => {
+                const visited = new Set();
+                const processTask = (taskId) => {
+                    if (visited.has(taskId)) return;
+                    visited.add(taskId);
+
+                    const task = taskMap[taskId];
+                    let maxEarlyFinish = 0;
+                    const etape = formData.etapes.find(e => e.id === taskId);
+
+                    if (etape && etape.dependencies) {
+                        etape.dependencies.forEach(dep => {
+                            processTask(dep.id);
+                            const depTask = taskMap[dep.id];
+                            if (depTask) {
+                                let depFinish = depTask.earlyFinish;
+                                depFinish += (dep.lag || 0);
+
+                                switch (dep.type) {
+                                    case 'FS':
+                                        maxEarlyFinish = Math.max(maxEarlyFinish, depFinish);
+                                        break;
+                                    case 'SS':
+                                        maxEarlyFinish = Math.max(maxEarlyFinish, depTask.earlyStart + (dep.lag || 0));
+                                        break;
+                                    case 'FF':
+                                        maxEarlyFinish = Math.max(maxEarlyFinish, depFinish - task.duration);
+                                        break;
+                                    case 'SF':
+                                        maxEarlyFinish = Math.max(maxEarlyFinish, depTask.earlyStart + (dep.lag || 0) - task.duration);
+                                        break;
+                                    default:
+                                        maxEarlyFinish = Math.max(maxEarlyFinish, depFinish);
+                                }
+                            }
+                        });
+                    }
+
+                    task.earlyStart = maxEarlyFinish;
+                    task.earlyFinish = task.earlyStart + task.duration;
+                };
+
+                tasks.forEach(task => processTask(task.id));
+            };
+
+            // Backward Pass - Calculate Late Start/Finish
+            const calculateLateDates = () => {
+                const projectFinish = Math.max(...Object.values(taskMap).map(t => t.earlyFinish));
+
+                Object.values(taskMap).forEach(task => {
+                    const hasSuccessors = formData.etapes.some(e =>
+                        e.dependencies && e.dependencies.some(dep => dep.id === task.id)
+                    );
+
+                    if (!hasSuccessors) {
+                        task.lateFinish = projectFinish;
+                        task.lateStart = task.lateFinish - task.duration;
+                    }
+                });
+
+                const visited = new Set();
+                const processTaskBackward = (taskId) => {
+                    if (visited.has(taskId)) return;
+                    visited.add(taskId);
+
+                    const task = taskMap[taskId];
+                    const successors = formData.etapes.filter(e =>
+                        e.dependencies && e.dependencies.some(dep => dep.id === taskId)
+                    );
+
+                    let minLateStart = task.lateStart;
+
+                    successors.forEach(successor => {
+                        processTaskBackward(successor.id);
+                        const succTask = taskMap[successor.id];
+                        const dep = successor.dependencies.find(d => d.id === taskId);
+
+                        if (succTask && dep) {
+                            let lateStartCandidate;
+                            const lag = dep.lag || 0;
+
+                            switch (dep.type) {
+                                case 'FS':
+                                    lateStartCandidate = succTask.lateStart - task.duration - lag;
+                                    break;
+                                case 'SS':
+                                    lateStartCandidate = succTask.lateStart - lag;
+                                    break;
+                                case 'FF':
+                                    lateStartCandidate = succTask.lateFinish - task.duration - lag;
+                                    break;
+                                case 'SF':
+                                    lateStartCandidate = succTask.lateFinish - lag;
+                                    break;
+                                default:
+                                    lateStartCandidate = succTask.lateStart - task.duration - lag;
+                            }
+
+                            if (minLateStart === task.lateStart || lateStartCandidate < minLateStart) {
+                                minLateStart = lateStartCandidate;
+                            }
+                        }
+                    });
+
+                    task.lateStart = minLateStart;
+                    task.lateFinish = task.lateStart + task.duration;
+                    task.slack = task.lateStart - task.earlyStart;
+                };
+
+                tasks.forEach(task => processTaskBackward(task.id));
+            };
+
+            calculateEarlyDates();
+            calculateLateDates();
+
+            // Identify critical path (slack ≈ 0)
+            const criticalTasks = Object.values(taskMap)
+                .filter(task => Math.abs(task.slack) <= 0.001)
+                .map(task => task.id);
+
+            return criticalTasks;
+        } catch (error) {
+            console.error('Erreur calcul chemin critique:', error);
+            return [];
+        }
+    }, [formData.etapes]);
+
     const handleFilesAdded = (files, type) => {
         setFormData(prev => ({
             ...prev,
