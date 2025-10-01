@@ -1237,6 +1237,262 @@ export function JobModal({
         }));
     };
 
+    // ============== P1-4: HIÉRARCHIE TÂCHES AVANCÉE ==============
+    // 10 fonctions pour gérer la structure WBS des étapes
+
+    const addEtape = (parentId = null) => {
+        setFormData(prev => {
+            const parentEtape = parentId ? prev.etapes.find(e => e.id === parentId) : null;
+            const level = parentEtape ? (parentEtape.level || 0) + 1 : 0;
+
+            const newEtape = {
+                id: Date.now(),
+                text: '',
+                description: '',
+                completed: false,
+                duration: 1,
+                priority: 'normal',
+                dependencies: [],
+                assignedResources: {
+                    personnel: [],
+                    equipements: [],
+                    equipes: [],
+                    sousTraitants: []
+                },
+                schedulingMode: 'auto',
+                startDate: null,
+                endDate: null,
+                parallelWith: [],
+                parentId: parentId,
+                level: level,
+                children: [],
+                isCollapsed: false,
+                progress: 0,
+                actualStart: null,
+                actualEnd: null,
+                actualDuration: null,
+                isCritical: false,
+                slack: 0,
+                tags: [],
+                notes: '',
+                color: '#3B82F6',
+                order: prev.etapes.length
+            };
+
+            const updatedEtapes = [...prev.etapes, newEtape];
+
+            if (parentId) {
+                const parentIndex = updatedEtapes.findIndex(e => e.id === parentId);
+                if (parentIndex !== -1) {
+                    updatedEtapes[parentIndex] = {
+                        ...updatedEtapes[parentIndex],
+                        children: [...updatedEtapes[parentIndex].children, newEtape.id]
+                    };
+                }
+            }
+
+            const finalEtapes = recalculateParentDurations(updatedEtapes);
+
+            return {
+                ...prev,
+                etapes: finalEtapes
+            };
+        });
+    };
+
+    const recalculateParentDurations = (etapes) => {
+        const updatedEtapes = [...etapes];
+
+        const calculateParentDuration = (parentId) => {
+            const children = updatedEtapes.filter(e => e.parentId === parentId);
+            if (children.length === 0) return;
+
+            let totalDuration = 0;
+            let hasChildren = false;
+
+            children.forEach(child => {
+                calculateParentDuration(child.id);
+                totalDuration += parseFloat(child.duration) || 0;
+                hasChildren = true;
+            });
+
+            if (hasChildren) {
+                const parentIndex = updatedEtapes.findIndex(e => e.id === parentId);
+                if (parentIndex !== -1) {
+                    updatedEtapes[parentIndex] = {
+                        ...updatedEtapes[parentIndex],
+                        duration: totalDuration,
+                        autoCalculated: true
+                    };
+                }
+            }
+        };
+
+        const rootTasks = updatedEtapes.filter(e => !e.parentId);
+        rootTasks.forEach(root => calculateParentDuration(root.id));
+
+        updatedEtapes.forEach(etape => {
+            if (updatedEtapes.some(e => e.parentId === etape.id)) {
+                calculateParentDuration(etape.id);
+            }
+        });
+
+        return updatedEtapes;
+    };
+
+    const updateEtape = (index, field, value) => {
+        setFormData(prev => {
+            let updatedEtapes = prev.etapes.map((etape, i) =>
+                i === index ? { ...etape, [field]: value } : etape
+            );
+
+            if (field === 'duration') {
+                updatedEtapes = recalculateParentDurations(updatedEtapes);
+            }
+
+            return {
+                ...prev,
+                etapes: updatedEtapes
+            };
+        });
+    };
+
+    const removeEtape = (index) => {
+        setFormData(prev => {
+            const etapeToRemove = prev.etapes[index];
+            if (!etapeToRemove) return prev;
+
+            let updatedEtapes = [...prev.etapes];
+
+            const removeChildren = (parentId) => {
+                const children = updatedEtapes.filter(e => e.parentId === parentId);
+                children.forEach(child => {
+                    removeChildren(child.id);
+                    updatedEtapes = updatedEtapes.filter(e => e.id !== child.id);
+                });
+            };
+
+            removeChildren(etapeToRemove.id);
+
+            if (etapeToRemove.parentId) {
+                const parentIndex = updatedEtapes.findIndex(e => e.id === etapeToRemove.parentId);
+                if (parentIndex !== -1) {
+                    updatedEtapes[parentIndex] = {
+                        ...updatedEtapes[parentIndex],
+                        children: updatedEtapes[parentIndex].children.filter(id => id !== etapeToRemove.id)
+                    };
+                }
+            }
+
+            updatedEtapes = updatedEtapes.filter((_, i) => i !== index);
+
+            updatedEtapes = updatedEtapes.map(etape => ({
+                ...etape,
+                dependencies: etape.dependencies.filter(dep => dep.id !== etapeToRemove.id),
+                parallelWith: etape.parallelWith.filter(id => id !== etapeToRemove.id)
+            }));
+
+            const finalEtapes = recalculateParentDurations(updatedEtapes);
+
+            return {
+                ...prev,
+                etapes: finalEtapes
+            };
+        });
+    };
+
+    const addDependency = (etapeId, dependencyId, type = 'FS', lag = 0) => {
+        setFormData(prev => ({
+            ...prev,
+            etapes: prev.etapes.map(etape =>
+                etape.id === etapeId
+                    ? {
+                        ...etape,
+                        dependencies: [...etape.dependencies, { id: dependencyId, type, lag }]
+                    }
+                    : etape
+            )
+        }));
+    };
+
+    const removeDependency = (etapeId, dependencyId) => {
+        setFormData(prev => ({
+            ...prev,
+            etapes: prev.etapes.map(etape =>
+                etape.id === etapeId
+                    ? {
+                        ...etape,
+                        dependencies: etape.dependencies.filter(dep => dep.id !== dependencyId)
+                    }
+                    : etape
+            )
+        }));
+    };
+
+    const assignResourceToEtape = (etapeId, resourceId, resourceType) => {
+        setFormData(prev => ({
+            ...prev,
+            etapes: prev.etapes.map(etape =>
+                etape.id === etapeId
+                    ? {
+                        ...etape,
+                        assignedResources: {
+                            ...etape.assignedResources,
+                            [resourceType]: etape.assignedResources[resourceType].includes(resourceId)
+                                ? etape.assignedResources[resourceType]
+                                : [...etape.assignedResources[resourceType], resourceId]
+                        }
+                    }
+                    : etape
+            )
+        }));
+    };
+
+    const unassignResourceFromEtape = (etapeId, resourceId, resourceType) => {
+        setFormData(prev => ({
+            ...prev,
+            etapes: prev.etapes.map(etape =>
+                etape.id === etapeId
+                    ? {
+                        ...etape,
+                        assignedResources: {
+                            ...etape.assignedResources,
+                            [resourceType]: etape.assignedResources[resourceType].filter(id => id !== resourceId)
+                        }
+                    }
+                    : etape
+            )
+        }));
+    };
+
+    const moveEtape = (dragIndex, hoverIndex) => {
+        setFormData(prev => {
+            const draggedEtape = prev.etapes[dragIndex];
+            const newEtapes = [...prev.etapes];
+            newEtapes.splice(dragIndex, 1);
+            newEtapes.splice(hoverIndex, 0, draggedEtape);
+
+            return {
+                ...prev,
+                etapes: newEtapes.map((etape, index) => ({
+                    ...etape,
+                    order: index
+                }))
+            };
+        });
+    };
+
+    const toggleEtapeCollapse = (etapeId) => {
+        setFormData(prev => ({
+            ...prev,
+            etapes: prev.etapes.map(etape =>
+                etape.id === etapeId
+                    ? { ...etape, isCollapsed: !etape.isCollapsed }
+                    : etape
+            )
+        }));
+    };
+
     const handleFilesAdded = (files, type) => {
         setFormData(prev => ({
             ...prev,
