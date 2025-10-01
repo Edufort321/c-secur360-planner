@@ -2569,6 +2569,63 @@ export function JobModal({
         }));
     };
 
+    // ============== P5-1: INPUT HANDLER ==============
+    const handleInputChange = (field, value) => {
+        setFormData(prev => ({
+            ...prev,
+            [field]: value
+        }));
+    };
+
+    // ============== P5-2: DÉPLACEMENT ÉTAPES ==============
+    const moveEtape = (dragIndex, hoverIndex) => {
+        setFormData(prev => {
+            const draggedEtape = prev.etapes[dragIndex];
+            const newEtapes = [...prev.etapes];
+            newEtapes.splice(dragIndex, 1);
+            newEtapes.splice(hoverIndex, 0, draggedEtape);
+
+            // Mettre à jour les ordres
+            return {
+                ...prev,
+                etapes: newEtapes.map((etape, index) => ({
+                    ...etape,
+                    order: index
+                }))
+            };
+        });
+    };
+
+    const toggleEtapeCollapse = (etapeId) => {
+        setFormData(prev => ({
+            ...prev,
+            etapes: prev.etapes.map(etape =>
+                etape.id === etapeId
+                    ? { ...etape, isCollapsed: !etape.isCollapsed }
+                    : etape
+            )
+        }));
+    };
+
+    // ============== P5-3: MODAL CONFIG ÉTAPE ==============
+    const openStepConfigModal = (etapeId) => {
+        const etape = formData.etapes.find(e => e.id === etapeId);
+        if (etape) {
+            setSelectedStep(etape);
+            setShowStepConfigModal(true);
+        }
+    };
+
+    const closeStepConfigModal = () => {
+        setShowStepConfigModal(false);
+        setSelectedStep(null);
+    };
+
+    // ============== P5-4: CALCUL HEURES TOTALES ==============
+    const getTotalProjectHours = () => {
+        return formData.etapes.reduce((sum, etape) => sum + (etape.duration || 0), 0);
+    };
+
     const handleFilesAdded = (files, type) => {
         setFormData(prev => ({
             ...prev,
