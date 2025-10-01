@@ -36,7 +36,7 @@ export function PlanificateurFinal({
     const { t, currentLanguage } = useLanguage();
 
     // Hauteur uniforme simple
-    const CELL_HEIGHT = 80; // pixels
+    const CELL_HEIGHT = 89; // pixels
     // États pour la vue calendrier
     const [startDate, setStartDate] = useState(new Date());
     const [numberOfDays, setNumberOfDays] = useState(14);
@@ -304,12 +304,28 @@ export function PlanificateurFinal({
         });
     };
 
+    // Trier les équipements par bureau puis alphabétique
+    const sortEquipements = (equipementsList) => {
+        return equipementsList.sort((a, b) => {
+            // Trier d'abord par bureau
+            if (a.succursale !== b.succursale) {
+                return (a.succursale || '').localeCompare(b.succursale || '');
+            }
+
+            // Puis trier alphabétiquement par nom
+            const nomA = a.nom.toLowerCase();
+            const nomB = b.nom.toLowerCase();
+            return nomA.localeCompare(nomB);
+        });
+    };
+
     // Filtrer les ressources (personnel et équipements)
     const filteredResources = useMemo(() => {
         if (modeVueIndividuel && travailleurSelectionne) {
             if (filterType === 'personnel') {
                 let filteredPersonnel = personnel.filter(person => {
-                    const matchesSearch = person.nom.toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchesSearch = person.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                       (person.prenom && person.prenom.toLowerCase().includes(searchTerm.toLowerCase()));
                     const matchesBureau = filterBureau === 'tous' || person.succursale === filterBureau;
                     const matchesPoste = filterPoste === 'tous' || person.poste === filterPoste;
                     const visibleCalendrier = person.visibleChantier === true;
@@ -320,13 +336,15 @@ export function PlanificateurFinal({
                 const filteredEquipements = equipements.filter(equipement => {
                     const matchesSearch = equipement.nom.toLowerCase().includes(searchTerm.toLowerCase());
                     const matchesBureau = filterBureau === 'tous' || equipement.succursale === filterBureau;
-                    return matchesSearch && matchesBureau && equipement.id === travailleurSelectionne;
+                    const visibleCalendrier = equipement.visibleChantier === true;
+                    return matchesSearch && matchesBureau && visibleCalendrier && equipement.id === travailleurSelectionne;
                 });
-                return filteredEquipements.map(e => ({...e, type: 'equipement'}));
+                return sortEquipements(filteredEquipements).map(e => ({...e, type: 'equipement'}));
             } else if (filterType === 'global') {
                 // Vue individuelle globale - chercher dans personnel et équipements
                 let filteredPersonnel = personnel.filter(person => {
-                    const matchesSearch = person.nom.toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchesSearch = person.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                       (person.prenom && person.prenom.toLowerCase().includes(searchTerm.toLowerCase()));
                     const matchesBureau = filterBureau === 'tous' || person.succursale === filterBureau;
                     const matchesPoste = filterPoste === 'tous' || person.poste === filterPoste;
                     const visibleCalendrier = person.visibleChantier === true;
@@ -336,7 +354,8 @@ export function PlanificateurFinal({
                 const filteredEquipements = equipements.filter(equipement => {
                     const matchesSearch = equipement.nom.toLowerCase().includes(searchTerm.toLowerCase());
                     const matchesBureau = filterBureau === 'tous' || equipement.succursale === filterBureau;
-                    return matchesSearch && matchesBureau && equipement.id === travailleurSelectionne;
+                    const visibleCalendrier = equipement.visibleChantier === true;
+                    return matchesSearch && matchesBureau && visibleCalendrier && equipement.id === travailleurSelectionne;
                 }).map(e => ({...e, type: 'equipement'}));
 
                 return [...filteredPersonnel, ...filteredEquipements];
@@ -345,7 +364,8 @@ export function PlanificateurFinal({
             return [];
         } else if (filterType === 'personnel') {
             let filteredPersonnel = personnel.filter(person => {
-                const matchesSearch = person.nom.toLowerCase().includes(searchTerm.toLowerCase());
+                const matchesSearch = person.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                   (person.prenom && person.prenom.toLowerCase().includes(searchTerm.toLowerCase()));
                 const matchesBureau = filterBureau === 'tous' || person.succursale === filterBureau;
                 const matchesPoste = filterPoste === 'tous' || person.poste === filterPoste;
                 const visibleCalendrier = person.visibleChantier === true;
@@ -353,11 +373,12 @@ export function PlanificateurFinal({
             });
             return sortPersonnel(filteredPersonnel).map(p => ({...p, type: 'personnel'}));
         } else if (filterType === 'equipements') {
-            return equipements.filter(equipement => {
+            return sortEquipements(equipements.filter(equipement => {
                 const matchesSearch = equipement.nom.toLowerCase().includes(searchTerm.toLowerCase());
                 const matchesBureau = filterBureau === 'tous' || equipement.succursale === filterBureau;
-                return matchesSearch && matchesBureau;
-            }).map(e => ({...e, type: 'equipement'}));
+                const visibleCalendrier = equipement.visibleChantier === true;
+                return matchesSearch && matchesBureau && visibleCalendrier;
+            })).map(e => ({...e, type: 'equipement'}));
         } else if (filterType === 'jobs') {
             // Vue "Événements seulement" - créer des lignes pour chaque événement
             return jobs.filter(job => {
@@ -382,18 +403,20 @@ export function PlanificateurFinal({
             }));
         } else { // global
             let filteredPersonnel = personnel.filter(person => {
-                const matchesSearch = person.nom.toLowerCase().includes(searchTerm.toLowerCase());
+                const matchesSearch = person.nom.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                   (person.prenom && person.prenom.toLowerCase().includes(searchTerm.toLowerCase()));
                 const matchesBureau = filterBureau === 'tous' || person.succursale === filterBureau;
                 const matchesPoste = filterPoste === 'tous' || person.poste === filterPoste;
                 const visibleCalendrier = person.visibleChantier === true;
                 return matchesSearch && matchesBureau && matchesPoste && visibleCalendrier;
             }).map(p => ({...p, type: 'personnel'}));
 
-            const filteredEquipements = equipements.filter(equipement => {
+            const filteredEquipements = sortEquipements(equipements.filter(equipement => {
                 const matchesSearch = equipement.nom.toLowerCase().includes(searchTerm.toLowerCase());
                 const matchesBureau = filterBureau === 'tous' || equipement.succursale === filterBureau;
-                return matchesSearch && matchesBureau;
-            }).map(e => ({...e, type: 'equipement'}));
+                const visibleCalendrier = equipement.visibleChantier === true;
+                return matchesSearch && matchesBureau && visibleCalendrier;
+            })).map(e => ({...e, type: 'equipement'}));
 
             return [...filteredPersonnel, ...filteredEquipements];
         }
@@ -416,8 +439,11 @@ export function PlanificateurFinal({
         }
 
         return jobs.find(job => {
-            const jobDate = new Date(job.dateDebut).toISOString().split('T')[0];
-            if (jobDate !== dayString) return false;
+            const jobDateDebut = new Date(job.dateDebut).toISOString().split('T')[0];
+            const jobDateFin = job.dateFin ? new Date(job.dateFin).toISOString().split('T')[0] : jobDateDebut;
+
+            // Vérifier si le jour actuel est dans la plage du job
+            if (!(dayString >= jobDateDebut && dayString <= jobDateFin)) return false;
 
             if (resourceType === 'personnel') {
                 return job.personnel && job.personnel.includes(resourceId);
@@ -426,6 +452,269 @@ export function PlanificateurFinal({
             }
             return false;
         });
+    };
+
+    // Nouvelle fonction pour obtenir TOUS les jobs d'une cellule (pour timeline)
+    const getAllJobsForCell = (resourceId, day, resourceType) => {
+        const dayString = day.fullDate;
+
+        if (resourceType === 'job') {
+            const jobId = resourceId.replace('job-', '');
+            const job = jobs.find(j => j.id.toString() === jobId);
+            if (!job) return [];
+
+            const jobDateDebut = new Date(job.dateDebut).toISOString().split('T')[0];
+            const jobDateFin = job.dateFin ? new Date(job.dateFin).toISOString().split('T')[0] : jobDateDebut;
+
+            return dayString >= jobDateDebut && dayString <= jobDateFin ? [job] : [];
+        }
+
+        return jobs.filter(job => {
+            const jobDateDebut = new Date(job.dateDebut).toISOString().split('T')[0];
+            const jobDateFin = job.dateFin ? new Date(job.dateFin).toISOString().split('T')[0] : jobDateDebut;
+
+            // Vérifier si le jour actuel est dans la plage du job
+            if (!(dayString >= jobDateDebut && dayString <= jobDateFin)) return false;
+
+            if (resourceType === 'personnel') {
+                return job.personnel && job.personnel.includes(resourceId);
+            } else if (resourceType === 'equipement') {
+                return job.equipements && job.equipements.includes(resourceId);
+            }
+            return false;
+        });
+    };
+
+    // Composant Timeline pour afficher les jobs dans une cellule
+    const TimelineCell = ({ jobs, day, onJobClick, resourceId, resourceType }) => {
+        if (!jobs || jobs.length === 0) return null;
+
+        // Fonction pour obtenir l'horaire spécifique d'une ressource pour un job
+        const getResourceSchedule = (job, resourceId, resourceType) => {
+            // Vérifier s'il y a un horaire personnalisé pour cette ressource
+            const resourceKey = `${resourceType}_${resourceId}`;
+            const customSchedule = job.horairesIndividuels && job.horairesIndividuels[resourceKey];
+
+            if (customSchedule && customSchedule.mode === 'personnalise') {
+                // Vérifier si cette ressource travaille ce jour-là
+                const dayString = day.fullDate;
+                if (customSchedule.joursTravailles && !customSchedule.joursTravailles.includes(dayString)) {
+                    return null; // La ressource ne travaille pas ce jour
+                }
+
+                return {
+                    heureDebut: customSchedule.heureDebut || job.heureDebut || '08:00',
+                    heureFin: customSchedule.heureFin || job.heureFin || '17:00'
+                };
+            }
+
+            // Utiliser l'horaire global de l'événement
+            return {
+                heureDebut: job.heureDebut || '08:00',
+                heureFin: job.heureFin || '17:00'
+            };
+        };
+
+        // Fonction pour calculer la position et largeur d'un job dans la timeline
+        const getJobTimelineStyle = (job) => {
+            const schedule = getResourceSchedule(job, resourceId, resourceType);
+
+            // Si la ressource ne travaille pas ce jour, ne pas afficher
+            if (!schedule) return null;
+
+            const heureDebut = schedule.heureDebut;
+            const heureFin = schedule.heureFin;
+
+            // Convertir les heures en minutes depuis minuit
+            const [debutH, debutM] = heureDebut.split(':').map(Number);
+            const [finH, finM] = heureFin.split(':').map(Number);
+
+            const minutesDebut = debutH * 60 + debutM;
+            const minutesFin = finH * 60 + finM;
+
+            // Timeline de 6h (360min) à 20h (1200min) = 840 minutes
+            const timelineStart = 6 * 60; // 6h00
+            const timelineEnd = 20 * 60;   // 20h00
+            const timelineRange = timelineEnd - timelineStart;
+
+            // Calculer pourcentages
+            const left = Math.max(0, ((minutesDebut - timelineStart) / timelineRange) * 100);
+            const width = Math.min(100 - left, ((minutesFin - minutesDebut) / timelineRange) * 100);
+
+            return {
+                left: `${left}%`,
+                width: `${Math.max(8, width)}%` // Minimum 8% de largeur pour visibilité
+            };
+        };
+
+        // Fonction pour détecter les conflits d'horaires et organiser en lignes
+        const organizeJobsInLayers = (jobs) => {
+            const layers = [];
+
+            jobs.forEach(job => {
+                const heureDebut = job.heureDebut || '08:00';
+                const heureFin = job.heureFin || '17:00';
+
+                // Convertir en minutes pour comparaison
+                const [debutH, debutM] = heureDebut.split(':').map(Number);
+                const [finH, finM] = heureFin.split(':').map(Number);
+                const debut = debutH * 60 + debutM;
+                const fin = finH * 60 + finM;
+
+                // Trouver une ligne disponible
+                let layerIndex = 0;
+                while (layerIndex < layers.length) {
+                    const layer = layers[layerIndex];
+                    let canPlace = true;
+
+                    // Vérifier si ce job peut être placé dans cette ligne
+                    for (const existingJob of layer) {
+                        const existingDebut = existingJob.debut;
+                        const existingFin = existingJob.fin;
+
+                        // Chevauchement si début < existingFin ET fin > existingDebut
+                        if (debut < existingFin && fin > existingDebut) {
+                            canPlace = false;
+                            break;
+                        }
+                    }
+
+                    if (canPlace) {
+                        layer.push({ job, debut, fin });
+                        break;
+                    }
+
+                    layerIndex++;
+                }
+
+                // Si aucune ligne disponible, créer une nouvelle ligne
+                if (layerIndex === layers.length) {
+                    layers.push([{ job, debut, fin }]);
+                }
+            });
+
+            return layers;
+        };
+
+        // Déterminer la couleur basée sur le mode sélectionné
+        const getJobColor = (job) => {
+            if (colorMode === 'succursale' && job.succursaleEnCharge) {
+                const bureauColor = BUREAU_COLORS[job.succursaleEnCharge];
+                if (bureauColor) {
+                    return `text-white`;
+                }
+            }
+
+            // Fallback sur priorité
+            switch(job.priorite) {
+                case 'urgente': return 'bg-red-500 text-white';
+                case 'haute': return 'bg-orange-500 text-white';
+                case 'normale': return 'bg-blue-500 text-white';
+                default: return 'bg-green-500 text-white';
+            }
+        };
+
+        // Fonction pour obtenir le style de couleur
+        const getJobStyle = (job) => {
+            if (colorMode === 'succursale' && job.succursaleEnCharge) {
+                // Chercher la succursale dans la liste des succursales créées
+                const succursaleObj = succursales.find(s => s.nom === job.succursaleEnCharge);
+                if (succursaleObj && succursaleObj.couleur) {
+                    return {
+                        backgroundColor: succursaleObj.couleur,
+                        color: '#ffffff'
+                    };
+                }
+            }
+
+            // Fallback sur priorité avec couleurs par défaut
+            switch(job.priorite) {
+                case 'urgente': return { backgroundColor: '#ef4444', color: '#ffffff' };
+                case 'haute': return { backgroundColor: '#f59e0b', color: '#ffffff' };
+                case 'normale': return { backgroundColor: '#3b82f6', color: '#ffffff' };
+                default: return { backgroundColor: '#10b981', color: '#ffffff' };
+            }
+        };
+
+        const jobLayers = organizeJobsInLayers(jobs);
+        const layerHeight = Math.floor(CELL_HEIGHT / jobLayers.length); // Diviser par nombre de lignes nécessaires
+
+        return (
+            <div className="relative w-full h-20 bg-gray-50 border border-gray-200 rounded">
+                {/* Grille d'heures en arrière-plan */}
+                <div className="absolute inset-0 flex opacity-25">
+                    {Array.from({length: 12}, (_, i) => (
+                        <div key={i} className="flex-1 border-r border-gray-300 last:border-r-0"></div>
+                    ))}
+                </div>
+
+                {/* Affichage des jobs organisés en lignes */}
+                {jobLayers.map((layer, layerIndex) => (
+                    <div
+                        key={layerIndex}
+                        className="absolute w-full"
+                        style={{
+                            top: `${layerIndex * layerHeight}px`,
+                            height: `${layerHeight}px`
+                        }}
+                    >
+                        {layer.map(({ job }, jobIndex) => {
+                            const timelineStyle = getJobTimelineStyle(job);
+                            const colorStyle = getJobStyle(job);
+                            const heureDebut = job.heureDebut || '08:00';
+                            const heureFin = job.heureFin || '17:00';
+
+                            return (
+                                <div
+                                    key={`${job.id}-${layerIndex}-${jobIndex}`}
+                                    className={`absolute h-full rounded px-1 cursor-pointer hover:opacity-80 flex flex-col justify-center`}
+                                    style={{
+                                        left: timelineStyle.left,
+                                        width: timelineStyle.width,
+                                        fontSize: layerHeight > 25 ? '11px' : layerHeight > 15 ? '10px' : '8px',
+                                        backgroundColor: colorStyle.backgroundColor,
+                                        color: colorStyle.color
+                                    }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onJobClick(job);
+                                    }}
+                                    title={`${job.numeroJob || `Job-${job.id}`} - ${job.client} (${heureDebut}-${heureFin})`}
+                                >
+                                    {/* Contenu de l'événement */}
+                                    <div className="text-center leading-tight">
+                                        <div className="font-bold truncate">
+                                            {job.numeroJob || `Job-${job.id}`}
+                                        </div>
+                                        <div className="truncate opacity-90">
+                                            {job.client}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ))}
+
+                {/* Indicateurs d'heures */}
+                <div className="absolute inset-x-0 bottom-0 h-3 flex text-xs text-gray-500 opacity-70 pointer-events-none">
+                    <div className="text-center text-[9px]">6h</div>
+                    <div className="flex-1"></div>
+                    <div className="text-center text-[9px]">9h</div>
+                    <div className="flex-1"></div>
+                    <div className="text-center text-[9px]">12h</div>
+                    <div className="flex-1"></div>
+                    <div className="text-center text-[9px]">15h</div>
+                    <div className="flex-1"></div>
+                    <div className="text-center text-[9px]">18h</div>
+                </div>
+            </div>
+        );
+    };
+
+    // Fonction pour ouvrir un job en conflit en parallèle
+    const handleOpenConflictJob = (conflictingJob) => {
+        setConflictJob(conflictingJob);
     };
 
     // Gestion du clic sur une cellule
@@ -491,7 +780,7 @@ export function PlanificateurFinal({
                             onClick={goToToday}
                             className="px-3 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm"
                         >
-                            Aujourd'hui
+                            {t('calendar.today')}
                         </button>
                         <button
                             onClick={() => navigateWeeks(1)}
@@ -561,7 +850,7 @@ export function PlanificateurFinal({
                     <div className="flex flex-1 gap-2">
                         {/* Menu hamburger avec titre */}
                         <div className="relative flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-700">{t ? t('filter.filters') : 'Filtres'}</span>
+                            <span className="text-sm font-medium text-gray-700">{t('filter.filters')}</span>
                             <button
                                 onClick={() => setShowFilterMenu(!showFilterMenu)}
                                 className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border"
@@ -626,11 +915,11 @@ export function PlanificateurFinal({
                                                             {t ? t('filter.selectViewType') : 'Sélectionner le type de vue'}
                                                         </label>
                                                         {[
-                                                            { value: 'personnel', label: 'Personnel', desc: 'Afficher uniquement le personnel' },
-                                                            { value: 'equipements', label: 'Équipements', desc: 'Afficher uniquement les équipements' },
-                                                            { value: 'global', label: 'Vue globale', desc: 'Personnel et équipements ensemble' },
-                                                            { value: 'jobs', label: 'Événements', desc: 'Afficher uniquement les événements' },
-                                                            { value: 'dashboard', label: 'Dashboard', desc: 'Vue analytique complète' }
+                                                            { value: 'personnel', label: t('viewType.personnel'), desc: t('filter.personnelOnly') },
+                                                            { value: 'equipements', label: t('viewType.equipment'), desc: t('filter.equipmentOnly') },
+                                                            { value: 'global', label: t('viewType.global'), desc: t('filter.globalView') },
+                                                            { value: 'jobs', label: t('viewType.events'), desc: t('filter.eventsOnly') },
+                                                            { value: 'dashboard', label: t('viewType.dashboard'), desc: t('filter.dashboardView') }
                                                         ].map((type) => (
                                                             <button
                                                                 key={type.value}
@@ -808,7 +1097,7 @@ export function PlanificateurFinal({
                             />
                             <input
                                 type="text"
-                                placeholder="Rechercher..."
+                                placeholder={t('form.searchPlaceholder')}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -816,18 +1105,17 @@ export function PlanificateurFinal({
                         </div>
 
                         {/* Toggle couleur priorité vs succursale - raccourci rapide */}
+                        {/* Sélecteur de mode de couleur */}
                         {filterType !== 'dashboard' && (
-                            <button
-                                onClick={() => setColorMode(colorMode === 'priorite' ? 'succursale' : 'priorite')}
-                                className={`px-3 py-2 text-sm rounded-lg border ${
-                                    colorMode === 'priorite'
-                                        ? 'bg-orange-100 border-orange-300 text-orange-700'
-                                        : 'bg-blue-100 border-blue-300 text-blue-700'
-                                }`}
-                                title={`Mode: ${colorMode === 'priorite' ? 'Priorité' : 'Bureau'}`}
+                            <select
+                                value={colorMode}
+                                onChange={(e) => setColorMode(e.target.value)}
+                                className="px-3 py-2 text-sm border rounded-lg bg-white"
+                                title={t('calendar.colorMode')}
                             >
-                                {colorMode === 'priorite' ? '🎯' : '🏢'}
-                            </button>
+                                <option value="succursale">{t('calendar.colorByBranch')}</option>
+                                <option value="priorite">{t('calendar.colorByPriority')}</option>
+                            </select>
                         )}
                     </div>
                 </div>
@@ -1008,7 +1296,7 @@ export function PlanificateurFinal({
                         </div>
                     )}
 
-                    <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <div className="bg-white rounded-lg shadow-sm overflow-hidden max-h-[calc(100vh-200px)] overflow-y-auto">
                     <div className="flex">
                         {/* Colonnes fixes pour noms et postes */}
                         <div className="flex-shrink-0 border-r-2 border-gray-300">
@@ -1032,9 +1320,19 @@ export function PlanificateurFinal({
                                 </thead>
                                 <tbody>
                                     {filteredResources.map((resource) => (
-                                        <tr key={resource.id} className="border-b hover:bg-gray-50">
-                                            <td className={`px-3 py-3 font-medium bg-white border-r ${isMobile ? 'w-[120px]' : 'w-[180px]'}`}>
-                                                <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-semibold flex items-center gap-1`}>
+                                        <tr key={resource.id} className={`border-b hover:bg-gray-50 ${
+                                            continuousDays.some(d => d.isToday) ? 'bg-gray-100' : ''
+                                        }`} style={{ height: '89px' }}>
+                                            <td className={`px-3 py-4 font-medium border-r ${isMobile ? 'w-[120px]' : 'w-[180px]'} ${
+                                                continuousDays.some(d => d.isToday) ? 'bg-gray-100' : 'bg-white'
+                                            }`}>
+                                                <div className={`${isMobile ? 'text-xs' : 'text-sm'} font-semibold flex items-center gap-2 leading-tight`}>
+                                                    {/* Pastille couleur succursale */}
+                                                    <div
+                                                        className="w-3 h-3 rounded-full flex-shrink-0"
+                                                        style={{ backgroundColor: getSuccursaleColor(resource.succursale) }}
+                                                        title={`Succursale: ${resource.succursale}`}
+                                                    />
                                                     {filterType === 'global' && (
                                                         <Icon
                                                             name={resource.type === 'personnel' ? 'user' : 'wrench'}
@@ -1042,19 +1340,26 @@ export function PlanificateurFinal({
                                                             className={resource.type === 'personnel' ? 'text-blue-600' : 'text-orange-600'}
                                                         />
                                                     )}
-                                                    <span title={resource.nom}>
-                                                        {isMobile ? resource.nom.split(' ')[0] : resource.nom}
+                                                    <span title={`${resource.nom}${resource.prenom ? ', ' + resource.prenom : ''}`}>
+                                                        {isMobile ? resource.nom.split(' ')[0] :
+                                                         `${resource.nom}${resource.prenom ? ', ' + resource.prenom : ''}`}
                                                     </span>
                                                 </div>
-                                                <div className="text-xs text-gray-500">
+                                                <div className="text-xs text-gray-500 leading-tight">
                                                     {resource.succursale}
                                                 </div>
                                             </td>
                                             {!isMobile && (
-                                                <td className="px-2 py-3 text-xs bg-white w-[100px]">
+                                                <td className={`px-2 py-4 text-xs w-[100px] ${
+                                                    continuousDays.some(d => d.isToday) ? 'bg-gray-100' : 'bg-white'
+                                                }`}>
                                                     {filterType === 'global' ?
-                                                        (resource.type === 'personnel' ? resource.poste : resource.type) :
-                                                        (filterType === 'personnel' ? resource.poste : resource.type)
+                                                        (resource.type === 'personnel' ?
+                                                            (resource.poste && resource.departement ? `${resource.poste} - ${resource.departement}` : resource.poste || '')
+                                                            : resource.type) :
+                                                        (filterType === 'personnel' ?
+                                                            (resource.poste && resource.departement ? `${resource.poste} - ${resource.departement}` : resource.poste || '')
+                                                            : resource.type)
                                                     }
                                                 </td>
                                             )}
@@ -1070,72 +1375,51 @@ export function PlanificateurFinal({
                                 <thead className="bg-gray-900 sticky top-0">
                                     {/* En-tête avec dates - UNE seule ligne synchronisée */}
                                     <tr className="h-20">
-                                        {continuousDays.map((day, index) => {
-                                            const showMonth = index === 0 || day.date.getDate() === 1;
-                                            return (
-                                                <th
-                                                    key={index}
-                                                    className={`px-1 py-4 text-center font-semibold text-white bg-gray-900 border-r border-gray-600 ${getCellWidth()} ${day.isWeekend ? 'bg-gray-800' : ''}`}
-                                                    onDoubleClick={() => handleDateDoubleClick(day.date)}
-                                                    style={{ minWidth: '60px' }}
-                                                >
-                                                    <div className="flex flex-col items-center justify-center">
-                                                        {showMonth && (
-                                                            <div className="text-xs text-gray-300 font-normal mb-1">
-                                                                {isMobile ? day.monthName.substr(0, 3) : day.monthName}
-                                                            </div>
-                                                        )}
-                                                        <div className="font-medium">
-                                                            {isMobile ? day.dayName.substr(0, 1) : day.dayName}
-                                                        </div>
-                                                        <div className={`${isMobile ? 'text-xs' : 'text-sm'} ${day.isToday ? 'font-bold text-blue-300' : ''}`}>
-                                                            {day.dayNumber}
-                                                        </div>
-                                                    </div>
-                                                </th>
-                                            );
-                                        })}
+                                        {continuousDays.map((day, index) => (
+                                            <th
+                                                key={index}
+                                                className={`px-1 py-4 text-center text-xs border-r border-gray-600 w-20 bg-gray-900 ${
+                                                    day.isToday ? 'text-yellow-400 font-bold' : 'text-white'
+                                                } cursor-pointer hover:bg-gray-700 transition-colors`}
+                                                onDoubleClick={() => handleDateDoubleClick(day.date)}
+                                                title={t('calendar.doubleClickFullDate')}
+                                            >
+                                                <div className="font-medium leading-tight">{day.displayShort}</div>
+                                                <div className={`${isMobile ? 'text-xs' : 'text-sm'} leading-tight ${day.isToday ? 'font-bold' : ''}`}>
+                                                    {day.dayNumber}
+                                                </div>
+                                            </th>
+                                        ))}
                                     </tr>
 
                                 </thead>
 
                                 <tbody>
                                     {filteredResources.map((resource) => (
-                                        <tr key={`dates-${resource.id}`} className="border-b hover:bg-gray-50">
+                                        <tr key={`dates-${resource.id}`} className="border-b hover:bg-gray-50 h-20">
                                             {continuousDays.map((day, dayIndex) => {
-                                                const job = getJobForCell(resource.id, day, resource.type);
+                                                const allJobs = getAllJobsForCell(resource.id, day, resource.type);
 
                                                 return (
                                                     <td
                                                         key={dayIndex}
-                                                        className={`relative p-1 border-r cursor-pointer hover:bg-blue-50 ${
-                                                            day.isWeekend ? 'bg-gray-50' : 'bg-white'
-                                                        } ${getCellWidth()}`}
-                                                        style={{ height: `${CELL_HEIGHT}px` }}
+                                                        className={`relative p-1 border-r w-20 cursor-pointer hover:bg-blue-50 ${
+                                                            day.isToday ? 'bg-gray-300' :
+                                                            day.isWeekend ? 'bg-gray-200' : 'bg-white'
+                                                        }`}
                                                         onClick={() => handleCellClick(resource.id, day, resource.type)}
                                                     >
-                                                        {job && (
-                                                            <div
-                                                                className={`w-full h-full rounded text-xs p-1 ${
-                                                                    colorMode === 'priorite' ? (
-                                                                        job.priorite === 'urgente' ? 'bg-red-100 border border-red-300 text-red-800' :
-                                                                        job.priorite === 'haute' ? 'bg-orange-100 border border-orange-300 text-orange-800' :
-                                                                        job.priorite === 'normale' ? 'bg-yellow-100 border border-yellow-300 text-yellow-800' :
-                                                                        'bg-green-100 border border-green-300 text-green-800'
-                                                                    ) : 'border'
-                                                                }`}
-                                                                style={colorMode === 'succursale' && job.bureau ? {
-                                                                    backgroundColor: getSuccursaleColor(job.bureau) + '20',
-                                                                    borderColor: getSuccursaleColor(job.bureau),
-                                                                    color: getSuccursaleColor(job.bureau)
-                                                                } : {}}
-                                                            >
-                                                                <div className="font-bold truncate text-xs" title={`Job #${job.numRef || job.id} - ${job.client}`}>
-                                                                    #{job.numRef || job.id}
-                                                                </div>
-                                                                <div className="text-xs truncate" title={job.client}>
-                                                                    {job.client}
-                                                                </div>
+                                                        {allJobs.length > 0 ? (
+                                                            <TimelineCell
+                                                                jobs={allJobs}
+                                                                day={day}
+                                                                onJobClick={(job) => setSelectedJob(job)}
+                                                                resourceId={resource.id}
+                                                                resourceType={resource.type}
+                                                            />
+                                                        ) : (
+                                                            <div className="w-full h-20 flex items-center justify-center text-gray-400 text-xs">
+                                                                {/* Cellule vide */}
                                                             </div>
                                                         )}
                                                     </td>
@@ -1163,9 +1447,145 @@ export function PlanificateurFinal({
                     personnel={personnel}
                     equipements={equipements}
                     sousTraitants={sousTraitants}
+                    succursales={succursales}
+                    conges={conges}
+                    jobs={jobs}
                     addSousTraitant={addSousTraitant}
                     addNotification={addNotification}
+                    onOpenConflictJob={handleOpenConflictJob}
                 />
+            )}
+
+            {/* Modal pour l'événement en conflit - Positionné à droite */}
+            {conflictJob && (
+                <div className="fixed inset-0 z-60 pointer-events-none">
+                    <div className="h-full flex">
+                        {/* Espace à gauche pour le modal principal */}
+                        <div className="flex-1"></div>
+
+                        {/* Modal de conflit à droite */}
+                        <div className="w-1/2 max-w-3xl pointer-events-auto">
+                            <div className="h-full bg-black bg-opacity-50 flex items-center justify-center p-4">
+                                <div className="bg-white rounded-xl shadow-2xl w-full max-h-[95vh] flex flex-col border-4 border-orange-300">
+                                    {/* Header spécial pour le conflit */}
+                                    <div className="flex-shrink-0 flex items-center justify-between p-4 bg-orange-600 rounded-t-xl">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                                                ⚠️
+                                            </div>
+                                            <div>
+                                                <h2 className="text-lg font-bold text-white">
+                                                    {t('event.conflictEvent')}
+                                                </h2>
+                                                <p className="text-sm text-orange-100">
+                                                    #{conflictJob.numeroJob} - {conflictJob.client}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => setConflictJob(null)}
+                                            className="p-2 text-orange-100 hover:text-white hover:bg-orange-700 rounded-lg transition-colors"
+                                            title={t('form.close')}
+                                        >
+                                            <Icon name="close" size={20} />
+                                        </button>
+                                    </div>
+
+                                    {/* Contenu simplifié */}
+                                    <div className="flex-1 p-4 overflow-y-auto">
+                                        <div className="space-y-4">
+                                            {/* Informations de base */}
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Date début</label>
+                                                    <div className="mt-1 text-sm text-gray-900">{conflictJob.dateDebut}</div>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Date fin</label>
+                                                    <div className="mt-1 text-sm text-gray-900">{conflictJob.dateFin}</div>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Heure début</label>
+                                                    <div className="mt-1 text-sm text-gray-900">{conflictJob.heureDebut}</div>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Heure fin</label>
+                                                    <div className="mt-1 text-sm text-gray-900">{conflictJob.heureFin}</div>
+                                                </div>
+                                            </div>
+
+                                            {/* Ressources assignées */}
+                                            <div>
+                                                <h3 className="font-medium text-gray-900 mb-2">{t('event.assignedResources')}</h3>
+                                                <div className="space-y-2">
+                                                    {conflictJob.personnel?.length > 0 && (
+                                                        <div>
+                                                            <span className="text-sm font-medium text-gray-700">👥 {t('resource.personnel')}:</span>
+                                                            <div className="mt-1 text-sm text-gray-600">
+                                                                {conflictJob.personnel.map(id => {
+                                                                    const person = personnel.find(p => p.id === id);
+                                                                    return person ? `${person.prenom ? `${person.prenom} ${person.nom}` : person.nom}` : id;
+                                                                }).join(', ')}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {conflictJob.equipements?.length > 0 && (
+                                                        <div>
+                                                            <span className="text-sm font-medium text-gray-700">🔧 {t('resource.equipment')}:</span>
+                                                            <div className="mt-1 text-sm text-gray-600">
+                                                                {conflictJob.equipements.map(id => {
+                                                                    const equipement = equipements.find(e => e.id === id);
+                                                                    return equipement ? equipement.nom : id;
+                                                                }).join(', ')}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {conflictJob.sousTraitants?.length > 0 && (
+                                                        <div>
+                                                            <span className="text-sm font-medium text-gray-700">🏢 Sous-traitants:</span>
+                                                            <div className="mt-1 text-sm text-gray-600">
+                                                                {conflictJob.sousTraitants.map(id => {
+                                                                    const sousTraitant = sousTraitants.find(s => s.id === id);
+                                                                    return sousTraitant ? sousTraitant.nom : id;
+                                                                }).join(', ')}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Description */}
+                                            {conflictJob.description && (
+                                                <div>
+                                                    <h3 className="font-medium text-gray-900 mb-2">{t('analytics.description')}</h3>
+                                                    <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                                                        {conflictJob.description}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Footer */}
+                                    <div className="flex-shrink-0 flex justify-between items-center p-4 border-t bg-gray-50">
+                                        <div className="text-sm text-orange-600 font-medium">
+                                            ⚠️ {t('event.conflictWarning')}
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                setConflictJob(null);
+                                                setSelectedJob(conflictJob); // Ouvrir le job en conflit dans le modal principal
+                                            }}
+                                            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                                        >
+                                            ✏️ {t('event.modifyEvent')}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             )}
 
         </div>
