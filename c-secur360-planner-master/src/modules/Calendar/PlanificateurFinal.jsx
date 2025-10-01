@@ -36,7 +36,7 @@ export function PlanificateurFinal({
     const { t, currentLanguage } = useLanguage();
 
     // Hauteur uniforme simple
-    const CELL_HEIGHT = 89; // pixels
+    const CELL_HEIGHT = 80; // pixels
     // États pour la vue calendrier
     const [startDate, setStartDate] = useState(new Date());
     const [numberOfDays, setNumberOfDays] = useState(14);
@@ -169,19 +169,17 @@ export function PlanificateurFinal({
     // Fonction pour afficher la date complète lors du double-clic
     const handleDateDoubleClick = (date) => {
         const dateComplete = formatLocalizedDate(date, currentLanguage, 'full');
-        alert(`📅 ${t ? t('calendar.fullDate') : 'Date complète'} :\n${dateComplete}`);
+        alert(`📅 ${t('calendar.fullDate')} :\n${dateComplete}`);
     };
 
     // Période prédéfinies
     const periodOptions = [
-        { value: 1, label: '1J', days: 1, timeView: '1day' },
-        { value: 7, label: '1S', days: 7, timeView: '1week' },
-        { value: 14, label: '2S', days: 14, timeView: '2weeks' },
-        { value: 21, label: '3S', days: 21, timeView: 'period-21' },
-        { value: 30, label: '1M', days: 30, timeView: 'period-30' },
-        { value: 90, label: '3M', days: 90, timeView: 'period-90' },
-        { value: 180, label: '6M', days: 180, timeView: 'period-180' },
-        { value: 365, label: '1AN', days: 365, timeView: 'period-365' }
+        { value: 14, label: '2S', days: 14 },
+        { value: 21, label: '3S', days: 21 },
+        { value: 30, label: '1M', days: 30 },
+        { value: 90, label: '3M', days: 90 },
+        { value: 180, label: '6M', days: 180 },
+        { value: 365, label: '1AN', days: 365 }
     ];
 
     // Calculer les statistiques du dashboard
@@ -358,7 +356,7 @@ export function PlanificateurFinal({
                     return matchesSearch && matchesBureau && visibleCalendrier && equipement.id === travailleurSelectionne;
                 }).map(e => ({...e, type: 'equipement'}));
 
-                return [...filteredPersonnel, ...filteredEquipements];
+                return [...filteredPersonnel, ...sortEquipements(filteredEquipements)];
             }
             // Fallback pour éviter undefined
             return [];
@@ -789,23 +787,43 @@ export function PlanificateurFinal({
                             <Icon name="chevronRight" size={20} />
                         </button>
 
-                        {/* Sélecteur de période */}
+                        {/* Sélecteur de vue temporelle et période */}
                         <select
-                            value={numberOfDays}
+                            value={timeView.startsWith('period-') ? timeView : timeView}
                             onChange={(e) => {
-                                const selectedPeriod = periodOptions.find(p => p.value === parseInt(e.target.value));
-                                if (selectedPeriod) {
-                                    setNumberOfDays(selectedPeriod.days);
-                                    setTimeView(selectedPeriod.timeView);
+                                const value = e.target.value;
+                                if (value.startsWith('period-')) {
+                                    setTimeView(value);
+                                    setNumberOfDays(parseInt(value.replace('period-', '')));
+                                } else {
+                                    setTimeView(value);
                                 }
                             }}
-                            className="px-2 py-1 text-sm border rounded-lg"
+                            className="px-3 py-2 text-sm border rounded-lg bg-white"
                         >
-                            {periodOptions.map(option => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
+                            <optgroup label={t('calendar.detailedViews')}>
+                                <option value="1day">{t('calendar.day')}</option>
+                                <option value="1week">{t('calendar.1week')}</option>
+                                <option value="2weeks">{t('calendar.2weeks')}</option>
+                            </optgroup>
+                            <optgroup label={t('calendar.extendedPeriods')}>
+                                <option value="period-21">{t('calendar.3weeks')}</option>
+                                <option value="period-30">{t('calendar.1month')}</option>
+                                <option value="period-90">{t('calendar.3months')}</option>
+                                <option value="period-180">{t('calendar.6months')}</option>
+                                <option value="period-365">{t('calendar.1year')}</option>
+                            </optgroup>
+                        </select>
+
+                        {/* Sélecteur de mode de couleur */}
+                        <select
+                            value={colorMode}
+                            onChange={(e) => setColorMode(e.target.value)}
+                            className="px-3 py-2 text-sm border rounded-lg bg-white"
+                            title={t('calendar.colorMode')}
+                        >
+                            <option value="succursale">{t('calendar.colorByBranch')}</option>
+                            <option value="priorite">{t('calendar.colorByPriority')}</option>
                         </select>
 
                         {/* Recherche de date rapide */}
@@ -854,7 +872,7 @@ export function PlanificateurFinal({
                             <button
                                 onClick={() => setShowFilterMenu(!showFilterMenu)}
                                 className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border"
-                                title={t ? t('filter.menuFilters') : 'Menu des filtres'}
+                                title={t('filter.menuFilters')}
                             >
                                 <svg
                                     width="20"
@@ -879,7 +897,7 @@ export function PlanificateurFinal({
                                             {/* Header du menu */}
                                             <div className="border-b border-gray-200 pb-3 mb-4">
                                                 <h3 className="text-sm font-semibold text-gray-900">
-                                                    {t ? t('filter.filtersAndOptions') : 'Filtres et Options'}
+                                                    {t('filter.filtersAndOptions')}
                                                 </h3>
                                             </div>
 
@@ -912,7 +930,7 @@ export function PlanificateurFinal({
                                                 {activeFilterTab === 'type' && (
                                                     <div className="space-y-2">
                                                         <label className="block text-sm font-medium text-gray-700 mb-3">
-                                                            {t ? t('filter.selectViewType') : 'Sélectionner le type de vue'}
+                                                            {t('filter.selectViewType')}
                                                         </label>
                                                         {[
                                                             { value: 'personnel', label: t('viewType.personnel'), desc: t('filter.personnelOnly') },
@@ -950,55 +968,70 @@ export function PlanificateurFinal({
 
                                                 {/* Onglet Bureau */}
                                                 {activeFilterTab === 'bureau' && (
-                                                    <div className="space-y-2">
+                                                    <div>
                                                         <label className="block text-sm font-medium text-gray-700 mb-3">
-                                                            {t ? t('filter.selectOffice') : 'Sélectionner le bureau'}
+                                                            {t('filter.filterByOffice')}
                                                         </label>
-                                                        {getBureauOptions().map((bureau) => (
-                                                            <button
-                                                                key={bureau.value}
-                                                                onClick={() => setFilterBureau(bureau.value)}
-                                                                className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                                                                    filterBureau === bureau.value
-                                                                        ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                                                                        : 'hover:bg-gray-100 text-gray-700 border border-transparent'
-                                                                }`}
-                                                            >
-                                                                <div className="flex items-center gap-2">
-                                                                    <span>{bureau.label}</span>
-                                                                    {filterBureau === bureau.value && (
-                                                                        <span className="ml-auto text-blue-600">✓</span>
-                                                                    )}
-                                                                </div>
-                                                            </button>
-                                                        ))}
+                                                        <select
+                                                            value={filterBureau}
+                                                            onChange={(e) => setFilterBureau(e.target.value)}
+                                                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                        >
+                                                            {getBureauOptions().map(bureau =>
+                                                                <option key={bureau.value} value={bureau.value}>{bureau.label}</option>
+                                                            )}
+                                                        </select>
+                                                        <p className="text-xs text-gray-500 mt-2">
+                                                            {t('filter.selectOfficeResource')}
+                                                        </p>
                                                     </div>
                                                 )}
 
                                                 {/* Onglet Poste */}
                                                 {activeFilterTab === 'poste' && (
-                                                    <div className="space-y-2">
-                                                        <label className="block text-sm font-medium text-gray-700 mb-3">
-                                                            {t ? t('filter.selectPosition') : 'Sélectionner le poste'}
-                                                        </label>
-                                                        {getPosteOptions().map((poste) => (
-                                                            <button
-                                                                key={poste.value}
-                                                                onClick={() => setFilterPoste(poste.value)}
-                                                                className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                                                                    filterPoste === poste.value
-                                                                        ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                                                                        : 'hover:bg-gray-100 text-gray-700 border border-transparent'
-                                                                }`}
-                                                            >
-                                                                <div className="flex items-center gap-2">
-                                                                    <span>{poste.label}</span>
-                                                                    {filterPoste === poste.value && (
-                                                                        <span className="ml-auto text-blue-600">✓</span>
+                                                    <div>
+                                                        {(filterType === 'personnel' || filterType === 'global') ? (
+                                                            <>
+                                                                <label className="block text-sm font-medium text-gray-700 mb-3">
+                                                                    {t('filter.filterByPosition')}
+                                                                </label>
+                                                                <select
+                                                                    value={filterPoste}
+                                                                    onChange={(e) => setFilterPoste(e.target.value)}
+                                                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                                                >
+                                                                    {getPosteOptions().map(poste =>
+                                                                        <option key={poste.value} value={poste.value}>{poste.label}</option>
                                                                     )}
-                                                                </div>
-                                                            </button>
-                                                        ))}
+                                                                </select>
+                                                                <p className="text-xs text-gray-500 mt-2">
+                                                                    {t('filter.showPersonnelPosition')}
+                                                                </p>
+                                                            </>
+                                                        ) : filterType === 'dashboard' ? (
+                                                            <>
+                                                                <label className="block text-sm font-medium text-gray-700 mb-3">
+                                                                    {t('filter.dashboardFocus')}
+                                                                </label>
+                                                                <select
+                                                                    value={dashboardFilter}
+                                                                    onChange={(e) => setDashboardFilter(e.target.value)}
+                                                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                                                                >
+                                                                    <option value="global">{t('viewType.globalFocus')}</option>
+                                                                    <option value="personnel">{t('viewType.personnelFocus')}</option>
+                                                                    <option value="equipements">{t('viewType.equipmentFocus')}</option>
+                                                                </select>
+                                                                <p className="text-xs text-gray-500 mt-2">
+                                                                    {t('filter.chooseAnalysisType')}
+                                                                </p>
+                                                            </>
+                                                        ) : (
+                                                            <div className="text-center py-8 text-gray-500">
+                                                                <p>{t('filter.positionNotAvailable')}</p>
+                                                                <p className="text-xs mt-1">{t('filter.selectPersonnelOrGlobal')}</p>
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 )}
 
@@ -1103,20 +1136,6 @@ export function PlanificateurFinal({
                                 className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                             />
                         </div>
-
-                        {/* Toggle couleur priorité vs succursale - raccourci rapide */}
-                        {/* Sélecteur de mode de couleur */}
-                        {filterType !== 'dashboard' && (
-                            <select
-                                value={colorMode}
-                                onChange={(e) => setColorMode(e.target.value)}
-                                className="px-3 py-2 text-sm border rounded-lg bg-white"
-                                title={t('calendar.colorMode')}
-                            >
-                                <option value="succursale">{t('calendar.colorByBranch')}</option>
-                                <option value="priorite">{t('calendar.colorByPriority')}</option>
-                            </select>
-                        )}
                     </div>
                 </div>
             </div>
@@ -1322,7 +1341,7 @@ export function PlanificateurFinal({
                                     {filteredResources.map((resource) => (
                                         <tr key={resource.id} className={`border-b hover:bg-gray-50 ${
                                             continuousDays.some(d => d.isToday) ? 'bg-gray-100' : ''
-                                        }`} style={{ height: '89px' }}>
+                                        }`}>
                                             <td className={`px-3 py-4 font-medium border-r ${isMobile ? 'w-[120px]' : 'w-[180px]'} ${
                                                 continuousDays.some(d => d.isToday) ? 'bg-gray-100' : 'bg-white'
                                             }`}>
