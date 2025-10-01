@@ -1801,40 +1801,6 @@ export function JobModal({
         }
     };
 
-    // ============== P2-1: SÉLECTION VUE GANTT AUTOMATIQUE ==============
-    const getDefaultViewMode = () => {
-        const totalTaskHours = getTotalProjectHours();
-        console.log('🐛 DEBUG getDefaultViewMode - totalTaskHours:', totalTaskHours);
-
-        // Sélectionner la vue automatique selon la durée du projet
-        if (totalTaskHours <= 6) {
-            console.log('🐛 DEBUG - Returning 6h view for <=6h project');
-            return '6h';
-        }
-        if (totalTaskHours <= 12) {
-            console.log('🐛 DEBUG - Returning 12h view for <=12h project');
-            return '12h';
-        }
-        if (totalTaskHours <= 24) {
-            console.log('🐛 DEBUG - Returning 24h view for <=24h project');
-            return '24h';
-        }
-        if (totalTaskHours <= 168) { // 7 jours
-            console.log('🐛 DEBUG - Returning day view for <=7 days project');
-            return 'day';
-        }
-        if (totalTaskHours <= 720) { // 30 jours
-            console.log('🐛 DEBUG - Returning week view for <=30 days project');
-            return 'week';
-        }
-        if (totalTaskHours <= 8760) { // 1 an
-            console.log('🐛 DEBUG - Returning month view for <=1 year project');
-            return 'month';
-        }
-        console.log('🐛 DEBUG - Returning year view for >1 year project');
-        return 'year';
-    };
-
     // ============== P2-2: GÉNÉRATION ÉCHELLE TEMPS GANTT ==============
     const generateTimeScale = (viewMode = null) => {
         console.log('🐛 DEBUG generateTimeScale called with viewMode:', viewMode);
