@@ -225,66 +225,6 @@ export function JobModal({
         return formData.etapes.reduce((sum, etape) => sum + (etape.duration || 0), 0);
     };
 
-    const generateTimeScale = () => {
-        if (!formData.dateDebut) return [];
-
-        const viewMode = formData.ganttViewMode || getDefaultViewMode();
-        const startDate = new Date(formData.dateDebut);
-        const scale = [];
-
-        switch (viewMode) {
-            case '6h':
-                for (let hour = 0; hour < 6; hour++) {
-                    const currentTime = new Date(startDate.getTime() + (hour * 60 * 60 * 1000));
-                    scale.push({
-                        date: currentTime,
-                        label: currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-                        key: `hour-${hour}`,
-                        value: hour
-                    });
-                }
-                break;
-            case '12h':
-                for (let hour = 0; hour < 12; hour++) {
-                    const currentTime = new Date(startDate.getTime() + (hour * 60 * 60 * 1000));
-                    scale.push({
-                        date: currentTime,
-                        label: currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-                        key: `hour-${hour}`,
-                        value: hour
-                    });
-                }
-                break;
-            case '24h':
-                for (let hour = 0; hour < 24; hour++) {
-                    const currentTime = new Date(startDate.getTime() + (hour * 60 * 60 * 1000));
-                    scale.push({
-                        date: currentTime,
-                        label: currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-                        key: `hour-${hour}`,
-                        value: hour
-                    });
-                }
-                break;
-            case 'day':
-            default:
-                const totalHours = Math.max(1, getTotalProjectHours());
-                const totalDays = Math.max(1, Math.ceil(totalHours / 8)); // 8h par jour
-                for (let day = 0; day < totalDays; day++) {
-                    const currentDate = new Date(startDate.getTime() + (day * 24 * 60 * 60 * 1000));
-                    scale.push({
-                        date: currentDate,
-                        label: currentDate.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }),
-                        key: `day-${day}`,
-                        value: day
-                    });
-                }
-                break;
-        }
-
-        return scale;
-    };
-
     // Fonctions WBS avancées
     const generateWBSCode = (taskId, tasks) => {
         const task = tasks.find(t => t.id === taskId);
@@ -2030,104 +1970,6 @@ export function JobModal({
         SS: 'SS', // Start to Start - Début → Début
         FF: 'FF', // Finish to Finish - Fin → Fin
         SF: 'SF'  // Start to Finish - Début → Fin (rare)
-    };
-
-    const calculateTaskDates = (task, processedTasks, allTasksSorted, projectStart) => {
-        const taskDuration = task.duration || 1;
-        let calculatedStartHours = 0;
-        let calculatedEndHours = taskDuration;
-
-        console.log(`📅 CALC - Calcul pour "${task.text}" (durée: ${taskDuration}h)`);
-
-        // 1. Vérifier les dépendances explicites
-        if (task.dependencies && task.dependencies.length > 0) {
-            console.log(`📎 DEPS - ${task.dependencies.length} dépendance(s) trouvée(s)`);
-
-            task.dependencies.forEach(dep => {
-                const depTask = processedTasks.find(t => t.id === dep.id);
-                if (depTask) {
-                    const depStartHours = (depTask.calculatedStart.getTime() - projectStart.getTime()) / (1000 * 60 * 60);
-                    const depEndHours = (depTask.calculatedEnd.getTime() - projectStart.getTime()) / (1000 * 60 * 60);
-                    const lag = dep.lag || 0;
-
-                    switch (dep.type || 'FS') {
-                        case 'FS': // Fin → Début (défaut)
-                            calculatedStartHours = Math.max(calculatedStartHours, depEndHours + lag);
-                            console.log(`🔗 FS - "${task.text}" commence après fin de "${depTask.text}" à ${depEndHours + lag}h`);
-                            break;
-                        case 'SS': // Début → Début
-                            calculatedStartHours = Math.max(calculatedStartHours, depStartHours + lag);
-                            console.log(`🔗 SS - "${task.text}" commence avec "${depTask.text}" à ${depStartHours + lag}h`);
-                            break;
-                        case 'FF': // Fin → Fin
-                            calculatedStartHours = Math.max(calculatedStartHours, depEndHours - taskDuration + lag);
-                            console.log(`🔗 FF - "${task.text}" finit avec "${depTask.text}" à ${depEndHours + lag}h`);
-                            break;
-                        case 'SF': // Début → Fin (rare)
-                            calculatedStartHours = Math.max(calculatedStartHours, depStartHours - taskDuration + lag);
-                            console.log(`🔗 SF - "${task.text}" finit quand "${depTask.text}" commence`);
-                            break;
-                    }
-                }
-            });
-        }
-        // 2. Gestion du mode parallèle explicite
-        else if (task.isParallel && task.parallelWith && task.parallelWith.length > 0) {
-            const parallelTasks = processedTasks.filter(t => task.parallelWith.includes(t.id));
-            if (parallelTasks.length > 0) {
-                // Démarrer en même temps que la première tâche parallèle
-                const firstParallelStart = Math.min(...parallelTasks.map(t =>
-                    (t.calculatedStart.getTime() - projectStart.getTime()) / (1000 * 60 * 60)
-                ));
-                calculatedStartHours = firstParallelStart;
-                console.log(`🔄 PARALLEL - "${task.text}" démarre en parallèle à ${calculatedStartHours}h`);
-            }
-        }
-        // 3. Succession séquentielle par défaut (cas par défaut)
-        else {
-            if (task.parentId) {
-                // C'est une sous-tâche : suit la précédente sous-tâche du même parent
-                const siblingTasks = processedTasks.filter(t => t.parentId === task.parentId);
-                if (siblingTasks.length > 0) {
-                    const lastSibling = siblingTasks[siblingTasks.length - 1];
-                    calculatedStartHours = Math.max(calculatedStartHours, lastSibling.endHours || 0);
-                    console.log(`➡️  SUB-SEQ - "${task.text}" suit sa sous-tâche précédente "${lastSibling.text}" à ${calculatedStartHours}h`);
-                } else {
-                    // Première sous-tâche : hérite de la position de son parent
-                    const parent = processedTasks.find(t => t.id === task.parentId);
-                    if (parent) {
-                        calculatedStartHours = Math.max(calculatedStartHours, parent.startHours || 0);
-                        console.log(`🔢 FIRST-SUB - "${task.text}" première sous-tâche hérite du parent à ${calculatedStartHours}h`);
-                    } else {
-                        // Parent pas encore calculé, on restera à 0 pour l'instant
-                        calculatedStartHours = 0;
-                        console.log(`⏳ FIRST-SUB - "${task.text}" parent pas encore calculé, démarre à ${calculatedStartHours}h`);
-                    }
-                }
-            } else {
-                // C'est une tâche parent : suit la précédente tâche parent
-                const parentTasks = processedTasks.filter(t => !t.parentId);
-                if (parentTasks.length > 0) {
-                    const lastParent = parentTasks[parentTasks.length - 1];
-                    calculatedStartHours = Math.max(calculatedStartHours, lastParent.endHours || 0);
-                    console.log(`➡️  PARENT-SEQ - "${task.text}" suit le parent précédent "${lastParent.text}" à ${calculatedStartHours}h`);
-                }
-            }
-        }
-
-        calculatedEndHours = calculatedStartHours + taskDuration;
-
-        const calculatedStart = new Date(projectStart.getTime() + (calculatedStartHours * 60 * 60 * 1000));
-        const calculatedEnd = new Date(projectStart.getTime() + (calculatedEndHours * 60 * 60 * 1000));
-
-        console.log(`✅ FINAL - "${task.text}": ${calculatedStartHours}h → ${calculatedEndHours}h`);
-
-        return {
-            calculatedStart,
-            calculatedEnd,
-            startHours: calculatedStartHours,
-            endHours: calculatedEndHours
-        };
     };
 
     // ============== P2-5: CALCUL NIVEAUX HIÉRARCHIE ==============
@@ -4214,6 +4056,454 @@ export function JobModal({
                                             >
                                                 📅 Définir aujourd'hui et voir le Gantt
                                             </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tab Gantt */}
+                        {activeTab === 'gantt' && (
+                            <div className={`${ganttFullscreen ? 'fixed inset-0 z-50 bg-white overflow-auto p-6' : 'h-full overflow-y-auto p-6'}`}>
+                                <div className="space-y-6">
+                                {/* Header Gantt */}
+                                <div className="flex items-center gap-4 p-4 bg-gray-900 rounded-lg">
+                                    <Logo size="normal" showText={false} />
+                                    <div>
+                                        <h3 className="text-lg font-bold text-white flex items-center">
+                                            <Icon name="barChart" className="mr-2" size={20} />
+                                            Diagramme de Gantt et Timeline
+                                        </h3>
+                                        <p className="text-sm text-gray-300">
+                                            Planification temporelle ({formData.etapes.length} tâches, {getTotalProjectHours()}h total)
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Header Gantt avec outils */}
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-lg font-semibold flex items-center">
+                                            📊 Diagramme de Gantt
+                                            <span className="ml-2 text-sm text-gray-500">
+                                                ({formData.etapes.length} tâches, {getTotalProjectHours()}h)
+                                            </span>
+                                        </h3>
+                                        <div className="flex space-x-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => updateField('showCriticalPath', !formData.showCriticalPath)}
+                                                className={`px-3 py-1 text-sm rounded flex items-center ${
+                                                    formData.showCriticalPath
+                                                        ? 'bg-red-500 text-white'
+                                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                                }`}
+                                            >
+                                                🚨 Chemin critique
+                                            </button>
+                                            <select
+                                                value={formData.ganttViewMode || getDefaultViewMode()}
+                                                onChange={(e) => updateField('ganttViewMode', e.target.value)}
+                                                className="text-sm border rounded px-2 py-1"
+                                            >
+                                                <option value="6h">⏰ Vue 6h</option>
+                                                <option value="12h">🕐 Vue 12h</option>
+                                                <option value="24h">🕛 Vue 24h</option>
+                                                <option value="day">📅 Jour</option>
+                                                <option value="week">📋 Semaine</option>
+                                                <option value="month">🗓️ Mois</option>
+                                                <option value="year">📆 Année</option>
+                                            </select>
+                                            <button
+                                                type="button"
+                                                onClick={toggleGanttFullscreen}
+                                                className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+                                                title="Mode plein écran"
+                                            >
+                                                {ganttFullscreen ? '🗗' : '⛶'} {ganttFullscreen ? 'Quitter' : 'Plein écran'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setGanttCompactMode(!ganttCompactMode)}
+                                                className={`px-3 py-1 text-sm rounded flex items-center ${
+                                                    ganttCompactMode
+                                                        ? 'bg-purple-500 text-white'
+                                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                                }`}
+                                                title="Mode compact pour l'impression"
+                                            >
+                                                📄 {ganttCompactMode ? 'Vue normale' : 'Mode compact'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={printGanttAndForms}
+                                                className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600"
+                                                title="Imprimer rapport"
+                                            >
+                                                🖨️ Imprimer
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Vue Gantt avancée avec hiérarchie */}
+                                    <div className={`bg-white border rounded-lg p-4 ${ganttFullscreen ? 'min-h-screen' : 'min-h-96'} ${ganttCompactMode ? 'max-h-screen overflow-auto print:overflow-visible print:max-h-none' : ''}`}>
+                                        {formData.etapes.length === 0 ? (
+                                            <div className="text-center py-8 text-gray-500">
+                                                <Icon name="barChart" size={48} className="mx-auto mb-4 opacity-50" />
+                                                <p>Ajoutez des étapes au projet pour voir le diagramme de Gantt</p>
+                                            </div>
+                                        ) : (() => {
+                                            console.log(`🔍 DEBUG GANTT - Mode plein écran: ${ganttFullscreen}, Nombre d'étapes: ${formData.etapes.length}`, formData.etapes);
+                                            const hierarchicalTasks = generateHierarchicalGanttData();
+                                            const dependencyArrows = renderDependencyArrows(hierarchicalTasks);
+                                            console.log(`🔍 DEBUG GANTT - Tâches générées:`, hierarchicalTasks);
+
+                                            return (
+                                                <div className="space-y-1">
+                                                    {/* En-tête du timeline */}
+                                                    <div className="flex items-center mb-4 pb-2 border-b">
+                                                        <div className="w-1/3 font-medium text-gray-700">
+                                                            Tâches hiérarchiques
+                                                        </div>
+                                                        <div className="flex-1 text-center font-medium text-gray-700">
+                                                            Timeline ({(() => {
+                                                                const mode = formData.ganttViewMode || getDefaultViewMode();
+                                                                const modeLabels = {
+                                                                    '6h': '6 heures',
+                                                                    '12h': '12 heures',
+                                                                    '24h': '24 heures',
+                                                                    'day': 'Jours',
+                                                                    'week': 'Semaines',
+                                                                    'month': 'Mois',
+                                                                    'year': 'Années'
+                                                                };
+                                                                return modeLabels[mode] || mode;
+                                                            })()})
+                                                        </div>
+                                                        <div className="w-20 text-center font-medium text-gray-700">
+                                                            Durée
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Grille de l'échelle de temps avec vraies heures/dates */}
+                                                    {(() => {
+                                                        const currentViewMode = formData.ganttViewMode || getDefaultViewMode();
+                                                        const timeScale = generateTimeScale(currentViewMode);
+                                                        if (timeScale.length > 0) {
+                                                            return (
+                                                                <div className="flex items-center mb-2 text-xs text-gray-600 border-b pb-1 overflow-x-auto">
+                                                                    <div className="w-1/3 flex-shrink-0"></div>
+                                                                    <div className="flex-1 flex overflow-x-auto">
+                                                                        {timeScale.map(period => (
+                                                                            <div
+                                                                                key={period.key}
+                                                                                className="flex-1 text-center border-r border-gray-200 py-1 flex-shrink-0"
+                                                                                style={{ minWidth: '60px' }}
+                                                                                title={currentViewMode === 'weeks' && period.longLabel ? period.longLabel : period.label}
+                                                                            >
+                                                                                {period.label}
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                    <div className="w-20 flex-shrink-0"></div>
+                                                                </div>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
+
+                                                    {/* SVG pour les flèches de dépendances */}
+                                                    <div className="relative">
+                                                        <svg
+                                                            className="absolute top-0 left-0 w-full h-full pointer-events-none z-10"
+                                                            style={{ height: `${hierarchicalTasks.length * 40 + 20}px` }}
+                                                        >
+                                                            {dependencyArrows.map((arrow, index) => {
+                                                                const fromY = arrow.from * 40 + 20;
+                                                                const toY = arrow.to * 40 + 20;
+                                                                const startX = '33.33%';
+                                                                const endX = '33.33%';
+
+                                                                return (
+                                                                    <g key={index}>
+                                                                        <defs>
+                                                                            <marker
+                                                                                id={`arrowhead-${index}`}
+                                                                                markerWidth="8"
+                                                                                markerHeight="6"
+                                                                                refX="7"
+                                                                                refY="3"
+                                                                                orient="auto"
+                                                                            >
+                                                                                <polygon
+                                                                                    points="0 0, 8 3, 0 6"
+                                                                                    fill="#6366f1"
+                                                                                />
+                                                                            </marker>
+                                                                        </defs>
+                                                                        <path
+                                                                            d={`M ${startX} ${fromY} Q ${startX} ${(fromY + toY) / 2} ${endX} ${toY}`}
+                                                                            stroke="#6366f1"
+                                                                            strokeWidth="2"
+                                                                            fill="none"
+                                                                            markerEnd={`url(#arrowhead-${index})`}
+                                                                            opacity="0.7"
+                                                                        />
+                                                                        <text
+                                                                            x={startX}
+                                                                            y={(fromY + toY) / 2}
+                                                                            fill="#6366f1"
+                                                                            fontSize="10"
+                                                                            textAnchor="middle"
+                                                                        >
+                                                                            {arrow.type}
+                                                                        </text>
+                                                                    </g>
+                                                                );
+                                                            })}
+                                                        </svg>
+
+                                                        {/* Tâches hiérarchiques */}
+                                                        {hierarchicalTasks.map((task, index) => (
+                                                            <div
+                                                                key={task.id}
+                                                                className={`flex items-center space-x-3 ${ganttCompactMode ? 'p-1' : 'p-2'} border-b hover:bg-gray-50 transition-all ${
+                                                                    task.isCritical ? 'bg-red-50 border-red-200' : ''
+                                                                }`}
+                                                                style={{ height: ganttCompactMode ? '24px' : '38px' }}
+                                                            >
+                                                                {/* Nom de la tâche avec hiérarchie */}
+                                                                <div
+                                                                    className={`w-1/3 ${ganttCompactMode ? 'text-xs' : 'text-sm'} font-medium truncate flex items-center`}
+                                                                    style={{ paddingLeft: `${task.indent}px` }}
+                                                                >
+                                                                    <span className={`${ganttCompactMode ? 'mr-1 text-xs' : 'mr-2'}`}>
+                                                                        {task.hasChildren ? '📁' : '📄'}
+                                                                    </span>
+                                                                    <span className={`${task.hasChildren ? 'font-bold' : ''} ${task.isCritical ? 'text-red-700' : ''}`}>
+                                                                        {task.displayName || task.text || `Étape ${task.order + 1}`}
+                                                                    </span>
+                                                                    {task.autoCalculated && (
+                                                                        <span className="ml-2 text-xs text-blue-600" title="Durée calculée automatiquement">
+                                                                            📊
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Barre de Gantt avec échelle de temps réaliste */}
+                                                                <div className={`flex-1 relative ${ganttCompactMode ? 'h-4' : 'h-6'} bg-gray-100 rounded-sm border`}>
+                                                                    {(() => {
+                                                                        // Calcul simple basé sur les dates calculées
+                                                                        const projectStart = new Date(formData.dateDebut || new Date());
+
+                                                                        // Calculer la durée de référence selon le mode de vue sélectionné
+                                                                        const currentViewMode = formData.ganttViewMode || getDefaultViewMode();
+                                                                        const getViewDurationHours = (viewMode) => {
+                                                                            switch(viewMode) {
+                                                                                case '6h': return 6;
+                                                                                case '12h': return 12;
+                                                                                case '24h': return 24;
+                                                                                case 'day': return 24; // 1 jour
+                                                                                case 'week': return 7 * 24; // 1 semaine = 168h
+                                                                                case 'month': return 30 * 24; // 1 mois = 720h
+                                                                                case 'year': return 365 * 24; // 1 année = 8760h
+                                                                                default:
+                                                                                    // Mode automatique : utilise la durée réelle du projet
+                                                                                    const allTasks = hierarchicalTasks;
+                                                                                    return Math.max(1, allTasks.reduce((maxHours, t) => {
+                                                                                        const taskEndHours = t.endHours || 0;
+                                                                                        return Math.max(maxHours, taskEndHours);
+                                                                                    }, 0));
+                                                                            }
+                                                                        };
+
+                                                                        const totalViewHours = getViewDurationHours(currentViewMode);
+
+                                                                        // Position et largeur de cette tâche - utiliser les heures calculées directement
+                                                                        const taskStartHours = task.startHours || 0;
+                                                                        const taskDurationHours = task.duration || 1;
+
+                                                                        const startPercent = Math.max(0, (taskStartHours / totalViewHours) * 100);
+                                                                        const widthPercent = Math.max(1, (taskDurationHours / totalViewHours) * 100);
+
+                                                                        // Système de couleurs pour les parents et leurs enfants
+                                                                        const getTaskColors = (task, hierarchicalTasks) => {
+                                                                            const parentColors = [
+                                                                                { bg: 'bg-blue-500', hover: 'hover:bg-blue-600', light: 'bg-blue-400' },
+                                                                                { bg: 'bg-green-500', hover: 'hover:bg-green-600', light: 'bg-green-400' },
+                                                                                { bg: 'bg-purple-500', hover: 'hover:bg-purple-600', light: 'bg-purple-400' },
+                                                                                { bg: 'bg-orange-500', hover: 'hover:bg-orange-600', light: 'bg-orange-400' },
+                                                                                { bg: 'bg-teal-500', hover: 'hover:bg-teal-600', light: 'bg-teal-400' },
+                                                                                { bg: 'bg-pink-500', hover: 'hover:bg-pink-600', light: 'bg-pink-400' },
+                                                                                { bg: 'bg-indigo-500', hover: 'hover:bg-indigo-600', light: 'bg-indigo-400' },
+                                                                                { bg: 'bg-yellow-500', hover: 'hover:bg-yellow-600', light: 'bg-yellow-400' }
+                                                                            ];
+
+                                                                            if (task.isCritical) {
+                                                                                return { bg: 'bg-red-500', hover: 'hover:bg-red-600', light: 'bg-red-400' };
+                                                                            }
+
+                                                                            if (task.completed) {
+                                                                                return { bg: 'bg-gray-500', hover: 'hover:bg-gray-600', light: 'bg-gray-400' };
+                                                                            }
+
+                                                                            if (task.parentId) {
+                                                                                // C'est une sous-tâche : utilise la couleur de son parent
+                                                                                const parentTask = hierarchicalTasks.find(t => t.id === task.parentId);
+                                                                                if (parentTask) {
+                                                                                    const parentIndex = hierarchicalTasks.filter(t => !t.parentId).findIndex(t => t.id === task.parentId);
+                                                                                    const colorSet = parentColors[parentIndex % parentColors.length];
+                                                                                    return { bg: colorSet.light, hover: colorSet.hover, light: colorSet.light }; // Couleur plus claire pour les enfants
+                                                                                }
+                                                                            } else {
+                                                                                // C'est un parent : attribue une couleur selon son index
+                                                                                const parentIndex = hierarchicalTasks.filter(t => !t.parentId).findIndex(t => t.id === task.id);
+                                                                                return parentColors[parentIndex % parentColors.length];
+                                                                            }
+
+                                                                            return parentColors[0]; // Couleur par défaut
+                                                                        };
+
+                                                                        const taskColors = getTaskColors(task, hierarchicalTasks);
+
+                                                                        console.log(`🎯 RENDER [${currentViewMode}] - "${task.text}": ${taskStartHours}h→${taskStartHours + taskDurationHours}h (${startPercent.toFixed(1)}% → ${(startPercent + widthPercent).toFixed(1)}%) [Vue: ${totalViewHours}h]`);
+
+                                                                        return (
+                                                                            <div
+                                                                                className={`absolute top-0 h-full rounded-sm transition-all ${taskColors.bg} ${task.hasChildren ? 'opacity-60' : ''} ${taskColors.hover}`}
+                                                                                style={{
+                                                                                    left: `${startPercent}%`,
+                                                                                    width: `${widthPercent}%`
+                                                                                }}
+                                                                                title={`${task.displayName} - ${task.duration}h (${taskStartHours.toFixed(1)}h → ${(taskStartHours + taskDurationHours).toFixed(1)}h) ${task.isCritical ? '(Critique)' : ''}`}
+                                                                            />
+                                                                        );
+
+                                                                    })()}
+
+                                                                    {/* Indicateurs de dépendances */}
+                                                                    {task.dependencies?.length > 0 && (
+                                                                        <div className="absolute -left-2 top-1/2 transform -translate-y-1/2 z-20">
+                                                                            <div className="w-3 h-3 bg-indigo-500 rounded-full text-xs text-white flex items-center justify-center border border-white">
+                                                                                {task.dependencies.length}
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Durée */}
+                                                                <div className={`${ganttCompactMode ? 'w-16' : 'w-20'} ${ganttCompactMode ? 'text-xs' : 'text-xs'} text-gray-600 text-center`}>
+                                                                    <div className={task.autoCalculated ? 'text-blue-600 font-medium' : ''}>
+                                                                        {task.duration}h
+                                                                    </div>
+                                                                    {task.hasChildren && !ganttCompactMode && (
+                                                                        <div className="text-xs text-gray-400">
+                                                                            ({formData.etapes.filter(e => e.parentId === task.id).length} sous-tâches)
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
+
+                                    {/* Alerte de dépassement de timeline dans Gantt principal */}
+                                    {(() => {
+                                        const validation = validateProjectEndDate();
+                                        if (!validation.warnings.length) return null;
+
+                                        const warning = validation.warnings[0];
+                                        return (
+                                            <div className="mt-4 bg-red-50 border-l-4 border-red-400 p-4">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="text-red-400">
+                                                        <Icon name="warning" size={24} />
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <h4 className="text-lg font-medium text-red-800 mb-2">
+                                                            ⚠️ Dépassement de délai détecté
+                                                        </h4>
+                                                        <p className="text-sm text-red-700 mb-3">
+                                                            {warning.message}
+                                                        </p>
+                                                        <div className="bg-red-100 rounded-lg p-3 mb-4">
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                                                                <div>
+                                                                    <span className="font-medium text-red-800">📅 Date de fin prévue :</span>
+                                                                    <br />
+                                                                    <span className="text-red-700">
+                                                                        {validation.projectEnd?.toLocaleDateString('fr-FR')} à {validation.projectEnd?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                                    </span>
+                                                                </div>
+                                                                <div>
+                                                                    <span className="font-medium text-red-800">📅 Date de fin réelle :</span>
+                                                                    <br />
+                                                                    <span className="text-red-700 font-medium">
+                                                                        {validation.timelineEnd?.toLocaleDateString('fr-FR')} à {validation.timelineEnd?.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {warning.solutions?.map(solution => (
+                                                                <button
+                                                                    key={solution.type}
+                                                                    onClick={() => applyTimelineSolution(solution.type)}
+                                                                    className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                                                                    title={solution.description}
+                                                                >
+                                                                    {solution.label}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* Statistiques avancées */}
+                                    {formData.etapes.length > 0 && (
+                                        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 text-sm">
+                                            <div className="bg-blue-50 p-3 rounded-lg">
+                                                <div className="font-medium text-blue-800">📋 Total tâches</div>
+                                                <div className="text-blue-600 text-lg font-bold">{formData.etapes.length}</div>
+                                            </div>
+                                            <div className="bg-green-50 p-3 rounded-lg">
+                                                <div className="font-medium text-green-800">✅ Complétées</div>
+                                                <div className="text-green-600 text-lg font-bold">
+                                                    {formData.etapes.filter(t => t.completed).length}
+                                                </div>
+                                            </div>
+                                            <div className="bg-yellow-50 p-3 rounded-lg">
+                                                <div className="font-medium text-yellow-800">⏰ Durée totale</div>
+                                                <div className="text-yellow-600 text-lg font-bold">
+                                                    {formData.etapes.reduce((sum, t) => sum + (t.duration || 0), 0)}h
+                                                </div>
+                                            </div>
+                                            <div className="bg-purple-50 p-3 rounded-lg">
+                                                <div className="font-medium text-purple-800">📊 Progression</div>
+                                                <div className="text-purple-600 text-lg font-bold">
+                                                    {formData.etapes.length > 0
+                                                        ? Math.round((formData.etapes.filter(t => t.completed).length / formData.etapes.length) * 100)
+                                                        : 0}%
+                                                </div>
+                                            </div>
+                                            <div className="bg-red-50 p-3 rounded-lg">
+                                                <div className="font-medium text-red-800">🚨 Tâches critiques</div>
+                                                <div className="text-red-600 text-lg font-bold">
+                                                    {formData.etapes.filter(t => t.isCritical).length}
+                                                </div>
+                                            </div>
+                                            <div className="bg-indigo-50 p-3 rounded-lg">
+                                                <div className="font-medium text-indigo-800">🔗 Dépendances</div>
+                                                <div className="text-indigo-600 text-lg font-bold">
+                                                    {formData.etapes.reduce((sum, t) => sum + (t.dependencies?.length || 0), 0)}
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
