@@ -624,6 +624,284 @@ export function JobModal({
 
     const currentConflicts = getCurrentEventConflicts();
 
+    // ============== FONCTIONS GANTT HIÉRARCHIQUE AVANCÉ ==============
+    // Restauré depuis OLD - Gestion complète du Gantt avec dépendances MS Project
+
+    // Fonction pour calculer les dates d'une tâche selon ses dépendances
+    const calculateTaskDates = (task, processedTasks, allTasksSorted, projectStart) => {
+        const taskDuration = task.duration || 1;
+        let calculatedStartHours = 0;
+        let calculatedEndHours = taskDuration;
+
+        console.log(`📅 CALC - Calcul pour "${task.text}" (durée: ${taskDuration}h)`);
+
+        // 1. Vérifier les dépendances explicites
+        if (task.dependencies && task.dependencies.length > 0) {
+            console.log(`📎 DEPS - ${task.dependencies.length} dépendance(s) trouvée(s)`);
+
+            task.dependencies.forEach(dep => {
+                const depTask = processedTasks.find(t => t.id === dep.id);
+                if (depTask) {
+                    const depStartHours = (depTask.calculatedStart.getTime() - projectStart.getTime()) / (1000 * 60 * 60);
+                    const depEndHours = (depTask.calculatedEnd.getTime() - projectStart.getTime()) / (1000 * 60 * 60);
+                    const lag = dep.lag || 0;
+
+                    switch (dep.type || 'FS') {
+                        case 'FS': // Fin → Début (défaut)
+                            calculatedStartHours = Math.max(calculatedStartHours, depEndHours + lag);
+                            console.log(`🔗 FS - "${task.text}" commence après fin de "${depTask.text}" à ${depEndHours + lag}h`);
+                            break;
+                        case 'SS': // Début → Début
+                            calculatedStartHours = Math.max(calculatedStartHours, depStartHours + lag);
+                            console.log(`🔗 SS - "${task.text}" commence avec "${depTask.text}" à ${depStartHours + lag}h`);
+                            break;
+                        case 'FF': // Fin → Fin
+                            calculatedStartHours = Math.max(calculatedStartHours, depEndHours - taskDuration + lag);
+                            console.log(`🔗 FF - "${task.text}" finit avec "${depTask.text}" à ${depEndHours + lag}h`);
+                            break;
+                        case 'SF': // Début → Fin (rare)
+                            calculatedStartHours = Math.max(calculatedStartHours, depStartHours - taskDuration + lag);
+                            console.log(`🔗 SF - "${task.text}" finit quand "${depTask.text}" commence`);
+                            break;
+                    }
+                }
+            });
+        }
+        // 2. Gestion du mode parallèle explicite
+        else if (task.isParallel && task.parallelWith && task.parallelWith.length > 0) {
+            const parallelTasks = processedTasks.filter(t => task.parallelWith.includes(t.id));
+            if (parallelTasks.length > 0) {
+                // Démarrer en même temps que la première tâche parallèle
+                const firstParallelStart = Math.min(...parallelTasks.map(t =>
+                    (t.calculatedStart.getTime() - projectStart.getTime()) / (1000 * 60 * 60)
+                ));
+                calculatedStartHours = firstParallelStart;
+                console.log(`🔄 PARALLEL - "${task.text}" démarre en parallèle à ${calculatedStartHours}h`);
+            }
+        }
+        // 3. Succession séquentielle par défaut (cas par défaut)
+        else {
+            if (task.parentId) {
+                // C'est une sous-tâche : suit la précédente sous-tâche du même parent
+                const siblingTasks = processedTasks.filter(t => t.parentId === task.parentId);
+                if (siblingTasks.length > 0) {
+                    const lastSibling = siblingTasks[siblingTasks.length - 1];
+                    calculatedStartHours = Math.max(calculatedStartHours, lastSibling.endHours || 0);
+                    console.log(`➡️  SUB-SEQ - "${task.text}" suit sa sous-tâche précédente "${lastSibling.text}" à ${calculatedStartHours}h`);
+                } else {
+                    // Première sous-tâche : hérite de la position de son parent
+                    const parent = processedTasks.find(t => t.id === task.parentId);
+                    if (parent) {
+                        calculatedStartHours = Math.max(calculatedStartHours, parent.startHours || 0);
+                        console.log(`🔢 FIRST-SUB - "${task.text}" première sous-tâche hérite du parent à ${calculatedStartHours}h`);
+                    } else {
+                        // Parent pas encore calculé, on restera à 0 pour l'instant
+                        calculatedStartHours = 0;
+                        console.log(`⏳ FIRST-SUB - "${task.text}" parent pas encore calculé, démarre à ${calculatedStartHours}h`);
+                    }
+                }
+            } else {
+                // C'est une tâche parent : suit la précédente tâche parent
+                const parentTasks = processedTasks.filter(t => !t.parentId);
+                if (parentTasks.length > 0) {
+                    const lastParent = parentTasks[parentTasks.length - 1];
+                    calculatedStartHours = Math.max(calculatedStartHours, lastParent.endHours || 0);
+                    console.log(`➡️  PARENT-SEQ - "${task.text}" suit le parent précédent "${lastParent.text}" à ${calculatedStartHours}h`);
+                }
+            }
+        }
+
+        calculatedEndHours = calculatedStartHours + taskDuration;
+
+        const calculatedStart = new Date(projectStart.getTime() + (calculatedStartHours * 60 * 60 * 1000));
+        const calculatedEnd = new Date(projectStart.getTime() + (calculatedEndHours * 60 * 60 * 1000));
+
+        console.log(`✅ FINAL - "${task.text}": ${calculatedStartHours}h → ${calculatedEndHours}h`);
+
+        return {
+            calculatedStart,
+            calculatedEnd,
+            startHours: calculatedStartHours,
+            endHours: calculatedEndHours
+        };
+    };
+
+    // Fonction utilitaire pour calculer le niveau hiérarchique d'une tâche
+    const calculateTaskLevel = (taskId, allTasks, level = 0) => {
+        const task = allTasks.find(t => t.id === taskId);
+        if (!task || !task.parentId) return level;
+        return calculateTaskLevel(task.parentId, allTasks, level + 1);
+    };
+
+    // Fonction pour mettre à jour les dates des tâches parent selon leurs enfants
+    const updateParentTasks = (tasks) => {
+        const taskMap = new Map(tasks.map(t => [t.id, { ...t }]));
+
+        // Traiter de bas en haut (niveaux décroissants)
+        const maxLevel = Math.max(...tasks.map(t => t.level));
+        for (let level = maxLevel; level >= 0; level--) {
+            const tasksAtLevel = tasks.filter(t => t.level === level && t.hasChildren);
+
+            tasksAtLevel.forEach(parentTask => {
+                const children = tasks.filter(t => t.parentId === parentTask.id);
+                if (children.length > 0) {
+                    // Le parent couvre du début du premier à la fin du dernier enfant
+                    const childHours = children.map(c => ({
+                        start: taskMap.get(c.id).startHours || 0,
+                        end: taskMap.get(c.id).endHours || 0
+                    }));
+
+                    const earliestStartHours = Math.min(...childHours.map(c => c.start));
+                    const latestEndHours = Math.max(...childHours.map(c => c.end));
+
+                    const updatedParent = taskMap.get(parentTask.id);
+
+                    // Mettre à jour les heures du parent
+                    updatedParent.startHours = earliestStartHours;
+                    updatedParent.endHours = latestEndHours;
+                    updatedParent.duration = latestEndHours - earliestStartHours;
+
+                    // Mettre à jour aussi les dates pour compatibilité
+                    const projectStart = new Date(tasks[0].calculatedStart).getTime() - (tasks[0].startHours * 60 * 60 * 1000);
+                    updatedParent.calculatedStart = new Date(projectStart + (earliestStartHours * 60 * 60 * 1000));
+                    updatedParent.calculatedEnd = new Date(projectStart + (latestEndHours * 60 * 60 * 1000));
+                    updatedParent.dateDebut = updatedParent.calculatedStart.toISOString();
+                    updatedParent.dateFin = updatedParent.calculatedEnd.toISOString();
+
+                    console.log(`👨‍👩‍👧‍👦 PARENT - "${parentTask.text}": ${earliestStartHours}h → ${latestEndHours}h (durée: ${updatedParent.duration}h)`);
+
+                    // Ajuster les positions des enfants par rapport au parent
+                    const parentStartHours = updatedParent.startHours;
+                    children.forEach(child => {
+                        const childTask = taskMap.get(child.id);
+                        const relativeStart = childTask.startHours - parentStartHours;
+                        console.log(`🔧 ADJUST - Enfant "${child.text}": ${childTask.startHours}h → relatif au parent: +${relativeStart}h`);
+                    });
+                }
+            });
+        }
+
+        return Array.from(taskMap.values());
+    };
+
+    // Fonction pour générer les données Gantt hiérarchiques avec gestion complète des dépendances
+    const generateHierarchicalGanttData = () => {
+        if (!formData.etapes || formData.etapes.length === 0) {
+            return [];
+        }
+
+        console.log('🚀 GANTT - Génération des données Gantt avec dépendances MS Project');
+        const projectStart = new Date(formData.dateDebut || new Date());
+
+        // 1. Préparer les tâches avec leur structure hiérarchique
+        const taskList = formData.etapes.map((etape, index) => {
+            const hasChildren = formData.etapes.some(e => e.parentId === etape.id);
+            const level = calculateTaskLevel(etape.id, formData.etapes);
+            const isCritical = etape.isCritical || formData.criticalPath?.includes(etape.id);
+
+            // Calculer la numérotation hiérarchique correcte
+            let displayName = etape.text;
+            if (!displayName) {
+                if (etape.parentId) {
+                    // C'est une sous-tâche : compter les frères précédents
+                    const siblings = formData.etapes.filter(e => e.parentId === etape.parentId);
+                    const siblingIndex = siblings.findIndex(s => s.id === etape.id);
+                    const parentTask = formData.etapes.find(e => e.id === etape.parentId);
+                    const parentNumber = formData.etapes.filter(e => !e.parentId).findIndex(e => e.id === etape.parentId) + 1;
+                    displayName = `Étape ${parentNumber}.${siblingIndex + 1}`;
+                } else {
+                    // C'est une tâche parent : compter les parents précédents
+                    const parentIndex = formData.etapes.filter(e => !e.parentId).findIndex(e => e.id === etape.id) + 1;
+                    displayName = `Étape ${parentIndex}`;
+                }
+            }
+
+            return {
+                ...etape,
+                level,
+                hasChildren,
+                isCritical,
+                indent: level * 20,
+                displayName,
+                order: etape.order ?? index, // Assurer un ordre par défaut
+                // Initialisation temporaire
+                calculatedStart: projectStart,
+                calculatedEnd: new Date(projectStart.getTime() + ((etape.duration || 1) * 60 * 60 * 1000))
+            };
+        });
+
+        // 2. Créer un parcours hiérarchique en profondeur (pré-ordre)
+        const createHierarchicalOrder = (tasks, parentId = null, currentOrder = []) => {
+            // Trouver les enfants directs du parent actuel
+            const children = tasks
+                .filter(task => task.parentId === parentId)
+                .sort((a, b) => (a.order || 0) - (b.order || 0)); // Trier par ordre utilisateur
+
+            children.forEach(child => {
+                // Ajouter le parent d'abord
+                currentOrder.push(child);
+                // Puis récursivement ses enfants
+                createHierarchicalOrder(tasks, child.id, currentOrder);
+            });
+
+            return currentOrder;
+        };
+
+        const sortedTasks = createHierarchicalOrder(taskList);
+
+        // 3. Calculer les dates pour chaque tâche (ordre de dépendance)
+        const processedTasks = [];
+        sortedTasks.forEach(task => {
+            const { calculatedStart, calculatedEnd, startHours, endHours } = calculateTaskDates(task, processedTasks, sortedTasks, projectStart);
+
+            const finalTask = {
+                ...task,
+                dateDebut: calculatedStart.toISOString(),
+                dateFin: calculatedEnd.toISOString(),
+                calculatedStart,
+                calculatedEnd,
+                startHours,
+                endHours
+            };
+
+            processedTasks.push(finalTask);
+        });
+
+        // 4. Mise à jour des tâches parent (propagation hiérarchique)
+        const finalTasks = updateParentTasks(processedTasks);
+
+        console.log('✅ GANTT - Génération terminée:', finalTasks.length, 'tâches');
+        return finalTasks;
+    };
+
+    // Fonction pour dessiner les flèches de dépendances
+    const renderDependencyArrows = (tasks) => {
+        const arrows = [];
+
+        tasks.forEach((task, taskIndex) => {
+            if (task.dependencies && task.dependencies.length > 0) {
+                task.dependencies.forEach(dep => {
+                    const depTaskIndex = tasks.findIndex(t => t.id === dep.id);
+                    if (depTaskIndex !== -1) {
+                        arrows.push({
+                            from: depTaskIndex,
+                            to: taskIndex,
+                            type: dep.type,
+                            lag: dep.lag || 0
+                        });
+                    }
+                });
+            }
+        });
+
+        return arrows;
+    };
+
+    // Fonction pour imprimer le Gantt et les formulaires
+    const printGanttAndForms = () => {
+        window.print();
+    };
+
     const handleFilesAdded = (files, type) => {
         setFormData(prev => ({
             ...prev,
