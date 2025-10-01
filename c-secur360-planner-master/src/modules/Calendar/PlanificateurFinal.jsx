@@ -36,7 +36,7 @@ export function PlanificateurFinal({
     const { t, currentLanguage } = useLanguage();
 
     // Hauteur uniforme simple
-    const CELL_HEIGHT = 80; // pixels
+    const CELL_HEIGHT = 89; // pixels
     // États pour la vue calendrier
     const [startDate, setStartDate] = useState(new Date());
     const [numberOfDays, setNumberOfDays] = useState(14);
@@ -1341,7 +1341,7 @@ export function PlanificateurFinal({
                                     {filteredResources.map((resource) => (
                                         <tr key={resource.id} className={`border-b hover:bg-gray-50 ${
                                             continuousDays.some(d => d.isToday) ? 'bg-gray-100' : ''
-                                        }`}>
+                                        }`} style={{ height: '89px' }}>
                                             <td className={`px-3 py-4 font-medium border-r ${isMobile ? 'w-[120px]' : 'w-[180px]'} ${
                                                 continuousDays.some(d => d.isToday) ? 'bg-gray-100' : 'bg-white'
                                             }`}>
