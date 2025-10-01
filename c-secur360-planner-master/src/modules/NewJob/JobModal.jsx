@@ -1638,6 +1638,169 @@ export function JobModal({
         }
     }, [formData.etapes]);
 
+    // ============== P1-6 & P1-8: CALCULS BIDIRECTIONNELS HEURES/PERSONNEL ==============
+    // Calcul du personnel requis à partir des heures planifiées
+    const calculatePersonnelRequis = (heuresPlanifiees, dateDebut, dateFin, modeHoraire, heuresDebutJour, heuresFinJour, includeWeekends = false) => {
+        if (!heuresPlanifiees || !dateDebut || !dateFin) return 1;
+
+        const totalHeures = parseInt(heuresPlanifiees);
+        if (isNaN(totalHeures) || totalHeures <= 0) return 1;
+
+        // Calculer le nombre de jours de travail (incluant ou excluant les fins de semaine)
+        const debut = new Date(dateDebut);
+        const fin = new Date(dateFin);
+
+        let joursOuvrables = 0;
+        let currentDate = new Date(debut);
+
+        while (currentDate <= fin) {
+            const dayOfWeek = currentDate.getDay();
+            if (includeWeekends || (dayOfWeek !== 0 && dayOfWeek !== 6)) {
+                joursOuvrables++;
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        let heuresParJour;
+        if (modeHoraire === '24h-24') {
+            heuresParJour = 24;
+        } else {
+            // Calculer les heures entre début et fin de journée
+            if (!heuresDebutJour || !heuresFinJour) {
+                heuresParJour = 8; // Valeur par défaut 8h de travail
+                return Math.max(1, Math.ceil(totalHeures / (joursOuvrables * heuresParJour)));
+            }
+            const [heureDebut, minuteDebut] = heuresDebutJour.split(':').map(Number);
+            const [heureFin, minuteFin] = heuresFinJour.split(':').map(Number);
+            const minutesDebut = heureDebut * 60 + minuteDebut;
+            const minutesFin = heureFin * 60 + minuteFin;
+            heuresParJour = (minutesFin - minutesDebut) / 60;
+        }
+
+        const heuresDisponibles = joursOuvrables * heuresParJour;
+        const personnelRequis = Math.ceil(totalHeures / heuresDisponibles);
+
+        return Math.max(1, personnelRequis);
+    };
+
+    // Fonction bidirectionnelle pour calculer les heures à partir du personnel et des dates
+    const calculateHeuresFromPersonnel = (nombrePersonnel, dateDebut, dateFin, modeHoraire, heuresDebutJour, heuresFinJour, includeWeekends = false) => {
+        if (!nombrePersonnel || !dateDebut || !dateFin) return '';
+
+        const personnel = parseInt(nombrePersonnel);
+        if (isNaN(personnel) || personnel <= 0) return '';
+
+        // Calculer le nombre de jours de travail (incluant ou excluant les fins de semaine)
+        const debut = new Date(dateDebut);
+        const fin = new Date(dateFin);
+
+        let joursOuvrables = 0;
+        let currentDate = new Date(debut);
+
+        while (currentDate <= fin) {
+            const dayOfWeek = currentDate.getDay();
+            if (includeWeekends || (dayOfWeek !== 0 && dayOfWeek !== 6)) {
+                joursOuvrables++;
+            }
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        let heuresParJour;
+        if (modeHoraire === '24h-24') {
+            heuresParJour = 24;
+        } else {
+            // Calculer les heures entre début et fin de journée
+            if (!heuresDebutJour || !heuresFinJour) {
+                heuresParJour = 8; // Valeur par défaut 8h de travail
+            } else {
+                const [heureDebut, minuteDebut] = heuresDebutJour.split(':').map(Number);
+                const [heureFin, minuteFin] = heuresFinJour.split(':').map(Number);
+                const minutesDebut = heureDebut * 60 + minuteDebut;
+                const minutesFin = heureFin * 60 + minuteFin;
+                heuresParJour = (minutesFin - minutesDebut) / 60;
+            }
+        }
+
+        const totalHeuresDisponibles = joursOuvrables * heuresParJour * personnel;
+        return totalHeuresDisponibles.toString();
+    };
+
+    // ============== P1-7: VALIDATION TIMELINE + SOLUTIONS ==============
+    const validateProjectEndDate = () => {
+        if (!formData.dateDebut || !formData.dateFin || formData.etapes.length === 0) {
+            return { isValid: true, warnings: [] };
+        }
+
+        const projectStart = new Date(formData.dateDebut);
+        const projectEnd = new Date(formData.dateFin);
+        const totalTaskHours = formData.etapes.reduce((sum, etape) => sum + (etape.duration || 0), 0);
+
+        // Calculer la date de fin réelle du timeline basé sur les étapes
+        const timelineEnd = new Date(projectStart.getTime() + (totalTaskHours * 60 * 60 * 1000));
+
+        const warnings = [];
+        let isValid = true;
+
+        if (timelineEnd > projectEnd) {
+            isValid = false;
+            const overlapHours = Math.ceil((timelineEnd - projectEnd) / (1000 * 60 * 60));
+            const overlapDays = Math.ceil(overlapHours / 24);
+
+            warnings.push({
+                type: 'timeline_overflow',
+                severity: 'error',
+                message: `Le projet dépasse la date de fin prévue de ${overlapDays} jour${overlapDays > 1 ? 's' : ''} (${overlapHours}h)`,
+                suggestedEndDate: timelineEnd,
+                overlapHours,
+                overlapDays,
+                solutions: [
+                    {
+                        type: 'add_resources',
+                        label: '👥 Ajouter des ressources pour réduire la durée',
+                        description: 'Assigner plus de personnel aux tâches critiques'
+                    },
+                    {
+                        type: 'extend_deadline',
+                        label: '📅 Ajuster la date de fin du projet',
+                        description: `Reporter la date de fin au ${timelineEnd.toLocaleDateString('fr-FR')}`
+                    },
+                    {
+                        type: 'optimize_tasks',
+                        label: '⚡ Optimiser les durées des étapes',
+                        description: 'Réduire les durées ou paralléliser certaines tâches'
+                    }
+                ]
+            });
+        }
+
+        return { isValid, warnings, timelineEnd, projectEnd };
+    };
+
+    // Fonction pour appliquer une solution de dépassement
+    const applyTimelineSolution = (solutionType) => {
+        const validation = validateProjectEndDate();
+        if (!validation.warnings.length) return;
+
+        const warning = validation.warnings[0];
+
+        switch (solutionType) {
+            case 'extend_deadline':
+                updateField('dateFin', warning.suggestedEndDate.toISOString().slice(0, 16));
+                addNotification('Date de fin du projet ajustée selon le timeline des étapes', 'success');
+                break;
+
+            case 'add_resources':
+                // Ouvrir un modal ou section pour ajouter des ressources
+                addNotification('Fonctionnalité d\'ajout de ressources à implémenter', 'info');
+                break;
+
+            case 'optimize_tasks':
+                addNotification('Révisez les durées des étapes pour optimiser le planning', 'info');
+                // Mettre en évidence les étapes les plus longues
+                break;
+        }
+    };
+
     const handleFilesAdded = (files, type) => {
         setFormData(prev => ({
             ...prev,
