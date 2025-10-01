@@ -2440,6 +2440,135 @@ export function JobModal({
         `;
     };
 
+    // ============== P4-1: MISE À JOUR CHAMPS FORMULAIRE ==============
+    const updateField = (field, value) => {
+        setFormData(prev => ({
+            ...prev,
+            [field]: value
+        }));
+    };
+
+    // ============== P4-2: SÉLECTION RESSOURCES ==============
+    const toggleResource = (resourceId, type) => {
+        setFormData(prev => {
+            const field = type === 'personnel' ? 'personnel' :
+                         type === 'equipement' ? 'equipements' : 'sousTraitants';
+            const currentList = prev[field] || [];
+            const isSelected = currentList.includes(resourceId);
+
+            return {
+                ...prev,
+                [field]: isSelected
+                    ? currentList.filter(id => id !== resourceId)
+                    : [...currentList, resourceId]
+            };
+        });
+    };
+
+    const togglePersonnel = (personnelId) => toggleResource(personnelId, 'personnel');
+    const toggleEquipement = (equipementId) => toggleResource(equipementId, 'equipement');
+    const toggleSousTraitant = (sousTraitantId) => toggleResource(sousTraitantId, 'sousTraitants');
+
+    const handleAddSousTraitant = () => {
+        if (newSousTraitant.trim()) {
+            const newId = addSousTraitant(newSousTraitant);
+            if (newId) {
+                setFormData(prev => ({
+                    ...prev,
+                    sousTraitants: [...(prev.sousTraitants || []), newId]
+                }));
+                setNewSousTraitant('');
+                addNotification?.(t('form.subcontractorAdded', `Sous-traitant "${newSousTraitant}" ajouté avec succès`), 'success');
+            }
+        }
+    };
+
+    // ============== P4-3: SAUVEGARDE JOB ==============
+    const handleSubmit = () => {
+        if (!formData.numeroJob || !formData.client || !formData.dateDebut || !formData.dateFin || !formData.succursaleEnCharge) {
+            addNotification?.(t('error.requiredFields', 'Veuillez remplir les champs obligatoires: Numéro de projet, Client, Date début, Date fin et Département/Succursale en charge'), 'error');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const jobData = {
+                ...formData,
+                id: job?.id || Date.now().toString(),
+                numeroJob: formData.numeroJob || `JOB-${Date.now()}`,
+                // Calcul automatique du personnel requis si heures planifiées
+                nombrePersonnelRequis: formData.heuresPlanifiees ?
+                    calculatePersonnelRequis(
+                        formData.heuresPlanifiees,
+                        formData.dateDebut,
+                        formData.dateFin,
+                        formData.modeHoraire,
+                        formData.heuresDebutJour,
+                        formData.heuresFinJour,
+                        formData.includeWeekendsInDuration
+                    ) : formData.nombrePersonnelRequis,
+                // S'assurer que les étapes et données Gantt sont incluses
+                etapes: formData.etapes || [],
+                criticalPath: formData.criticalPath || [],
+                ganttViewMode: formData.ganttViewMode || getDefaultViewMode()
+            };
+
+            console.log('💾 Sauvegarde job avec horairesIndividuels:', jobData.horairesIndividuels);
+            onSave(jobData);
+            addNotification?.(t('success.eventSaved', 'Événement sauvegardé avec succès'), 'success');
+            onClose();
+        } catch (error) {
+            console.error('Erreur lors de la sauvegarde:', error);
+            addNotification?.(t('error.saveError', 'Erreur lors de la sauvegarde'), 'error');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // ============== P4-4: SUPPRESSION JOB ==============
+    const handleDelete = async () => {
+        if (!job?.id) return;
+
+        if (window.confirm(t('modal.confirmDeleteJob', 'Êtes-vous sûr de vouloir supprimer ce job ?'))) {
+            try {
+                await onDelete(job.id);
+                addNotification?.(t('success.jobDeleted', 'Job supprimé avec succès'), 'success');
+                onClose();
+            } catch (error) {
+                console.error('Erreur lors de la suppression:', error);
+                addNotification?.(t('error.deleteError', 'Erreur lors de la suppression'), 'error');
+            }
+        }
+    };
+
+    // ============== P4-5: GESTION PRÉPARATION ==============
+    const addPreparation = () => {
+        setFormData(prev => ({
+            ...prev,
+            preparation: [...prev.preparation, {
+                id: Date.now(),
+                text: '',
+                statut: 'a-faire'
+            }]
+        }));
+    };
+
+    const updatePreparation = (index, field, value) => {
+        setFormData(prev => ({
+            ...prev,
+            preparation: prev.preparation.map((item, i) =>
+                i === index ? { ...item, [field]: value } : item
+            )
+        }));
+    };
+
+    const removePreparation = (index) => {
+        setFormData(prev => ({
+            ...prev,
+            preparation: prev.preparation.filter((_, i) => i !== index)
+        }));
+    };
+
     const handleFilesAdded = (files, type) => {
         setFormData(prev => ({
             ...prev,
