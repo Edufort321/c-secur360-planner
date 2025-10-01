@@ -2171,6 +2171,275 @@ export function JobModal({
         return calculateTaskLevel(task.parentId, allTasks, level + 1);
     };
 
+    // ============== P3-1: PROPAGATION HIÉRARCHIQUE PARENT→ENFANTS ==============
+    const updateParentTasks = (tasks) => {
+        const taskMap = new Map(tasks.map(t => [t.id, { ...t }]));
+
+        // Traiter de bas en haut (niveaux décroissants)
+        const maxLevel = Math.max(...tasks.map(t => t.level));
+        for (let level = maxLevel; level >= 0; level--) {
+            const tasksAtLevel = tasks.filter(t => t.level === level && t.hasChildren);
+
+            tasksAtLevel.forEach(parentTask => {
+                const children = tasks.filter(t => t.parentId === parentTask.id);
+                if (children.length > 0) {
+                    // Le parent couvre du début du premier à la fin du dernier enfant
+                    const childHours = children.map(c => ({
+                        start: taskMap.get(c.id).startHours || 0,
+                        end: taskMap.get(c.id).endHours || 0
+                    }));
+
+                    const earliestStartHours = Math.min(...childHours.map(c => c.start));
+                    const latestEndHours = Math.max(...childHours.map(c => c.end));
+
+                    const updatedParent = taskMap.get(parentTask.id);
+
+                    // Mettre à jour les heures du parent
+                    updatedParent.startHours = earliestStartHours;
+                    updatedParent.endHours = latestEndHours;
+                    updatedParent.duration = latestEndHours - earliestStartHours;
+
+                    // Mettre à jour aussi les dates pour compatibilité
+                    const projectStart = new Date(tasks[0].calculatedStart).getTime() - (tasks[0].startHours * 60 * 60 * 1000);
+                    updatedParent.calculatedStart = new Date(projectStart + (earliestStartHours * 60 * 60 * 1000));
+                    updatedParent.calculatedEnd = new Date(projectStart + (latestEndHours * 60 * 60 * 1000));
+                    updatedParent.dateDebut = updatedParent.calculatedStart.toISOString();
+                    updatedParent.dateFin = updatedParent.calculatedEnd.toISOString();
+
+                    console.log(`👨‍👩‍👧‍👦 PARENT - "${parentTask.text}": ${earliestStartHours}h → ${latestEndHours}h (durée: ${updatedParent.duration}h)`);
+
+                    // Ajuster les positions des enfants par rapport au parent
+                    const parentStartHours = updatedParent.startHours;
+                    children.forEach(child => {
+                        const childTask = taskMap.get(child.id);
+                        const relativeStart = childTask.startHours - parentStartHours;
+                        console.log(`🔧 ADJUST - Enfant "${child.text}": ${childTask.startHours}h → relatif au parent: +${relativeStart}h`);
+                    });
+                }
+            });
+        }
+
+        return Array.from(taskMap.values());
+    };
+
+    // ============== P3-2: GÉNÉRATION DONNÉES GANTT HIÉRARCHIQUES ==============
+    const generateHierarchicalGanttData = () => {
+        if (!formData.etapes || formData.etapes.length === 0) {
+            return [];
+        }
+
+        console.log('🚀 GANTT - Génération des données Gantt avec dépendances MS Project');
+        const projectStart = new Date(formData.dateDebut || new Date());
+
+        // 1. Préparer les tâches avec leur structure hiérarchique
+        const taskList = formData.etapes.map((etape, index) => {
+            const hasChildren = formData.etapes.some(e => e.parentId === etape.id);
+            const level = calculateTaskLevel(etape.id, formData.etapes);
+            const isCritical = etape.isCritical || formData.criticalPath?.includes(etape.id);
+
+            // Calculer la numérotation hiérarchique correcte
+            let displayName = etape.text;
+            if (!displayName) {
+                if (etape.parentId) {
+                    // C'est une sous-tâche : compter les frères précédents
+                    const siblings = formData.etapes.filter(e => e.parentId === etape.parentId);
+                    const siblingIndex = siblings.findIndex(s => s.id === etape.id);
+                    const parentTask = formData.etapes.find(e => e.id === etape.parentId);
+                    const parentNumber = formData.etapes.filter(e => !e.parentId).findIndex(e => e.id === etape.parentId) + 1;
+                    displayName = `Étape ${parentNumber}.${siblingIndex + 1}`;
+                } else {
+                    // C'est une tâche parent : compter les parents précédents
+                    const parentIndex = formData.etapes.filter(e => !e.parentId).findIndex(e => e.id === etape.id) + 1;
+                    displayName = `Étape ${parentIndex}`;
+                }
+            }
+
+            return {
+                ...etape,
+                level,
+                hasChildren,
+                isCritical,
+                indent: level * 20,
+                displayName,
+                order: etape.order ?? index, // Assurer un ordre par défaut
+                // Initialisation temporaire
+                calculatedStart: projectStart,
+                calculatedEnd: new Date(projectStart.getTime() + ((etape.duration || 1) * 60 * 60 * 1000))
+            };
+        });
+
+        // 2. Créer un parcours hiérarchique en profondeur (pré-ordre)
+        const createHierarchicalOrder = (tasks, parentId = null, currentOrder = []) => {
+            // Trouver les enfants directs du parent actuel
+            const children = tasks
+                .filter(task => task.parentId === parentId)
+                .sort((a, b) => (a.order || 0) - (b.order || 0)); // Trier par ordre utilisateur
+
+            children.forEach(child => {
+                // Ajouter le parent d'abord
+                currentOrder.push(child);
+                // Puis récursivement ses enfants
+                createHierarchicalOrder(tasks, child.id, currentOrder);
+            });
+
+            return currentOrder;
+        };
+
+        const sortedTasks = createHierarchicalOrder(taskList);
+
+        // 3. Calculer les dates pour chaque tâche (ordre de dépendance)
+        const processedTasks = [];
+        sortedTasks.forEach(task => {
+            const { calculatedStart, calculatedEnd, startHours, endHours } = calculateTaskDates(task, processedTasks, sortedTasks, projectStart);
+
+            const finalTask = {
+                ...task,
+                dateDebut: calculatedStart.toISOString(),
+                dateFin: calculatedEnd.toISOString(),
+                calculatedStart,
+                calculatedEnd,
+                startHours,
+                endHours
+            };
+
+            processedTasks.push(finalTask);
+        });
+
+        // 4. Mise à jour des tâches parent (propagation hiérarchique)
+        const finalTasks = updateParentTasks(processedTasks);
+
+        console.log('✅ GANTT - Génération terminée:', finalTasks.length, 'tâches');
+        return finalTasks;
+    };
+
+    // ============== P3-3: FLÈCHES DÉPENDANCES ==============
+    const renderDependencyArrows = (tasks) => {
+        const arrows = [];
+
+        tasks.forEach((task, taskIndex) => {
+            if (task.dependencies && task.dependencies.length > 0) {
+                task.dependencies.forEach(dep => {
+                    const depTaskIndex = tasks.findIndex(t => t.id === dep.id);
+                    if (depTaskIndex !== -1) {
+                        arrows.push({
+                            from: depTaskIndex,
+                            to: taskIndex,
+                            type: dep.type,
+                            lag: dep.lag || 0
+                        });
+                    }
+                });
+            }
+        });
+
+        return arrows;
+    };
+
+    // ============== P3-4: IMPRESSION/EXPORT GANTT ==============
+    const toggleGanttFullscreen = () => {
+        setGanttFullscreen(!ganttFullscreen);
+    };
+
+    const printGanttAndForms = () => {
+        const printWindow = window.open('', '_blank');
+        const printContent = generatePrintContent();
+
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Rapport de Projet - ${formData.nom}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+                        .section { margin-bottom: 30px; page-break-inside: avoid; }
+                        .gantt-chart { width: 100%; border-collapse: collapse; }
+                        .gantt-chart th, .gantt-chart td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        .gantt-task { height: 20px; border-radius: 4px; margin: 2px 0; }
+                        .task-critical { background-color: #ef4444; }
+                        .task-normal { background-color: #3b82f6; }
+                        .task-completed { background-color: #10b981; }
+                        .hierarchy-indent { padding-left: 20px; }
+                        @media print { .no-print { display: none; } }
+                    </style>
+                </head>
+                <body>
+                    ${printContent}
+                </body>
+            </html>
+        `);
+
+        printWindow.document.close();
+        printWindow.print();
+    };
+
+    const generatePrintContent = () => {
+        const hierarchicalTasks = generateHierarchicalGanttData();
+
+        return `
+            <div class="header">
+                <h1>Rapport de Projet: ${formData.nom}</h1>
+                <p>Numéro: ${formData.numeroJob} | Période: ${formData.dateDebut} - ${formData.dateFin}</p>
+            </div>
+
+            <div class="section">
+                <h2>Informations Générales</h2>
+                <p><strong>Description:</strong> ${formData.description}</p>
+                <p><strong>Lieu:</strong> ${formData.lieu}</p>
+                <p><strong>Contact:</strong> ${formData.contact}</p>
+            </div>
+
+            <div class="section">
+                <h2>Diagramme de Gantt</h2>
+                <table class="gantt-chart">
+                    <thead>
+                        <tr>
+                            <th>Tâche</th>
+                            <th>Durée</th>
+                            <th>Ressources</th>
+                            <th>État</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${hierarchicalTasks.map(task => `
+                            <tr>
+                                <td style="padding-left: ${task.level * 20}px">
+                                    ${task.hasChildren ? '📁' : '📄'} ${task.displayName || task.text || `Étape ${task.order + 1}`}
+                                </td>
+                                <td>${task.duration}h</td>
+                                <td>
+                                    ${Object.values(task.assignedResources || {}).flat().length} ressource(s)
+                                </td>
+                                <td>
+                                    ${task.completed ? 'Terminé' : task.isCritical ? 'Critique' : 'En cours'}
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <h2>Étapes Détaillées</h2>
+                ${hierarchicalTasks.map(task => `
+                    <div style="margin-left: ${task.level * 20}px; margin-bottom: 15px; border-left: 3px solid ${task.isCritical ? '#ef4444' : '#3b82f6'}; padding-left: 10px;">
+                        <h4>${task.hasChildren ? '📁' : '📄'} ${task.text || task.displayName || `Étape ${task.order + 1}`}</h4>
+                        ${task.description ? `<p><strong>Description:</strong> ${task.description}</p>` : ''}
+                        <p><strong>Durée:</strong> ${task.duration}h | <strong>Priorité:</strong> ${task.priority}</p>
+                        ${task.dependencies?.length ? `<p><strong>Dépendances:</strong> ${task.dependencies.length}</p>` : ''}
+                        ${task.notes ? `<p><strong>Notes:</strong> ${task.notes}</p>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+
+            <div class="section">
+                <h2>Ressources Assignées</h2>
+                <p><strong>Personnel:</strong> ${formData.personnel?.length || 0} personne(s)</p>
+                <p><strong>Équipements:</strong> ${formData.equipements?.length || 0} équipement(s)</p>
+                <p><strong>Sous-traitants:</strong> ${formData.sousTraitants?.length || 0} sous-traitant(s)</p>
+            </div>
+        `;
+    };
+
     const handleFilesAdded = (files, type) => {
         setFormData(prev => ({
             ...prev,
