@@ -1,11 +1,7 @@
-# Ignorer les anciens fichiers HTML
-*.html
-!dist/index.html
-
 # Ignorer les fichiers de développement
 node_modules
 .env.local
 .DS_Store
 *.log
-
-# Garder seulement les fichiers nécessaires pour le build
+.git
+.vercel
