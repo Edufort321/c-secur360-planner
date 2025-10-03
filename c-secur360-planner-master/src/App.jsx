@@ -270,10 +270,15 @@ function AppContent() {
                                 onClose={() => setShowResourcesManagement(false)}
                                 personnel={appData.personnel}
                                 equipements={appData.equipements}
+                                postes={appData.postes || []}
+                                succursales={appData.succursales || []}
                                 onSavePersonnel={appData.savePersonnel}
                                 onDeletePersonnel={appData.deletePersonnel}
                                 onSaveEquipement={appData.saveEquipement}
                                 onDeleteEquipement={appData.deleteEquipement}
+                                onSavePoste={appData.savePoste || (() => console.warn('savePoste not implemented'))}
+                                onDeletePoste={appData.deletePoste || (() => console.warn('deletePoste not implemented'))}
+                                onSaveSuccursale={appData.saveSuccursale || (() => console.warn('saveSuccursale not implemented'))}
                                 utilisateurConnecte={utilisateurConnecte}
                                 estCoordonnateur={estCoordonnateur}
                                 estAdministrateur={estAdministrateur}
