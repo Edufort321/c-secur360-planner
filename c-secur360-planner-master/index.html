@@ -46,11 +46,52 @@
             favicon.href = canvas.toDataURL('image/x-icon');
         }
 
+        // Diagnostic Vercel - Logger les infos système
+        function logVercelDiagnostics() {
+            console.group('🔍 VERCEL DIAGNOSTICS');
+            console.log('📍 Location:', window.location.href);
+            console.log('🌐 Host:', window.location.host);
+            console.log('📂 Pathname:', window.location.pathname);
+            console.log('🔗 Origin:', window.location.origin);
+            console.log('📦 Root element:', document.getElementById('root'));
+            console.log('📜 Scripts:', Array.from(document.scripts).map(s => s.src || s.textContent.substring(0, 50)));
+            console.log('⚙️ User Agent:', navigator.userAgent);
+            console.log('🕐 Timestamp:', new Date().toISOString());
+            console.groupEnd();
+
+            // Vérifier si le script principal se charge
+            const mainScript = document.querySelector('script[src*="index.js"]');
+            if (mainScript) {
+                mainScript.addEventListener('error', (e) => {
+                    console.error('❌ ERREUR CHARGEMENT SCRIPT PRINCIPAL:', e);
+                    console.error('Script src:', mainScript.src);
+                });
+                mainScript.addEventListener('load', () => {
+                    console.log('✅ Script principal chargé avec succès');
+                });
+            }
+
+            // Logger les erreurs réseau
+            window.addEventListener('error', (e) => {
+                if (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK') {
+                    console.error('❌ ERREUR CHARGEMENT RESSOURCE:', {
+                        tag: e.target.tagName,
+                        src: e.target.src || e.target.href,
+                        error: e.message
+                    });
+                }
+            }, true);
+        }
+
         // Générer le favicon dès que possible
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', createFavicon);
+            document.addEventListener('DOMContentLoaded', () => {
+                createFavicon();
+                logVercelDiagnostics();
+            });
         } else {
             createFavicon();
+            logVercelDiagnostics();
         }
     </script>
 </head>
