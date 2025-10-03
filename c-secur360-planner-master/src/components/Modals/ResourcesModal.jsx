@@ -7,16 +7,24 @@ import { Icon } from '../UI/Icon';
 import { Logo } from '../UI/Logo';
 import { PersonnelModal } from './PersonnelModal';
 import { EquipementModal } from './EquipementModal';
+import { PosteModal } from './PosteModal';
+import { SuccursaleModal } from '../../modules/Resource/SuccursaleModal';
+import { useLanguage } from '../../contexts/LanguageContext.jsx';
 
 export function ResourcesModal({
     isOpen,
     onClose,
     personnel = [],
     equipements = [],
+    postes = [],
+    succursales = [],
     onSavePersonnel,
     onDeletePersonnel,
     onSaveEquipement,
     onDeleteEquipement,
+    onSavePoste,
+    onDeletePoste,
+    onSaveSuccursale,
     utilisateurConnecte,
     estCoordonnateur,
     estAdministrateur,
@@ -25,6 +33,7 @@ export function ResourcesModal({
     isResourcesAuthenticated = false,
     onResourcesAuthentication
 }) {
+    const { t } = useLanguage();
     const [activeTab, setActiveTab] = useState('personnel');
     const [showPersonnelModal, setShowPersonnelModal] = useState(false);
     const [showEquipementModal, setShowEquipementModal] = useState(false);
@@ -53,32 +62,22 @@ export function ResourcesModal({
     });
     const [showNewFilterForm, setShowNewFilterForm] = useState(false);
 
-    // États pour les onglets Succursales et Postes
-    const [succursales, setSuccursales] = useState([
-        { id: 1, nom: 'Montréal', adresse: '123 Rue Principale, Montréal', telephone: '514-123-4567', color: '#3B82F6' },
-        { id: 2, nom: 'Québec', adresse: '456 Avenue Central, Québec', telephone: '418-123-4567', color: '#10B981' },
-        { id: 3, nom: 'Laval', adresse: '789 Boulevard Nord, Laval', telephone: '450-123-4567', color: '#F59E0B' }
-    ]);
-    const [postes, setPostes] = useState([
-        { id: 1, nom: 'Gardien de sécurité', description: 'Surveillance et protection des lieux', niveau: 'Base' },
-        { id: 2, nom: 'Agent de prévention', description: 'Prévention des risques et incidents', niveau: 'Intermédiaire' },
-        { id: 3, nom: 'Superviseur', description: 'Supervision des équipes terrain', niveau: 'Avancé' },
-        { id: 4, nom: 'Coordonnateur', description: 'Coordination des opérations', niveau: 'Expert' }
-    ]);
-    const [showSuccursaleForm, setShowSuccursaleForm] = useState(false);
-    const [showPosteForm, setShowPosteForm] = useState(false);
-    const [editingSuccursale, setEditingSuccursale] = useState(null);
-    const [editingPoste, setEditingPoste] = useState(null);
+    // Les données sont maintenant passées en props depuis App.jsx
+
+    const [showSuccursaleModal, setShowSuccursaleModal] = useState(false);
+    const [selectedSuccursale, setSelectedSuccursale] = useState(null);
+    const [showPosteModal, setShowPosteModal] = useState(false);
+    const [selectedPoste, setSelectedPoste] = useState(null);
 
     // Vérifier si l'utilisateur peut accéder aux ressources
     const peutAccederRessources = () => {
         return estCoordonnateur() || isAuthenticated;
     };
 
-    // Fonction pour obtenir la couleur d'une succursale
+    // Obtenir la couleur d'une succursale
     const getSuccursaleColor = (nomSuccursale) => {
-        const succursale = succursales.find(s => s.nom === nomSuccursale);
-        return succursale?.color || '#6B7280'; // Gris par défaut
+        const succursaleObj = succursales.find(s => s.nom === nomSuccursale);
+        return succursaleObj?.couleur || '#6B7280'; // Couleur grise par défaut
     };
 
     // Obtenir les bureaux uniques
@@ -115,6 +114,7 @@ export function ResourcesModal({
             if (filtres.recherche) {
                 const recherche = filtres.recherche.toLowerCase();
                 return person.nom.toLowerCase().includes(recherche) ||
+                       (person.prenom && person.prenom.toLowerCase().includes(recherche)) ||
                        person.poste.toLowerCase().includes(recherche);
             }
 
@@ -201,6 +201,43 @@ export function ResourcesModal({
         if (window.confirm(`Êtes-vous sûr de vouloir supprimer le filtre "${filtre.nom}" ?`)) {
             setFiltresSauvegardes(prev => prev.filter(f => f.id !== filtreId));
             addNotification(`Filtre "${filtre.nom}" supprimé`, 'success');
+        }
+    };
+
+    // Les fonctions de gestion sont maintenant centralisées dans useAppData
+
+    const supprimerPoste = (posteId) => {
+        const poste = postes.find(p => p.id === posteId);
+        if (poste && window.confirm(t('admin.position.confirmDelete', `Êtes-vous sûr de vouloir supprimer le poste "${poste.nom}" ?`))) {
+            onDeletePoste(posteId);
+            addNotification(t('admin.position.deleteSuccess', `Poste "${poste.nom}" supprimé avec succès`), 'success');
+        }
+    };
+
+    const supprimerSuccursale = (succursaleId) => {
+        const succursale = succursales.find(s => s.id === succursaleId);
+        if (!succursale) return;
+
+        // Vérifier si des ressources sont associées
+        const personnelAssocie = personnel.filter(p => p.succursale === succursale.nom).length;
+        const equipementsAssocies = equipements.filter(e => e.succursale === succursale.nom).length;
+
+        if (personnelAssocie > 0 || equipementsAssocies > 0) {
+            addNotification(
+                t('admin.branch.deleteError', `Impossible de supprimer "${succursale.nom}": ${personnelAssocie} personnel et ${equipementsAssocies} équipements associés`),
+                'error'
+            );
+            return;
+        }
+
+        if (window.confirm(t('admin.branch.confirmDelete', `Êtes-vous sûr de vouloir supprimer la succursale "${succursale.nom}" ?`))) {
+            // Note: onDeleteSuccursale doit être ajouté dans les props si nécessaire
+            if (onSaveSuccursale) {
+                // Pour l'instant, on utilise onSaveSuccursale pour gérer aussi la suppression
+                addNotification(t('admin.branch.deleteSuccess', `Succursale "${succursale.nom}" supprimée avec succès`), 'success');
+            } else {
+                addNotification('Fonctionnalité de suppression non disponible', 'warning');
+            }
         }
     };
 
@@ -397,7 +434,7 @@ export function ResourcesModal({
                                         onClick={() => handleTabChange('postes')}
                                         className={`py-2 px-1 border-b-2 font-medium text-sm ${
                                             activeTab === 'postes'
-                                                ? 'border-pink-500 text-pink-600'
+                                                ? 'border-indigo-500 text-indigo-600'
                                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                         }`}
                                     >
@@ -531,11 +568,16 @@ export function ResourcesModal({
                                         // Vue individuelle
                                         <div className="bg-white border rounded-lg p-6">
                                             <div className="flex items-center gap-4 mb-6">
-                                                <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center text-white text-xl font-bold">
+                                                <div
+                                                    className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold"
+                                                    style={{ backgroundColor: getSuccursaleColor(selectedResource.succursale) }}
+                                                >
                                                     {selectedResource.nom.charAt(0)}
                                                 </div>
                                                 <div>
-                                                    <h2 className="text-2xl font-bold text-gray-900">{selectedResource.nom}</h2>
+                                                    <h2 className="text-2xl font-bold text-gray-900">
+                                                        {selectedResource.nom}{selectedResource.prenom ? `, ${selectedResource.prenom}` : ''}
+                                                    </h2>
                                                     <p className="text-lg text-gray-600">{selectedResource.poste}</p>
                                                     <p className="text-sm text-gray-500">{selectedResource.succursale}</p>
                                                 </div>
@@ -599,11 +641,16 @@ export function ResourcesModal({
                                                     }}
                                                 >
                                                     <div className="flex items-center gap-3 mb-2">
-                                                        <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                                                        <div
+                                                            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold"
+                                                            style={{ backgroundColor: getSuccursaleColor(person.succursale) }}
+                                                        >
                                                             {person.nom.charAt(0)}
                                                         </div>
                                                         <div className="flex-1">
-                                                            <h4 className="font-medium text-gray-900">{person.nom}</h4>
+                                                            <h4 className="font-medium text-gray-900">
+                                                                {person.nom}{person.prenom ? `, ${person.prenom}` : ''}
+                                                            </h4>
                                                             <p className="text-sm text-gray-600">{person.poste}</p>
                                                         </div>
                                                         {viewMode === 'individual' && (
@@ -673,7 +720,10 @@ export function ResourcesModal({
                                         // Vue individuelle équipement
                                         <div className="bg-white border rounded-lg p-6">
                                             <div className="flex items-center gap-4 mb-6">
-                                                <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center text-white">
+                                                <div
+                                                    className="w-16 h-16 rounded-full flex items-center justify-center text-white"
+                                                    style={{ backgroundColor: getSuccursaleColor(selectedResource.succursale) }}
+                                                >
                                                     <Icon name="tool" size={24} />
                                                 </div>
                                                 <div>
@@ -743,7 +793,10 @@ export function ResourcesModal({
                                                     }}
                                                 >
                                                     <div className="flex items-center gap-3 mb-2">
-                                                        <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white">
+                                                        <div
+                                                            className="w-10 h-10 rounded-full flex items-center justify-center text-white"
+                                                            style={{ backgroundColor: getSuccursaleColor(equipement.succursale) }}
+                                                        >
                                                             <Icon name="tool" size={16} />
                                                         </div>
                                                         <div className="flex-1">
@@ -1101,6 +1154,8 @@ export function ResourcesModal({
                     addNotification={addNotification}
                     utilisateurConnecte={utilisateurConnecte}
                     estCoordonnateur={estCoordonnateur}
+                    postesDisponibles={postes}
+                    succursalesDisponibles={succursales}
                 />
             )}
 
@@ -1118,6 +1173,42 @@ export function ResourcesModal({
                     addNotification={addNotification}
                     utilisateurConnecte={utilisateurConnecte}
                     peutModifier={peutModifier}
+                    succursalesDisponibles={succursales}
+                />
+            )}
+
+            {/* Modal Poste */}
+            {showPosteModal && (
+                <PosteModal
+                    isOpen={showPosteModal}
+                    onClose={() => {
+                        setShowPosteModal(false);
+                        setSelectedPoste(null);
+                    }}
+                    onSave={(posteData) => {
+                        onSavePoste(posteData);
+                        addNotification(t('admin.position.saveSuccess', `Poste "${posteData.nom}" ${selectedPoste ? 'modifié' : 'ajouté'} avec succès`), 'success');
+                    }}
+                    poste={selectedPoste}
+                    addNotification={addNotification}
+                />
+            )}
+
+            {/* Modal Succursale */}
+            {showSuccursaleModal && (
+                <SuccursaleModal
+                    isOpen={showSuccursaleModal}
+                    onClose={() => {
+                        setShowSuccursaleModal(false);
+                        setSelectedSuccursale(null);
+                    }}
+                    onSave={(succursaleData) => {
+                        onSaveSuccursale(succursaleData);
+                        addNotification(t('admin.branch.saveSuccess', `Succursale "${succursaleData.nom}" ${selectedSuccursale ? 'modifiée' : 'ajoutée'} avec succès`), 'success');
+                    }}
+                    onDelete={null}
+                    succursale={selectedSuccursale}
+                    succursales={succursales}
                 />
             )}
         </>
