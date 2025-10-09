@@ -5,7 +5,6 @@ import React, { useState } from 'react';
 import { Modal } from '../UI/Modal';
 import { Icon } from '../UI/Icon';
 import { Logo } from '../UI/Logo';
-import { PersonnelModal } from '../../modules/Resource/PersonnelModal';
 import { EquipementModal } from './EquipementModal';
 import { PosteModal } from './PosteModal';
 import { SuccursaleModal } from '../../modules/Resource/SuccursaleModal';
@@ -33,10 +32,8 @@ export function ResourcesModal({
     onResourcesAuthentication
 }) {
     const { t } = useLanguage();
-    const [activeTab, setActiveTab] = useState('personnel');
-    const [showPersonnelModal, setShowPersonnelModal] = useState(false);
+    const [activeTab, setActiveTab] = useState('succursales'); // Changé de 'personnel' à 'succursales'
     const [showEquipementModal, setShowEquipementModal] = useState(false);
-    const [selectedPersonnel, setSelectedPersonnel] = useState(null);
     const [selectedEquipement, setSelectedEquipement] = useState(null);
     const [motDePasseAdmin, setMotDePasseAdmin] = useState('');
     const [showAdminPassword, setShowAdminPassword] = useState(false);
@@ -376,15 +373,15 @@ export function ResourcesModal({
                             <div className="border-b border-gray-200 space-y-4">
                                 <nav className="-mb-px flex space-x-8">
                                     <button
-                                        onClick={() => handleTabChange('personnel')}
+                                        onClick={() => handleTabChange('succursales')}
                                         className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                                            activeTab === 'personnel'
-                                                ? 'border-blue-500 text-blue-600'
+                                            activeTab === 'succursales'
+                                                ? 'border-green-500 text-green-600'
                                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                         }`}
                                     >
-                                        <Icon name="users" size={16} className="inline mr-2" />
-                                        {t('resource.personnel')} ({activeTab === 'personnel' ? filtrerPersonnel().length : personnel.length})
+                                        <Icon name="building" size={16} className="inline mr-2" />
+                                        Succursales/Départements ({succursales.length})
                                     </button>
                                     <button
                                         onClick={() => handleTabChange('equipements')}
@@ -396,17 +393,6 @@ export function ResourcesModal({
                                     >
                                         <Icon name="tool" size={16} className="inline mr-2" />
                                         {t('resource.equipment')} ({activeTab === 'equipements' ? filtrerEquipements().length : equipements.length})
-                                    </button>
-                                    <button
-                                        onClick={() => handleTabChange('succursales')}
-                                        className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                                            activeTab === 'succursales'
-                                                ? 'border-green-500 text-green-600'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <Icon name="building" size={16} className="inline mr-2" />
-                                        {t('admin.branch.title')} ({succursales.length})
                                     </button>
                                     <button
                                         onClick={() => handleTabChange('postes')}
@@ -432,8 +418,8 @@ export function ResourcesModal({
                                     </button>
                                 </nav>
 
-                                {/* Filtres et contrôles de vue - seulement pour Personnel et Équipements */}
-                                {(activeTab === 'personnel' || activeTab === 'equipements') && (
+                                {/* Filtres et contrôles de vue - seulement pour Équipements */}
+                                {activeTab === 'equipements' && (
                                     <div className="flex flex-wrap items-center gap-4 p-4 bg-gray-50 rounded-lg">
                                     {/* Mode de vue */}
                                     <div className="flex items-center gap-2">
@@ -517,158 +503,6 @@ export function ResourcesModal({
                                 </div>
                                 )}
                             </div>
-
-                            {/* Contenu Personnel */}
-                            {activeTab === 'personnel' && (
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center">
-                                        <h3 className="text-lg font-semibold text-gray-900">
-                                            {t('admin.personnel.management')}
-                                            {viewMode === 'individual' && selectedResource && (
-                                                <span className="ml-3 text-base font-normal text-blue-600">
-                                                    → {selectedResource.nom}
-                                                </span>
-                                            )}
-                                        </h3>
-                                        <div className="flex items-center gap-3">
-                                            {viewMode === 'individual' && selectedResource && (
-                                                <button
-                                                    onClick={() => setSelectedResource(null)}
-                                                    className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-                                                >
-                                                    <Icon name="arrow-left" size={16} className="mr-1" />
-                                                    {t('admin.view.backToList')}
-                                                </button>
-                                            )}
-                                            <button
-                                                onClick={() => {
-                                                    setSelectedPersonnel(null);
-                                                    setShowPersonnelModal(true);
-                                                }}
-                                                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                                            >
-                                                <Icon name="userPlus" size={16} />
-                                                {t('admin.personnel.add')}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {viewMode === 'individual' && selectedResource ? (
-                                        // Vue individuelle
-                                        <div className="bg-white border rounded-lg p-6">
-                                            <div className="flex items-center gap-4 mb-6">
-                                                <div
-                                                    className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold"
-                                                    style={{ backgroundColor: getSuccursaleColor(selectedResource.succursale) }}
-                                                >
-                                                    {selectedResource.nom.charAt(0)}
-                                                </div>
-                                                <div>
-                                                    <h2 className="text-2xl font-bold text-gray-900">
-                                                        {selectedResource.nom}{selectedResource.prenom ? `, ${selectedResource.prenom}` : ''}
-                                                    </h2>
-                                                    <p className="text-lg text-gray-600">{selectedResource.poste}</p>
-                                                    <p className="text-sm text-gray-500">{selectedResource.succursale}</p>
-                                                </div>
-                                                <div className="ml-auto">
-                                                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                                                        selectedResource.disponible !== false
-                                                            ? 'bg-green-100 text-green-800'
-                                                            : 'bg-red-100 text-red-800'
-                                                    }`}>
-                                                        {selectedResource.disponible !== false ? t('status.available') : t('status.unavailable')}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                                <div>
-                                                    <h3 className="text-lg font-semibold mb-3">{t('admin.personnel.contactInfo')}</h3>
-                                                    <div className="space-y-2">
-                                                        <p><strong>{t('admin.personnel.phone')}:</strong> {selectedResource.telephone || t('admin.notSpecified')}</p>
-                                                        <p><strong>{t('admin.personnel.email')}:</strong> {selectedResource.email || t('admin.notSpecified')}</p>
-                                                        <p><strong>{t('filter.office')}:</strong> {selectedResource.succursale}</p>
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-lg font-semibold mb-3">{t('admin.personnel.positionDetails')}</h3>
-                                                    <div className="space-y-2">
-                                                        <p><strong>{t('filter.position')}:</strong> {selectedResource.poste}</p>
-                                                        <p><strong>{t('resource.department')}:</strong> {selectedResource.departement || t('admin.notSpecified')}</p>
-                                                        <p><strong>{t('admin.personnel.skills')}:</strong> {selectedResource.competences || t('admin.personnel.skillsNotSpecified')}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="mt-6 flex justify-end">
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedPersonnel(selectedResource);
-                                                        setShowPersonnelModal(true);
-                                                    }}
-                                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                                                >
-                                                    <Icon name="edit" size={16} className="mr-2" />
-                                                    {t('action.edit')}
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        // Vue grille avec sélection individuelle
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
-                                            {filtrerPersonnel().map((person) => (
-                                                <div
-                                                    key={person.id}
-                                                    className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                                                    onClick={() => {
-                                                        if (viewMode === 'individual') {
-                                                            setSelectedResource(person);
-                                                        } else {
-                                                            setSelectedPersonnel(person);
-                                                            setShowPersonnelModal(true);
-                                                        }
-                                                    }}
-                                                >
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <div
-                                                            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold"
-                                                            style={{ backgroundColor: getSuccursaleColor(person.succursale) }}
-                                                        >
-                                                            {person.nom.charAt(0)}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <h4 className="font-medium text-gray-900">
-                                                                {person.nom}{person.prenom ? `, ${person.prenom}` : ''}
-                                                            </h4>
-                                                            <p className="text-sm text-gray-600">{person.poste}</p>
-                                                        </div>
-                                                        {viewMode === 'individual' && (
-                                                            <Icon name="eye" size={16} className="text-gray-400" />
-                                                        )}
-                                                    </div>
-                                                    <div className="text-xs text-gray-500 flex justify-between">
-                                                        <span>{person.succursale}</span>
-                                                        <span className={`px-2 py-1 rounded text-xs ${
-                                                            person.disponible !== false
-                                                                ? 'bg-green-100 text-green-700'
-                                                                : 'bg-red-100 text-red-700'
-                                                        }`}>
-                                                            {person.disponible !== false ? t('status.available') : t('status.unavailable')}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {filtrerPersonnel().length === 0 && (
-                                        <div className="text-center py-8 text-gray-500">
-                                            <Icon name="users" size={48} className="mx-auto mb-4 opacity-50" />
-                                            <p>{t('admin.personnel.noResults')}</p>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
 
                             {/* Contenu Équipements */}
                             {activeTab === 'equipements' && (
@@ -1204,25 +1038,6 @@ export function ResourcesModal({
                 </div>
             )}
 
-            {/* Modal Personnel */}
-            {showPersonnelModal && (
-                <PersonnelModal
-                    isOpen={showPersonnelModal}
-                    onClose={() => {
-                        setShowPersonnelModal(false);
-                        setSelectedPersonnel(null);
-                    }}
-                    onSave={onSavePersonnel}
-                    onDelete={onDeletePersonnel}
-                    personnel={selectedPersonnel}
-                    addNotification={addNotification}
-                    utilisateurConnecte={utilisateurConnecte}
-                    estCoordonnateur={estCoordonnateur}
-                    postesDisponibles={postes}
-                    succursalesDisponibles={succursales}
-                />
-            )}
-
             {/* Modal Équipement */}
             {showEquipementModal && (
                 <EquipementModal
@@ -1273,6 +1088,12 @@ export function ResourcesModal({
                     onDelete={null}
                     succursale={selectedSuccursale}
                     succursales={succursales}
+                    personnel={personnel}
+                    onSavePersonnel={onSavePersonnel}
+                    onDeletePersonnel={onDeletePersonnel}
+                    postes={postes}
+                    departements={[]}
+                    addNotification={addNotification}
                 />
             )}
         </>

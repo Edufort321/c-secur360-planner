@@ -5,9 +5,12 @@ import { getBureauOptions } from '../../utils/bureauUtils';
 import { useAppData } from '../../hooks/useAppData';
 import { useLanguage } from '../../contexts/LanguageContext';
 
-export function PersonnelModal({ isOpen, onClose, personnel = null, onSave, onDelete }) {
-    const { postes, succursales } = useAppData();
+export function PersonnelModal({ isOpen, onClose, personnel = null, onSave, onDelete, forceSuccursale = null, postes: postesProp = null, succursales: succursalesProp = null }) {
+    const appData = useAppData();
     const { t } = useLanguage();
+    // Utiliser les props si fournies, sinon utiliser appData
+    const postes = postesProp || appData.postes;
+    const succursales = succursalesProp || appData.succursales;
     const [formData, setFormData] = useState({
         nom: '',
         prenom: '',
@@ -93,7 +96,7 @@ export function PersonnelModal({ isOpen, onClose, personnel = null, onSave, onDe
                 prenom: personnel.prenom || '',
                 poste: personnel.poste || '',
                 departement: personnel.departement || '',
-                succursale: personnel.succursale || '',
+                succursale: forceSuccursale || personnel.succursale || '',
                 specialites: personnel.specialites || [],
                 disponible: personnel.disponible !== false,
                 telephone: personnel.telephone || '',
@@ -130,7 +133,7 @@ export function PersonnelModal({ isOpen, onClose, personnel = null, onSave, onDe
                 prenom: '',
                 poste: '',
                 departement: '',
-                succursale: '',
+                succursale: forceSuccursale || '',
                 specialites: [],
                 disponible: true,
                 telephone: '',
@@ -408,12 +411,14 @@ export function PersonnelModal({ isOpen, onClose, personnel = null, onSave, onDe
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     {t('personnel.branch')} *
+                                    {forceSuccursale && <span className="ml-2 text-xs text-gray-500">(Défini par la succursale)</span>}
                                 </label>
                                 <select
                                     value={formData.succursale}
                                     onChange={(e) => handleInputChange('succursale', e.target.value)}
-                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                                     required
+                                    disabled={!!forceSuccursale}
                                 >
                                     <option value="">{t('personnel.selectBranch')}</option>
                                     {succursales.map(succursale => (

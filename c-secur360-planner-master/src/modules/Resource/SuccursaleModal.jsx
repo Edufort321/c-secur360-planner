@@ -1,8 +1,22 @@
 import { useState, useEffect } from 'react';
 import { Icon } from '../../components/UI/Icon';
 import { Logo } from '../../components/UI/Logo';
+import { PersonnelModal } from './PersonnelModal';
 
-export function SuccursaleModal({ isOpen, onClose, onSave, onDelete, succursale = null, succursales = [] }) {
+export function SuccursaleModal({
+    isOpen,
+    onClose,
+    onSave,
+    onDelete,
+    succursale = null,
+    succursales = [],
+    personnel = [],
+    onSavePersonnel,
+    onDeletePersonnel,
+    postes = [],
+    departements = [],
+    addNotification
+}) {
     const [formData, setFormData] = useState({
         nom: '',
         adresse: '',
@@ -19,6 +33,9 @@ export function SuccursaleModal({ isOpen, onClose, onSave, onDelete, succursale 
         notes: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [activeSection, setActiveSection] = useState('info'); // 'info' ou 'personnel'
+    const [showPersonnelModal, setShowPersonnelModal] = useState(false);
+    const [selectedPersonnel, setSelectedPersonnel] = useState(null);
 
     // Couleurs prédéfinies professionnelles
     const couleursPredefinies = [
@@ -159,34 +176,95 @@ export function SuccursaleModal({ isOpen, onClose, onSave, onDelete, succursale 
         return `${clean.slice(0, 3)} ${clean.slice(3, 6)}`;
     };
 
+    // Filtrer le personnel de cette succursale
+    const getPersonnelSuccursale = () => {
+        if (!succursale) return [];
+        return personnel.filter(p => p.succursale === succursale.nom);
+    };
+
+    // Gestion du personnel
+    const handleAddPersonnel = () => {
+        setSelectedPersonnel(null);
+        setShowPersonnelModal(true);
+    };
+
+    const handleEditPersonnel = (person) => {
+        setSelectedPersonnel(person);
+        setShowPersonnelModal(true);
+    };
+
+    const handleDeletePersonnel = (personId) => {
+        const person = personnel.find(p => p.id === personId);
+        if (!person) return;
+
+        if (window.confirm(`Êtes-vous sûr de vouloir supprimer ${person.prenom} ${person.nom} ?`)) {
+            onDeletePersonnel(personId);
+            if (addNotification) {
+                addNotification(`${person.prenom} ${person.nom} supprimé avec succès`, 'success');
+            }
+        }
+    };
+
     if (!isOpen) return null;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[95vh] overflow-hidden">
                 {/* Header avec logo - Navy Blue comme le principal */}
-                <div className="flex items-center justify-between p-6 border-b bg-gray-900">
-                    <div className="flex items-center gap-4">
-                        <Logo size="normal" showText={false} />
-                        <div>
-                            <h2 className="text-xl font-bold text-white flex items-center">
-                                <Icon name="building" className="mr-2" size={24} />
-                                {succursale ? 'Modifier la Succursale' : 'Nouvelle Succursale'}
-                            </h2>
-                            <p className="text-sm text-gray-300">Gestion des succursales C-Secur360</p>
+                <div className="bg-gray-900">
+                    <div className="flex items-center justify-between p-6 border-b border-gray-700">
+                        <div className="flex items-center gap-4">
+                            <Logo size="normal" showText={false} />
+                            <div>
+                                <h2 className="text-xl font-bold text-white flex items-center">
+                                    <Icon name="building" className="mr-2" size={24} />
+                                    {succursale ? `Succursale: ${succursale.nom}` : 'Nouvelle Succursale'}
+                                </h2>
+                                <p className="text-sm text-gray-300">Gestion des succursales et du personnel C-Secur360</p>
+                            </div>
                         </div>
+                        <button
+                            onClick={onClose}
+                            className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-lg transition-all"
+                            title="Fermer"
+                        >
+                            <Icon name="close" size={24} />
+                        </button>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-lg transition-all"
-                        title="Fermer"
-                    >
-                        <Icon name="close" size={24} />
-                    </button>
+
+                    {/* Onglets si on modifie une succursale existante */}
+                    {succursale && (
+                        <div className="flex border-b border-gray-700 px-6">
+                            <button
+                                onClick={() => setActiveSection('info')}
+                                className={`py-3 px-6 font-medium text-sm transition-all ${
+                                    activeSection === 'info'
+                                        ? 'text-white border-b-2 border-blue-400'
+                                        : 'text-gray-400 hover:text-gray-200'
+                                }`}
+                            >
+                                <Icon name="info" size={16} className="inline mr-2" />
+                                Informations succursale
+                            </button>
+                            <button
+                                onClick={() => setActiveSection('personnel')}
+                                className={`py-3 px-6 font-medium text-sm transition-all ${
+                                    activeSection === 'personnel'
+                                        ? 'text-white border-b-2 border-blue-400'
+                                        : 'text-gray-400 hover:text-gray-200'
+                                }`}
+                            >
+                                <Icon name="user" size={16} className="inline mr-2" />
+                                Personnel ({getPersonnelSuccursale().length})
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Content */}
                 <div className="p-6 overflow-y-auto max-h-[calc(95vh-140px)]">
+                    {/* Section Informations Succursale */}
+                    {activeSection === 'info' && (
                     <form onSubmit={handleSubmit} className="space-y-8">
                         {/* Section: Informations générales */}
                         <div className="bg-gray-50 rounded-lg p-6">
@@ -499,7 +577,146 @@ export function SuccursaleModal({ isOpen, onClose, onSave, onDelete, succursale 
                             </div>
                         </div>
                     </form>
+                    )}
+
+                    {/* Section Personnel */}
+                    {activeSection === 'personnel' && succursale && (
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                    Personnel de {succursale.nom}
+                                </h3>
+                                <button
+                                    onClick={handleAddPersonnel}
+                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                                >
+                                    <Icon name="plus" size={16} />
+                                    Ajouter un employé
+                                </button>
+                            </div>
+
+                            {/* Liste du personnel */}
+                            {getPersonnelSuccursale().length === 0 ? (
+                                <div className="text-center py-12 bg-gray-50 rounded-lg">
+                                    <Icon name="user" size={48} className="mx-auto text-gray-300 mb-4" />
+                                    <p className="text-gray-500 text-lg mb-2">Aucun employé dans cette succursale</p>
+                                    <p className="text-gray-400 text-sm">Cliquez sur "Ajouter un employé" pour commencer</p>
+                                </div>
+                            ) : (
+                                <div className="grid gap-4">
+                                    {getPersonnelSuccursale().map(person => (
+                                        <div
+                                            key={person.id}
+                                            className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow"
+                                        >
+                                            <div className="flex justify-between items-start">
+                                                <div className="flex-1">
+                                                    <h4 className="font-semibold text-gray-900 text-lg">
+                                                        {person.prenom} {person.nom}
+                                                    </h4>
+                                                    <div className="mt-2 space-y-1">
+                                                        <p className="text-sm text-gray-600">
+                                                            <Icon name="briefcase" size={14} className="inline mr-2" />
+                                                            {person.poste}
+                                                        </p>
+                                                        {person.departement && (
+                                                            <p className="text-sm text-gray-600">
+                                                                <Icon name="building" size={14} className="inline mr-2" />
+                                                                {person.departement}
+                                                            </p>
+                                                        )}
+                                                        {person.telephone && (
+                                                            <p className="text-sm text-gray-600">
+                                                                <Icon name="phone" size={14} className="inline mr-2" />
+                                                                {person.telephone}
+                                                            </p>
+                                                        )}
+                                                        {person.email && (
+                                                            <p className="text-sm text-gray-600">
+                                                                <Icon name="mail" size={14} className="inline mr-2" />
+                                                                {person.email}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="mt-3 flex gap-2">
+                                                        {person.niveauAcces && (
+                                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                                                person.niveauAcces === 'administration' ? 'bg-purple-100 text-purple-800' :
+                                                                person.niveauAcces === 'coordination' ? 'bg-blue-100 text-blue-800' :
+                                                                person.niveauAcces === 'modification' ? 'bg-green-100 text-green-800' :
+                                                                'bg-gray-100 text-gray-800'
+                                                            }`}>
+                                                                {person.niveauAcces}
+                                                            </span>
+                                                        )}
+                                                        {person.disponible !== false && (
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                Disponible
+                                                            </span>
+                                                        )}
+                                                        {person.disponible === false && (
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                                Indisponible
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2 ml-4">
+                                                    <button
+                                                        onClick={() => handleEditPersonnel(person)}
+                                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        title="Modifier"
+                                                    >
+                                                        <Icon name="edit" size={18} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeletePersonnel(person.id)}
+                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                        title="Supprimer"
+                                                    >
+                                                        <Icon name="trash" size={18} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
+
+                {/* Modal Personnel */}
+                {showPersonnelModal && (
+                    <PersonnelModal
+                        isOpen={showPersonnelModal}
+                        onClose={() => {
+                            setShowPersonnelModal(false);
+                            setSelectedPersonnel(null);
+                        }}
+                        onSave={(personnelData) => {
+                            // Forcer la succursale à être celle du modal
+                            const dataAvecSuccursale = {
+                                ...personnelData,
+                                succursale: succursale.nom
+                            };
+                            onSavePersonnel(dataAvecSuccursale);
+                            setShowPersonnelModal(false);
+                            setSelectedPersonnel(null);
+                            if (addNotification) {
+                                addNotification(
+                                    `${personnelData.prenom} ${personnelData.nom} ${selectedPersonnel ? 'modifié' : 'ajouté'} avec succès`,
+                                    'success'
+                                );
+                            }
+                        }}
+                        personnel={selectedPersonnel}
+                        postes={postes}
+                        succursales={succursales}
+                        departements={departements}
+                        forceSuccursale={succursale?.nom} // Forcer la succursale actuelle
+                    />
+                )}
             </div>
         </div>
     );
