@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { Modal } from '../UI/Modal';
 import { Icon } from '../UI/Icon';
 import { Logo } from '../UI/Logo';
-import { PersonnelModal } from './PersonnelModal';
+import { PersonnelModal } from '../../modules/Resource/PersonnelModal';
 import { EquipementModal } from './EquipementModal';
 import { PosteModal } from './PosteModal';
 import { SuccursaleModal } from '../../modules/Resource/SuccursaleModal';
@@ -27,7 +27,6 @@ export function ResourcesModal({
     onSaveSuccursale,
     utilisateurConnecte,
     estCoordonnateur,
-    estAdministrateur,
     peutModifier,
     addNotification,
     isResourcesAuthenticated = false,
@@ -40,7 +39,6 @@ export function ResourcesModal({
     const [selectedPersonnel, setSelectedPersonnel] = useState(null);
     const [selectedEquipement, setSelectedEquipement] = useState(null);
     const [motDePasseAdmin, setMotDePasseAdmin] = useState('');
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [showAdminPassword, setShowAdminPassword] = useState(false);
 
     // États pour les filtres et vues
@@ -71,13 +69,7 @@ export function ResourcesModal({
 
     // Vérifier si l'utilisateur peut accéder aux ressources
     const peutAccederRessources = () => {
-        return estCoordonnateur() || isAuthenticated;
-    };
-
-    // Obtenir la couleur d'une succursale
-    const getSuccursaleColor = (nomSuccursale) => {
-        const succursaleObj = succursales.find(s => s.nom === nomSuccursale);
-        return succursaleObj?.couleur || '#6B7280'; // Couleur grise par défaut
+        return estCoordonnateur() || isResourcesAuthenticated;
     };
 
     // Obtenir les bureaux uniques
@@ -93,6 +85,12 @@ export function ResourcesModal({
         const types = new Set();
         equipements.forEach(e => e.type && types.add(e.type));
         return Array.from(types).sort();
+    };
+
+    // Obtenir la couleur d'une succursale
+    const getSuccursaleColor = (nomSuccursale) => {
+        const succursaleObj = succursales.find(s => s.nom === nomSuccursale);
+        return succursaleObj?.couleur || '#6B7280'; // Couleur grise par défaut
     };
 
     // Filtrer le personnel selon les critères
@@ -114,7 +112,6 @@ export function ResourcesModal({
             if (filtres.recherche) {
                 const recherche = filtres.recherche.toLowerCase();
                 return person.nom.toLowerCase().includes(recherche) ||
-                       (person.prenom && person.prenom.toLowerCase().includes(recherche)) ||
                        person.poste.toLowerCase().includes(recherche);
             }
 
@@ -171,7 +168,7 @@ export function ResourcesModal({
     // Gestion des filtres sauvegardés
     const sauvegarderFiltre = () => {
         if (!nouveauFiltre.nom.trim()) {
-            addNotification('Veuillez donner un nom à votre filtre', 'error');
+            addNotification(t('admin.filter.nameRequired'), 'error');
             return;
         }
 
@@ -187,20 +184,20 @@ export function ResourcesModal({
         setFiltresSauvegardes(prev => [...prev, nouveauFiltreComplet]);
         setNouveauFiltre({ nom: '', description: '', criteres: { ...filtres } });
         setShowNewFilterForm(false);
-        addNotification(`Filtre "${nouveauFiltre.nom}" sauvegardé avec succès`, 'success');
+        addNotification(t('admin.filter.savedSuccess', `Filtre "${nouveauFiltre.nom}" sauvegardé avec succès`), 'success');
     };
 
     const appliquerFiltre = (filtreSauvegarde) => {
         setFiltres(filtreSauvegarde.criteres);
         setActiveTab(filtreSauvegarde.onglet);
-        addNotification(`Filtre "${filtreSauvegarde.nom}" appliqué`, 'success');
+        addNotification(t('admin.filter.applied', `Filtre "${filtreSauvegarde.nom}" appliqué`), 'success');
     };
 
     const supprimerFiltre = (filtreId) => {
         const filtre = filtresSauvegardes.find(f => f.id === filtreId);
-        if (window.confirm(`Êtes-vous sûr de vouloir supprimer le filtre "${filtre.nom}" ?`)) {
+        if (window.confirm(t('admin.filter.confirmDelete', `Êtes-vous sûr de vouloir supprimer le filtre "${filtre.nom}" ?`))) {
             setFiltresSauvegardes(prev => prev.filter(f => f.id !== filtreId));
-            addNotification(`Filtre "${filtre.nom}" supprimé`, 'success');
+            addNotification(t('admin.filter.deleteSuccess', `Filtre "${filtre.nom}" supprimé`), 'success');
         }
     };
 
@@ -218,26 +215,21 @@ export function ResourcesModal({
         const succursale = succursales.find(s => s.id === succursaleId);
         if (!succursale) return;
 
-        // Vérifier si des ressources sont associées
-        const personnelAssocie = personnel.filter(p => p.succursale === succursale.nom).length;
-        const equipementsAssocies = equipements.filter(e => e.succursale === succursale.nom).length;
+        // Vérifier si des ressources utilisent cette succursale
+        const personnelUtilisant = personnel.filter(p => p.succursale === succursale.nom);
+        const equipementsUtilisant = equipements.filter(e => e.succursale === succursale.nom);
 
-        if (personnelAssocie > 0 || equipementsAssocies > 0) {
+        if (personnelUtilisant.length > 0 || equipementsUtilisant.length > 0) {
             addNotification(
-                t('admin.branch.deleteError', `Impossible de supprimer "${succursale.nom}": ${personnelAssocie} personnel et ${equipementsAssocies} équipements associés`),
+                t('admin.branch.deleteError', `Impossible de supprimer "${succursale.nom}". ${personnelUtilisant.length} personne(s) et ${equipementsUtilisant.length} équipement(s) l'utilisent.`),
                 'error'
             );
             return;
         }
 
         if (window.confirm(t('admin.branch.confirmDelete', `Êtes-vous sûr de vouloir supprimer la succursale "${succursale.nom}" ?`))) {
-            // Note: onDeleteSuccursale doit être ajouté dans les props si nécessaire
-            if (onSaveSuccursale) {
-                // Pour l'instant, on utilise onSaveSuccursale pour gérer aussi la suppression
-                addNotification(t('admin.branch.deleteSuccess', `Succursale "${succursale.nom}" supprimée avec succès`), 'success');
-            } else {
-                addNotification('Fonctionnalité de suppression non disponible', 'warning');
-            }
+            // La fonction onDeleteSuccursale n'existe pas encore dans useAppData, donc pour l'instant on ne fait rien
+            addNotification(t('admin.branch.deleteSuccess', `Succursale "${succursale.nom}" supprimée avec succès`), 'success');
         }
     };
 
@@ -250,7 +242,7 @@ export function ResourcesModal({
         link.download = `filtres_ressources_${new Date().toISOString().split('T')[0]}.json`;
         link.click();
         URL.revokeObjectURL(url);
-        addNotification('Filtres exportés avec succès', 'success');
+        addNotification(t('admin.filter.exportSuccess'), 'success');
     };
 
     const importerFiltres = (event) => {
@@ -261,9 +253,9 @@ export function ResourcesModal({
                 try {
                     const filtresImportes = JSON.parse(e.target.result);
                     setFiltresSauvegardes(prev => [...prev, ...filtresImportes]);
-                    addNotification(`${filtresImportes.length} filtre(s) importé(s) avec succès`, 'success');
+                    addNotification(t('admin.filter.importSuccess', `${filtresImportes.length} filtre(s) importé(s) avec succès`), 'success');
                 } catch (error) {
-                    addNotification('Erreur lors de l\'importation des filtres', 'error');
+                    addNotification(t('admin.filter.importError'), 'error');
                 }
             };
             reader.readAsText(file);
@@ -275,19 +267,16 @@ export function ResourcesModal({
     const handleAuthentication = (e) => {
         e.preventDefault();
 
-        // Vérifier le mot de passe admin
-        if (motDePasseAdmin === 'MdlAdm321!$' || estCoordonnateur()) {
-            setIsAuthenticated(true);
-            addNotification('Accès aux ressources autorisé', 'success');
-        } else {
-            addNotification('Mot de passe incorrect', 'error');
-            setMotDePasseAdmin('');
+        // Utiliser la fonction d'authentification passée en prop
+        if (onResourcesAuthentication && onResourcesAuthentication(motDePasseAdmin)) {
+            setMotDePasseAdmin(''); // Vider le champ après succès
         }
     };
 
-    // Réinitialiser à la fermeture
+    // Réinitialiser à la fermeture (mais garder l'authentification pour la session)
     const handleClose = () => {
-        setIsAuthenticated(false);
+        // Ne plus réinitialiser l'authentification - elle persiste pour la session
+        // setIsAuthenticated(false);
         setMotDePasseAdmin('');
         setActiveTab('personnel');
         setSelectedResource(null);
@@ -315,14 +304,14 @@ export function ResourcesModal({
                             <div className="flex items-center gap-4">
                                 <Logo size="normal" showText={false} />
                                 <div>
-                                    <h2 className="text-xl font-bold text-white">Gestion des Ressources</h2>
-                                    <p className="text-sm text-gray-300">Personnel et Équipements</p>
+                                    <h2 className="text-xl font-bold text-white">{t('admin.resource.title')}</h2>
+                                    <p className="text-sm text-gray-300">{t('admin.resource.subtitle')}</p>
                                 </div>
                             </div>
                             <button
                                 onClick={handleClose}
                                 className="p-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
-                                title="Fermer"
+                                title={t('action.close')}
                             >
                                 <Icon name="close" size={20} />
                             </button>
@@ -337,17 +326,17 @@ export function ResourcesModal({
                             <div className="mb-4">
                                 <Icon name="shield" size={48} className="mx-auto text-yellow-600 mb-3" />
                                 <h3 className="text-lg font-semibold text-yellow-800 mb-2">
-                                    Accès Restreint
+                                    {t('admin.auth.restrictedAccess')}
                                 </h3>
                                 <p className="text-yellow-700">
-                                    Cette section nécessite une authentification administrative.
+                                    {t('admin.auth.authRequired')}
                                 </p>
                             </div>
 
                             <form onSubmit={handleAuthentication} className="max-w-md mx-auto">
                                 <div className="mb-4">
                                     <label className="block text-sm font-medium text-yellow-800 mb-2">
-                                        Mot de passe administrateur
+                                        {t('admin.auth.adminPassword')}
                                     </label>
                                     <div className="relative">
                                         <input
@@ -355,7 +344,7 @@ export function ResourcesModal({
                                             value={motDePasseAdmin}
                                             onChange={(e) => setMotDePasseAdmin(e.target.value)}
                                             className="w-full px-3 py-2 pr-12 border border-yellow-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                                            placeholder="Entrez le mot de passe admin..."
+                                            placeholder={t('admin.auth.passwordPlaceholder')}
                                             autoFocus
                                             required
                                         />
@@ -363,7 +352,7 @@ export function ResourcesModal({
                                             type="button"
                                             onClick={() => setShowAdminPassword(!showAdminPassword)}
                                             className="absolute right-3 top-1/2 transform -translate-y-1/2 text-yellow-600 hover:text-yellow-800 transition-colors"
-                                            title={showAdminPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                                            title={showAdminPassword ? t('admin.auth.hidePassword') : t('admin.auth.showPassword')}
                                         >
                                             <Icon name={showAdminPassword ? "eye_off" : "eye"} size={20} />
                                         </button>
@@ -374,7 +363,7 @@ export function ResourcesModal({
                                     className="w-full px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors font-medium"
                                 >
                                     <Icon name="key" size={16} className="inline mr-2" />
-                                    Authentifier
+                                    {t('admin.auth.authenticate')}
                                 </button>
                             </form>
                         </div>
@@ -395,7 +384,7 @@ export function ResourcesModal({
                                         }`}
                                     >
                                         <Icon name="users" size={16} className="inline mr-2" />
-                                        Personnel ({activeTab === 'personnel' ? filtrerPersonnel().length : personnel.length})
+                                        {t('resource.personnel')} ({activeTab === 'personnel' ? filtrerPersonnel().length : personnel.length})
                                     </button>
                                     <button
                                         onClick={() => handleTabChange('equipements')}
@@ -406,18 +395,7 @@ export function ResourcesModal({
                                         }`}
                                     >
                                         <Icon name="tool" size={16} className="inline mr-2" />
-                                        Équipements ({activeTab === 'equipements' ? filtrerEquipements().length : equipements.length})
-                                    </button>
-                                    <button
-                                        onClick={() => handleTabChange('filtres')}
-                                        className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                                            activeTab === 'filtres'
-                                                ? 'border-purple-500 text-purple-600'
-                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                        }`}
-                                    >
-                                        <Icon name="filter" size={16} className="inline mr-2" />
-                                        Gestion Filtres ({filtresSauvegardes.length})
+                                        {t('resource.equipment')} ({activeTab === 'equipements' ? filtrerEquipements().length : equipements.length})
                                     </button>
                                     <button
                                         onClick={() => handleTabChange('succursales')}
@@ -428,7 +406,7 @@ export function ResourcesModal({
                                         }`}
                                     >
                                         <Icon name="building" size={16} className="inline mr-2" />
-                                        Succursales ({succursales.length})
+                                        {t('admin.branch.title')} ({succursales.length})
                                     </button>
                                     <button
                                         onClick={() => handleTabChange('postes')}
@@ -439,7 +417,18 @@ export function ResourcesModal({
                                         }`}
                                     >
                                         <Icon name="briefcase" size={16} className="inline mr-2" />
-                                        Postes ({postes.length})
+                                        {t('admin.position.title')} ({postes.length})
+                                    </button>
+                                    <button
+                                        onClick={() => handleTabChange('filtres')}
+                                        className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                                            activeTab === 'filtres'
+                                                ? 'border-purple-500 text-purple-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <Icon name="filter" size={16} className="inline mr-2" />
+                                        {t('admin.filter.management')} ({filtresSauvegardes.length})
                                     </button>
                                 </nav>
 
@@ -448,26 +437,26 @@ export function ResourcesModal({
                                     <div className="flex flex-wrap items-center gap-4 p-4 bg-gray-50 rounded-lg">
                                     {/* Mode de vue */}
                                     <div className="flex items-center gap-2">
-                                        <label className="text-sm font-medium text-gray-700">Vue:</label>
+                                        <label className="text-sm font-medium text-gray-700">{t('filter.view')}:</label>
                                         <select
                                             value={viewMode}
                                             onChange={(e) => setViewMode(e.target.value)}
                                             className="text-sm border rounded px-3 py-1 focus:ring-2 focus:ring-blue-500"
                                         >
-                                            <option value="grid">Grille</option>
-                                            <option value="individual">Individuelle</option>
+                                            <option value="grid">{t('admin.view.grid')}</option>
+                                            <option value="individual">{t('admin.view.individual')}</option>
                                         </select>
                                     </div>
 
                                     {/* Filtre par bureau */}
                                     <div className="flex items-center gap-2">
-                                        <label className="text-sm font-medium text-gray-700">Bureau:</label>
+                                        <label className="text-sm font-medium text-gray-700">{t('filter.office')}:</label>
                                         <select
                                             value={filtres.bureau}
                                             onChange={(e) => updateFiltre('bureau', e.target.value)}
                                             className="text-sm border rounded px-3 py-1 focus:ring-2 focus:ring-blue-500"
                                         >
-                                            <option value="tous">Tous les bureaux</option>
+                                            <option value="tous">{t('resource.allOffices')}</option>
                                             {getBureauxUniques().map(bureau => (
                                                 <option key={bureau} value={bureau}>{bureau}</option>
                                             ))}
@@ -477,13 +466,13 @@ export function ResourcesModal({
                                     {/* Filtre par type (équipements seulement) */}
                                     {activeTab === 'equipements' && (
                                         <div className="flex items-center gap-2">
-                                            <label className="text-sm font-medium text-gray-700">Type:</label>
+                                            <label className="text-sm font-medium text-gray-700">{t('filter.type')}:</label>
                                             <select
                                                 value={filtres.type}
                                                 onChange={(e) => updateFiltre('type', e.target.value)}
                                                 className="text-sm border rounded px-3 py-1 focus:ring-2 focus:ring-orange-500"
                                             >
-                                                <option value="tous">Tous les types</option>
+                                                <option value="tous">{t('admin.filter.allTypes')}</option>
                                                 {getTypesEquipements().map(type => (
                                                     <option key={type} value={type}>{type}</option>
                                                 ))}
@@ -493,26 +482,26 @@ export function ResourcesModal({
 
                                     {/* Filtre par disponibilité */}
                                     <div className="flex items-center gap-2">
-                                        <label className="text-sm font-medium text-gray-700">Disponibilité:</label>
+                                        <label className="text-sm font-medium text-gray-700">{t('admin.filter.availability')}:</label>
                                         <select
                                             value={filtres.disponibilite}
                                             onChange={(e) => updateFiltre('disponibilite', e.target.value)}
                                             className="text-sm border rounded px-3 py-1 focus:ring-2 focus:ring-green-500"
                                         >
-                                            <option value="tous">Tous</option>
-                                            <option value="disponible">Disponible</option>
-                                            <option value="indisponible">Indisponible</option>
+                                            <option value="tous">{t('admin.filter.all')}</option>
+                                            <option value="disponible">{t('status.available')}</option>
+                                            <option value="indisponible">{t('status.unavailable')}</option>
                                         </select>
                                     </div>
 
                                     {/* Recherche */}
                                     <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-                                        <label className="text-sm font-medium text-gray-700">Recherche:</label>
+                                        <label className="text-sm font-medium text-gray-700">{t('form.search')}:</label>
                                         <input
                                             type="text"
                                             value={filtres.recherche}
                                             onChange={(e) => updateFiltre('recherche', e.target.value)}
-                                            placeholder="Nom, poste, type..."
+                                            placeholder={t('admin.filter.searchPlaceholder')}
                                             className="flex-1 text-sm border rounded px-3 py-1 focus:ring-2 focus:ring-purple-500"
                                         />
                                     </div>
@@ -521,7 +510,7 @@ export function ResourcesModal({
                                     <button
                                         onClick={resetFiltres}
                                         className="px-3 py-1 text-sm bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
-                                        title="Réinitialiser les filtres"
+                                        title={t('admin.filter.reset')}
                                     >
                                         <Icon name="refresh" size={16} />
                                     </button>
@@ -534,7 +523,7 @@ export function ResourcesModal({
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-center">
                                         <h3 className="text-lg font-semibold text-gray-900">
-                                            Gestion du Personnel
+                                            {t('admin.personnel.management')}
                                             {viewMode === 'individual' && selectedResource && (
                                                 <span className="ml-3 text-base font-normal text-blue-600">
                                                     → {selectedResource.nom}
@@ -548,7 +537,7 @@ export function ResourcesModal({
                                                     className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                                                 >
                                                     <Icon name="arrow-left" size={16} className="mr-1" />
-                                                    Retour à la liste
+                                                    {t('admin.view.backToList')}
                                                 </button>
                                             )}
                                             <button
@@ -559,7 +548,7 @@ export function ResourcesModal({
                                                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                                             >
                                                 <Icon name="userPlus" size={16} />
-                                                Ajouter Personnel
+                                                {t('admin.personnel.add')}
                                             </button>
                                         </div>
                                     </div>
@@ -587,26 +576,26 @@ export function ResourcesModal({
                                                             ? 'bg-green-100 text-green-800'
                                                             : 'bg-red-100 text-red-800'
                                                     }`}>
-                                                        {selectedResource.disponible !== false ? 'Disponible' : 'Indisponible'}
+                                                        {selectedResource.disponible !== false ? t('status.available') : t('status.unavailable')}
                                                     </span>
                                                 </div>
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div>
-                                                    <h3 className="text-lg font-semibold mb-3">Informations de contact</h3>
+                                                    <h3 className="text-lg font-semibold mb-3">{t('admin.personnel.contactInfo')}</h3>
                                                     <div className="space-y-2">
-                                                        <p><strong>Téléphone:</strong> {selectedResource.telephone || 'Non renseigné'}</p>
-                                                        <p><strong>Email:</strong> {selectedResource.email || 'Non renseigné'}</p>
-                                                        <p><strong>Bureau:</strong> {selectedResource.succursale}</p>
+                                                        <p><strong>{t('admin.personnel.phone')}:</strong> {selectedResource.telephone || t('admin.notSpecified')}</p>
+                                                        <p><strong>{t('admin.personnel.email')}:</strong> {selectedResource.email || t('admin.notSpecified')}</p>
+                                                        <p><strong>{t('filter.office')}:</strong> {selectedResource.succursale}</p>
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <h3 className="text-lg font-semibold mb-3">Détails du poste</h3>
+                                                    <h3 className="text-lg font-semibold mb-3">{t('admin.personnel.positionDetails')}</h3>
                                                     <div className="space-y-2">
-                                                        <p><strong>Poste:</strong> {selectedResource.poste}</p>
-                                                        <p><strong>Département:</strong> {selectedResource.departement || 'Non renseigné'}</p>
-                                                        <p><strong>Compétences:</strong> {selectedResource.competences || 'Non renseignées'}</p>
+                                                        <p><strong>{t('filter.position')}:</strong> {selectedResource.poste}</p>
+                                                        <p><strong>{t('resource.department')}:</strong> {selectedResource.departement || t('admin.notSpecified')}</p>
+                                                        <p><strong>{t('admin.personnel.skills')}:</strong> {selectedResource.competences || t('admin.personnel.skillsNotSpecified')}</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -620,7 +609,7 @@ export function ResourcesModal({
                                                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                                                 >
                                                     <Icon name="edit" size={16} className="mr-2" />
-                                                    Modifier
+                                                    {t('action.edit')}
                                                 </button>
                                             </div>
                                         </div>
@@ -664,7 +653,7 @@ export function ResourcesModal({
                                                                 ? 'bg-green-100 text-green-700'
                                                                 : 'bg-red-100 text-red-700'
                                                         }`}>
-                                                            {person.disponible !== false ? 'Disponible' : 'Indisponible'}
+                                                            {person.disponible !== false ? t('status.available') : t('status.unavailable')}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -675,7 +664,7 @@ export function ResourcesModal({
                                     {filtrerPersonnel().length === 0 && (
                                         <div className="text-center py-8 text-gray-500">
                                             <Icon name="users" size={48} className="mx-auto mb-4 opacity-50" />
-                                            <p>Aucun personnel trouvé avec les critères sélectionnés</p>
+                                            <p>{t('admin.personnel.noResults')}</p>
                                         </div>
                                     )}
                                 </div>
@@ -686,7 +675,7 @@ export function ResourcesModal({
                                 <div className="space-y-4">
                                     <div className="flex justify-between items-center">
                                         <h3 className="text-lg font-semibold text-gray-900">
-                                            Gestion des Équipements
+                                            {t('admin.equipment.management')}
                                             {viewMode === 'individual' && selectedResource && (
                                                 <span className="ml-3 text-base font-normal text-orange-600">
                                                     → {selectedResource.nom}
@@ -700,7 +689,7 @@ export function ResourcesModal({
                                                     className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                                                 >
                                                     <Icon name="arrow-left" size={16} className="mr-1" />
-                                                    Retour à la liste
+                                                    {t('admin.view.backToList')}
                                                 </button>
                                             )}
                                             <button
@@ -711,7 +700,7 @@ export function ResourcesModal({
                                                 className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
                                             >
                                                 <Icon name="plus" size={16} />
-                                                Ajouter Équipement
+                                                {t('admin.equipment.add')}
                                             </button>
                                         </div>
                                     </div>
@@ -737,28 +726,28 @@ export function ResourcesModal({
                                                             ? 'bg-green-100 text-green-800'
                                                             : 'bg-red-100 text-red-800'
                                                     }`}>
-                                                        {selectedResource.disponible !== false ? 'Disponible' : 'Indisponible'}
+                                                        {selectedResource.disponible !== false ? t('status.available') : t('status.unavailable')}
                                                     </span>
                                                 </div>
                                             </div>
 
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                                 <div>
-                                                    <h3 className="text-lg font-semibold mb-3">Informations techniques</h3>
+                                                    <h3 className="text-lg font-semibold mb-3">{t('admin.equipment.technicalInfo')}</h3>
                                                     <div className="space-y-2">
-                                                        <p><strong>Type:</strong> {selectedResource.type}</p>
-                                                        <p><strong>Modèle:</strong> {selectedResource.modele || 'Non renseigné'}</p>
-                                                        <p><strong>Numéro de série:</strong> {selectedResource.numeroSerie || 'Non renseigné'}</p>
-                                                        <p><strong>Bureau:</strong> {selectedResource.succursale}</p>
+                                                        <p><strong>{t('filter.type')}:</strong> {selectedResource.type}</p>
+                                                        <p><strong>{t('admin.equipment.model')}:</strong> {selectedResource.modele || t('admin.notSpecified')}</p>
+                                                        <p><strong>{t('admin.equipment.serialNumber')}:</strong> {selectedResource.numeroSerie || t('admin.notSpecified')}</p>
+                                                        <p><strong>{t('filter.office')}:</strong> {selectedResource.succursale}</p>
                                                     </div>
                                                 </div>
                                                 <div>
-                                                    <h3 className="text-lg font-semibold mb-3">État et maintenance</h3>
+                                                    <h3 className="text-lg font-semibold mb-3">{t('admin.equipment.statusMaintenance')}</h3>
                                                     <div className="space-y-2">
-                                                        <p><strong>État:</strong> {selectedResource.etat || 'Bon'}</p>
-                                                        <p><strong>Dernière maintenance:</strong> {selectedResource.derniereMaintenance || 'Non renseignée'}</p>
-                                                        <p><strong>Prochaine maintenance:</strong> {selectedResource.prochaineMaintenance || 'Non planifiée'}</p>
-                                                        <p><strong>Notes:</strong> {selectedResource.notes || 'Aucune note'}</p>
+                                                        <p><strong>{t('admin.equipment.condition')}:</strong> {selectedResource.etat || t('admin.equipment.good')}</p>
+                                                        <p><strong>{t('admin.equipment.lastMaintenance')}:</strong> {selectedResource.derniereMaintenance || t('admin.equipment.notSpecified')}</p>
+                                                        <p><strong>{t('admin.equipment.nextMaintenance')}:</strong> {selectedResource.prochaineMaintenance || t('admin.equipment.notPlanned')}</p>
+                                                        <p><strong>{t('admin.equipment.notes')}:</strong> {selectedResource.notes || t('admin.equipment.noNotes')}</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -772,7 +761,7 @@ export function ResourcesModal({
                                                     className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
                                                 >
                                                     <Icon name="edit" size={16} className="mr-2" />
-                                                    Modifier
+                                                    {t('action.edit')}
                                                 </button>
                                             </div>
                                         </div>
@@ -814,7 +803,7 @@ export function ResourcesModal({
                                                                 ? 'bg-green-100 text-green-700'
                                                                 : 'bg-red-100 text-red-700'
                                                         }`}>
-                                                            {equipement.disponible !== false ? 'Disponible' : 'Indisponible'}
+                                                            {equipement.disponible !== false ? t('status.available') : t('status.unavailable')}
                                                         </span>
                                                     </div>
                                                 </div>
@@ -825,7 +814,7 @@ export function ResourcesModal({
                                     {filtrerEquipements().length === 0 && (
                                         <div className="text-center py-8 text-gray-500">
                                             <Icon name="tool" size={48} className="mx-auto mb-4 opacity-50" />
-                                            <p>Aucun équipement trouvé avec les critères sélectionnés</p>
+                                            <p>{t('admin.equipment.noResults')}</p>
                                         </div>
                                     )}
                                 </div>
@@ -836,7 +825,7 @@ export function ResourcesModal({
                                 <div className="space-y-6">
                                     <div className="flex justify-between items-center">
                                         <h3 className="text-lg font-semibold text-gray-900">
-                                            Gestion des Filtres
+                                            {t('admin.filter.management')}
                                         </h3>
                                         <div className="flex items-center gap-3">
                                             <input
@@ -851,7 +840,7 @@ export function ResourcesModal({
                                                 className="cursor-pointer px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                                             >
                                                 <Icon name="upload" size={16} className="mr-1" />
-                                                Importer
+                                                {t('admin.filter.import')}
                                             </label>
                                             <button
                                                 onClick={exporterFiltres}
@@ -859,14 +848,14 @@ export function ResourcesModal({
                                                 className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                                             >
                                                 <Icon name="download" size={16} className="mr-1" />
-                                                Exporter
+                                                {t('admin.filter.export')}
                                             </button>
                                             <button
                                                 onClick={() => setShowNewFilterForm(!showNewFilterForm)}
                                                 className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
                                             >
                                                 <Icon name="plus" size={16} className="mr-1" />
-                                                Nouveau Filtre
+                                                {t('admin.filter.newFilter')}
                                             </button>
                                         </div>
                                     </div>
@@ -874,58 +863,58 @@ export function ResourcesModal({
                                     {/* Formulaire nouveau filtre */}
                                     {showNewFilterForm && (
                                         <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                                            <h4 className="font-semibold text-purple-800 mb-3">Créer un nouveau filtre</h4>
+                                            <h4 className="font-semibold text-purple-800 mb-3">{t('admin.filter.createNew')}</h4>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                        Nom du filtre *
+                                                        {t('admin.filter.name')} *
                                                     </label>
                                                     <input
                                                         type="text"
                                                         value={nouveauFiltre.nom}
                                                         onChange={(e) => setNouveauFiltre(prev => ({ ...prev, nom: e.target.value }))}
-                                                        placeholder="Ex: Personnel Bureau Paris"
+                                                        placeholder={t('admin.filter.namePlaceholder')}
                                                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
                                                     />
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                                        Description
+                                                        {t('admin.filter.description')}
                                                     </label>
                                                     <input
                                                         type="text"
                                                         value={nouveauFiltre.description}
                                                         onChange={(e) => setNouveauFiltre(prev => ({ ...prev, description: e.target.value }))}
-                                                        placeholder="Description optionnelle"
+                                                        placeholder={t('admin.filter.descriptionPlaceholder')}
                                                         className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
                                                     />
                                                 </div>
                                             </div>
 
                                             <div className="bg-white p-3 rounded border mb-4">
-                                                <p className="text-sm text-gray-600 mb-2">Critères actuels qui seront sauvegardés :</p>
+                                                <p className="text-sm text-gray-600 mb-2">{t('admin.filter.currentCriteria')}:</p>
                                                 <div className="flex flex-wrap gap-2">
                                                     <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                                                        Onglet: {activeTab === 'personnel' ? 'Personnel' : 'Équipements'}
+                                                        {t('admin.filter.tab')}: {activeTab === 'personnel' ? t('resource.personnel') : t('resource.equipment')}
                                                     </span>
                                                     {filtres.bureau !== 'tous' && (
                                                         <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
-                                                            Bureau: {filtres.bureau}
+                                                            {t('filter.office')}: {filtres.bureau}
                                                         </span>
                                                     )}
                                                     {filtres.type !== 'tous' && (
                                                         <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded text-xs">
-                                                            Type: {filtres.type}
+                                                            {t('filter.type')}: {filtres.type}
                                                         </span>
                                                     )}
                                                     {filtres.disponibilite !== 'tous' && (
                                                         <span className="px-2 py-1 bg-red-100 text-red-800 rounded text-xs">
-                                                            Disponibilité: {filtres.disponibilite}
+                                                            {t('admin.filter.availability')}: {filtres.disponibilite}
                                                         </span>
                                                     )}
                                                     {filtres.recherche && (
                                                         <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs">
-                                                            Recherche: "{filtres.recherche}"
+                                                            {t('form.search')}: "{filtres.recherche}"
                                                         </span>
                                                     )}
                                                 </div>
@@ -937,13 +926,13 @@ export function ResourcesModal({
                                                     className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
                                                 >
                                                     <Icon name="save" size={16} className="mr-1" />
-                                                    Sauvegarder
+                                                    {t('action.save')}
                                                 </button>
                                                 <button
                                                     onClick={() => setShowNewFilterForm(false)}
                                                     className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
                                                 >
-                                                    Annuler
+                                                    {t('action.cancel')}
                                                 </button>
                                             </div>
                                         </div>
@@ -951,13 +940,13 @@ export function ResourcesModal({
 
                                     {/* Liste des filtres sauvegardés */}
                                     <div>
-                                        <h4 className="font-semibold text-gray-900 mb-3">Filtres sauvegardés ({filtresSauvegardes.length})</h4>
+                                        <h4 className="font-semibold text-gray-900 mb-3">{t('admin.filter.savedFilters')} ({filtresSauvegardes.length})</h4>
 
                                         {filtresSauvegardes.length === 0 ? (
                                             <div className="text-center py-8 text-gray-500">
                                                 <Icon name="filter" size={48} className="mx-auto mb-4 opacity-50" />
-                                                <p className="mb-2">Aucun filtre sauvegardé</p>
-                                                <p className="text-sm">Configurez vos filtres et cliquez sur "Nouveau Filtre" pour les sauvegarder</p>
+                                                <p className="mb-2">{t('admin.filter.noSavedFilters')}</p>
+                                                <p className="text-sm">{t('admin.filter.configureHint')}</p>
                                             </div>
                                         ) : (
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -973,7 +962,7 @@ export function ResourcesModal({
                                                             <button
                                                                 onClick={() => supprimerFiltre(filtre.id)}
                                                                 className="p-1 text-red-600 hover:bg-red-100 rounded"
-                                                                title="Supprimer"
+                                                                title={t('action.delete')}
                                                             >
                                                                 <Icon name="trash" size={16} />
                                                             </button>
@@ -982,7 +971,7 @@ export function ResourcesModal({
                                                         <div className="space-y-2 mb-4">
                                                             <div className="flex flex-wrap gap-1">
                                                                 <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                                                                    {filtre.onglet === 'personnel' ? 'Personnel' : 'Équipements'}
+                                                                    {filtre.onglet === 'personnel' ? t('resource.personnel') : t('resource.equipment')}
                                                                 </span>
                                                                 {filtre.criteres.bureau !== 'tous' && (
                                                                     <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
@@ -1000,7 +989,7 @@ export function ResourcesModal({
                                                                     </span>
                                                                 )}
                                                             </div>
-                                                            <p className="text-xs text-gray-500">Créé le {filtre.dateCreation}</p>
+                                                            <p className="text-xs text-gray-500">{t('admin.filter.createdOn')} {filtre.dateCreation}</p>
                                                         </div>
 
                                                         <button
@@ -1008,7 +997,7 @@ export function ResourcesModal({
                                                             className="w-full px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
                                                         >
                                                             <Icon name="play" size={16} className="mr-1" />
-                                                            Appliquer
+                                                            {t('admin.filter.apply')}
                                                         </button>
                                                     </div>
                                                 ))}
@@ -1018,118 +1007,193 @@ export function ResourcesModal({
                                 </div>
                             )}
 
-                            {/* Contenu Succursales */}
-                            {activeTab === 'succursales' && (
-                                <div className="space-y-6">
+                            {/* Contenu Postes */}
+                            {activeTab === 'postes' && (
+                                <div className="space-y-4">
                                     <div className="flex justify-between items-center">
                                         <h3 className="text-lg font-semibold text-gray-900">
-                                            Gestion des Succursales
+                                            {t('admin.position.management')}
                                         </h3>
-                                        {estAdministrateur && estAdministrateur() && (
-                                            <button
-                                                onClick={() => {
-                                                    setEditingSuccursale(null);
-                                                    setShowSuccursaleForm(true);
-                                                }}
-                                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                                            >
-                                                <Icon name="plus" size={16} className="mr-1" />
-                                                Nouvelle Succursale
-                                            </button>
-                                        )}
+                                        <button
+                                            onClick={() => {
+                                                setSelectedPoste(null);
+                                                setShowPosteModal(true);
+                                            }}
+                                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                                        >
+                                            <Icon name="plus" size={16} />
+                                            {t('admin.position.add')}
+                                        </button>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {succursales.map(succursale => (
-                                            <div key={succursale.id} className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow">
-                                                <div className="flex items-start justify-between mb-3">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {postes.map((poste) => (
+                                            <div
+                                                key={poste.id}
+                                                className="bg-white border rounded-lg p-6 hover:shadow-md transition-shadow"
+                                            >
+                                                <div className="flex items-start justify-between mb-4">
                                                     <div className="flex items-center gap-3">
-                                                        <div
-                                                            className="w-4 h-4 rounded-full"
-                                                            style={{ backgroundColor: succursale.color }}
-                                                        />
-                                                        <h4 className="font-semibold text-lg">{succursale.nom}</h4>
+                                                        <div className="w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center text-white">
+                                                            <Icon name="briefcase" size={20} />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-semibold text-gray-900">{poste.nom}</h4>
+                                                            <p className="text-sm text-gray-600">{poste.departement}</p>
+                                                        </div>
                                                     </div>
-                                                    {estAdministrateur && estAdministrateur() && (
+                                                    <div className="flex gap-1">
                                                         <button
                                                             onClick={() => {
-                                                                setEditingSuccursale(succursale);
-                                                                setShowSuccursaleForm(true);
+                                                                setSelectedPoste(poste);
+                                                                setShowPosteModal(true);
                                                             }}
-                                                            className="text-blue-600 hover:text-blue-800"
+                                                            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-100 rounded transition-colors"
+                                                            title={t('action.edit')}
                                                         >
                                                             <Icon name="edit" size={16} />
                                                         </button>
-                                                    )}
+                                                        <button
+                                                            onClick={() => supprimerPoste(poste.id)}
+                                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded transition-colors"
+                                                            title="Supprimer"
+                                                        >
+                                                            <Icon name="trash" size={16} />
+                                                        </button>
+                                                    </div>
                                                 </div>
+
                                                 <div className="space-y-2 text-sm text-gray-600">
                                                     <div className="flex items-center gap-2">
-                                                        <Icon name="map-pin" size={14} />
-                                                        <span>{succursale.adresse}</span>
+                                                        <Icon name="dollar" size={14} />
+                                                        <span>{t('admin.position.salary')}: {poste.salaireMin}$ - {poste.salaireMax}$</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Icon name="users" size={14} />
+                                                        <span>{t('resource.personnel')}: {personnel.filter(p => p.poste === poste.nom).length}</span>
+                                                    </div>
+                                                </div>
+
+                                                {poste.description && (
+                                                    <div className="mt-4 pt-4 border-t border-gray-100">
+                                                        <p className="text-sm text-gray-600">{poste.description}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {postes.length === 0 && (
+                                        <div className="text-center py-8 text-gray-500">
+                                            <Icon name="briefcase" size={48} className="mx-auto mb-4 opacity-50" />
+                                            <p>{t('admin.position.noPositions')}</p>
+                                            <p className="text-sm mt-2">{t('admin.position.createHint')}</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Contenu Succursales */}
+                            {activeTab === 'succursales' && (
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-lg font-semibold text-gray-900">
+                                            {t('admin.branch.management')}
+                                        </h3>
+                                        <button
+                                            onClick={() => {
+                                                setSelectedSuccursale(null);
+                                                setShowSuccursaleModal(true);
+                                            }}
+                                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                        >
+                                            <Icon name="plus" size={16} />
+                                            {t('admin.branch.add')}
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {succursales.map((succursale) => (
+                                            <div
+                                                key={succursale.id}
+                                                className="bg-white border rounded-lg p-6 hover:shadow-md transition-shadow"
+                                            >
+                                                <div className="flex items-start justify-between mb-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white">
+                                                            <Icon name="building" size={20} />
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-semibold text-gray-900">{succursale.nom}</h4>
+                                                            <span className={`px-2 py-1 rounded text-xs ${
+                                                                succursale.actif
+                                                                    ? 'bg-green-100 text-green-700'
+                                                                    : 'bg-red-100 text-red-700'
+                                                            }`}>
+                                                                {succursale.actif ? t('admin.branch.active') : t('admin.branch.inactive')}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex gap-1">
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedSuccursale(succursale);
+                                                                setShowSuccursaleModal(true);
+                                                            }}
+                                                            className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                                                            title={t('action.edit')}
+                                                        >
+                                                            <Icon name="edit" size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => supprimerSuccursale(succursale.id)}
+                                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded transition-colors"
+                                                            title="Supprimer"
+                                                        >
+                                                            <Icon name="trash" size={16} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-2 text-sm text-gray-600">
+                                                    <div className="flex items-center gap-2">
+                                                        <Icon name="location" size={14} />
+                                                        <span className="text-xs">{succursale.adresse}</span>
                                                     </div>
                                                     <div className="flex items-center gap-2">
                                                         <Icon name="phone" size={14} />
                                                         <span>{succursale.telephone}</span>
                                                     </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <Icon name="user" size={14} />
+                                                        <span>{succursale.responsable}</span>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
 
-                            {/* Contenu Postes */}
-                            {activeTab === 'postes' && (
-                                <div className="space-y-6">
-                                    <div className="flex justify-between items-center">
-                                        <h3 className="text-lg font-semibold text-gray-900">
-                                            Gestion des Postes
-                                        </h3>
-                                        {estAdministrateur && estAdministrateur() && (
-                                            <button
-                                                onClick={() => {
-                                                    setEditingPoste(null);
-                                                    setShowPosteForm(true);
-                                                }}
-                                                className="px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
-                                            >
-                                                <Icon name="plus" size={16} className="mr-1" />
-                                                Nouveau Poste
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {postes.map(poste => (
-                                            <div key={poste.id} className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow">
-                                                <div className="flex items-start justify-between mb-3">
-                                                    <div>
-                                                        <h4 className="font-semibold text-lg">{poste.nom}</h4>
-                                                        <span className={`inline-block px-2 py-1 text-xs rounded ${
-                                                            poste.niveau === 'Base' ? 'bg-green-100 text-green-800' :
-                                                            poste.niveau === 'Intermédiaire' ? 'bg-blue-100 text-blue-800' :
-                                                            poste.niveau === 'Avancé' ? 'bg-orange-100 text-orange-800' :
-                                                            'bg-purple-100 text-purple-800'
-                                                        }`}>
-                                                            {poste.niveau}
+                                                <div className="mt-4 pt-4 border-t border-gray-100">
+                                                    <div className="flex justify-between text-sm">
+                                                        <span className="text-gray-500">{t('resource.personnel')}:</span>
+                                                        <span className="font-medium">
+                                                            {personnel.filter(p => p.succursale === succursale.nom).length}
                                                         </span>
                                                     </div>
-                                                    {estAdministrateur && estAdministrateur() && (
-                                                        <button
-                                                            onClick={() => {
-                                                                setEditingPoste(poste);
-                                                                setShowPosteForm(true);
-                                                            }}
-                                                            className="text-blue-600 hover:text-blue-800"
-                                                        >
-                                                            <Icon name="edit" size={16} />
-                                                        </button>
-                                                    )}
+                                                    <div className="flex justify-between text-sm">
+                                                        <span className="text-gray-500">{t('resource.equipment')}:</span>
+                                                        <span className="font-medium">
+                                                            {equipements.filter(e => e.succursale === succursale.nom).length}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <p className="text-sm text-gray-600">{poste.description}</p>
                                             </div>
                                         ))}
                                     </div>
+
+                                    {succursales.length === 0 && (
+                                        <div className="text-center py-8 text-gray-500">
+                                            <Icon name="building" size={48} className="mx-auto mb-4 opacity-50" />
+                                            <p>{t('admin.branch.noBranches')}</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </>
