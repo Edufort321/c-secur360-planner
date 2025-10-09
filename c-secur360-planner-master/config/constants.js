@@ -17,21 +17,21 @@ export const STORAGE_CONFIG = {
     SYNC_DELAY: 2000 // 2 secondes pour la sync
 };
 
-// Personnel par défaut avec authentification - NETTOYÉ (seul utilisateur réel)
+// Personnel par défaut avec authentification - COMPTE ADMIN INITIAL
 export const DEFAULT_PERSONNEL = [
     {
         id: 1,
         nom: "Éric Dufort",
-        poste: "Développeur",
+        poste: "Administrateur",
         succursale: "C-Secur360",
-        disponible: true,
+        disponible: false, // Non visible dans le calendrier par défaut
         email: "eric.dufort@cerdia.ai",
-        telephone: "450-123-4567",
+        telephone: "",
         type: "interne",
         motDePasse: "321Eduf!$", // Mot de passe pour connexion
         niveau_acces: "administration",
         permissions: { peutModifier: true, estCoordonnateur: true },
-        visibleChantier: true
+        visibleChantier: false // Pas visible dans le calendrier
     }
 ];
 
