@@ -1,7 +1,7 @@
 // ============== HEADER TEMPORAIRE POUR TESTS ==============
 // Header simple pour tester le système de thème
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Icon } from '../UI/Icon';
 import { Logo } from '../UI/Logo';
 import { MenuDropdown } from '../UI/MenuDropdown';
@@ -14,6 +14,39 @@ export function Header({
     onManageConges,
     onManageResources
 }) {
+    const [deferredPrompt, setDeferredPrompt] = useState(null);
+    const [showInstallButton, setShowInstallButton] = useState(false);
+
+    useEffect(() => {
+        // Écouter l'événement beforeinstallprompt
+        const handler = (e) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+            setShowInstallButton(true);
+        };
+
+        window.addEventListener('beforeinstallprompt', handler);
+
+        // Vérifier si l'app est déjà installée
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+            setShowInstallButton(false);
+        }
+
+        return () => window.removeEventListener('beforeinstallprompt', handler);
+    }, []);
+
+    const handleInstallClick = async () => {
+        if (!deferredPrompt) return;
+
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+
+        if (outcome === 'accepted') {
+            setShowInstallButton(false);
+        }
+
+        setDeferredPrompt(null);
+    };
     return (
         <header className="bg-gray-900 border-b border-gray-700 px-4 py-3">
             <div className="flex items-center justify-between">
@@ -22,6 +55,18 @@ export function Header({
 
                 {/* Actions droite */}
                 <div className="flex items-center gap-4">
+                    {/* Bouton installation PWA */}
+                    {showInstallButton && (
+                        <button
+                            onClick={handleInstallClick}
+                            className="flex items-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+                            title="Installer l'application"
+                        >
+                            <Icon name="download" size={16} />
+                            <span className="hidden sm:inline">Installer</span>
+                        </button>
+                    )}
+
                     {/* Sélecteur de langue */}
                     <LanguageSelector showLabel={false} size="normal" />
 
