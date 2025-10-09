@@ -66,9 +66,6 @@ function AppContent() {
     const [showCongesManagement, setShowCongesManagement] = useState(false);
     const [showResourcesManagement, setShowResourcesManagement] = useState(false);
 
-    // Authentification ressources persistante pour la session
-    const [isResourcesAuthenticated, setIsResourcesAuthenticated] = useState(false);
-
     // Authentification utilisateur - VERSION ORIGINALE
     const handleUserLogin = (utilisateurIdentifie, motDePasse) => {
         console.log('📥 Réception des données d\'authentification:', {
@@ -153,18 +150,6 @@ function AppContent() {
         }
         // Fallback ancien système - vérifier nom
         return utilisateurConnecte.nom === 'Administrateur' || utilisateurConnecte.nom === 'Eric Dufort';
-    };
-
-    // Fonction d'authentification des ressources
-    const handleResourcesAuthentication = (motDePasse) => {
-        if (motDePasse === 'MdlAdm321!$' || estAdministrateur()) {
-            setIsResourcesAuthenticated(true);
-            addNotification(t('notification.resourcesAccess'), 'success');
-            return true;
-        } else {
-            addNotification(t('login.error'), 'error');
-            return false;
-        }
     };
 
     // Fonction pour ajouter un sous-traitant - VERSION ORIGINALE
@@ -333,8 +318,6 @@ function AppContent() {
                                 estAdministrateur={estAdministrateur}
                                 peutModifier={peutModifier}
                                 addNotification={addNotification}
-                                isResourcesAuthenticated={isResourcesAuthenticated}
-                                onResourcesAuthentication={handleResourcesAuthentication}
                             />
                         )}
                     </>

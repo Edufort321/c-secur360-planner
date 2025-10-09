@@ -27,16 +27,12 @@ export function ResourcesModal({
     utilisateurConnecte,
     estCoordonnateur,
     peutModifier,
-    addNotification,
-    isResourcesAuthenticated = false,
-    onResourcesAuthentication
+    addNotification
 }) {
     const { t } = useLanguage();
     const [activeTab, setActiveTab] = useState('succursales'); // Changé de 'personnel' à 'succursales'
     const [showEquipementModal, setShowEquipementModal] = useState(false);
     const [selectedEquipement, setSelectedEquipement] = useState(null);
-    const [motDePasseAdmin, setMotDePasseAdmin] = useState('');
-    const [showAdminPassword, setShowAdminPassword] = useState(false);
 
     // États pour les filtres et vues
     const [viewMode, setViewMode] = useState('grid'); // 'grid', 'individual'
@@ -64,9 +60,19 @@ export function ResourcesModal({
     const [showPosteModal, setShowPosteModal] = useState(false);
     const [selectedPoste, setSelectedPoste] = useState(null);
 
-    // Vérifier si l'utilisateur peut accéder aux ressources
+    // Vérifier si l'utilisateur peut accéder aux ressources (basé sur permissions)
     const peutAccederRessources = () => {
-        return estCoordonnateur() || isResourcesAuthenticated;
+        if (!utilisateurConnecte) return false;
+
+        // Accès basé sur niveau_acces ou permissions
+        const niveauAcces = utilisateurConnecte.niveau_acces;
+        const permissions = utilisateurConnecte.permissions || {};
+
+        // Administrateurs et coordinateurs ont accès
+        if (niveauAcces === 'administration' || niveauAcces === 'coordination') return true;
+        if (permissions.estCoordonnateur || permissions.peutModifier) return true;
+
+        return false;
     };
 
     // Obtenir les bureaux uniques
@@ -260,21 +266,8 @@ export function ResourcesModal({
         event.target.value = '';
     };
 
-    // Authentification pour accéder aux ressources
-    const handleAuthentication = (e) => {
-        e.preventDefault();
-
-        // Utiliser la fonction d'authentification passée en prop
-        if (onResourcesAuthentication && onResourcesAuthentication(motDePasseAdmin)) {
-            setMotDePasseAdmin(''); // Vider le champ après succès
-        }
-    };
-
-    // Réinitialiser à la fermeture (mais garder l'authentification pour la session)
+    // Réinitialiser à la fermeture
     const handleClose = () => {
-        // Ne plus réinitialiser l'authentification - elle persiste pour la session
-        // setIsAuthenticated(false);
-        setMotDePasseAdmin('');
         setActiveTab('personnel');
         setSelectedResource(null);
         setViewMode('grid');
@@ -317,56 +310,25 @@ export function ResourcesModal({
                         {/* Contenu scrollable */}
                         <div className="flex-1 p-6 overflow-y-auto min-h-0">
                             <div className="space-y-6">
-                    {/* Authentification requise */}
+                    {/* Message d'accès refusé si permissions insuffisantes */}
                     {!peutAccederRessources() && (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
                             <div className="mb-4">
-                                <Icon name="shield" size={48} className="mx-auto text-yellow-600 mb-3" />
-                                <h3 className="text-lg font-semibold text-yellow-800 mb-2">
-                                    {t('admin.auth.restrictedAccess')}
+                                <Icon name="shield" size={48} className="mx-auto text-red-600 mb-3" />
+                                <h3 className="text-lg font-semibold text-red-800 mb-2">
+                                    Accès non autorisé
                                 </h3>
-                                <p className="text-yellow-700">
-                                    {t('admin.auth.authRequired')}
+                                <p className="text-red-700">
+                                    Vous n'avez pas les permissions nécessaires pour accéder à la gestion des ressources.
+                                </p>
+                                <p className="text-sm text-red-600 mt-2">
+                                    Contactez un administrateur pour obtenir les droits d'accès.
                                 </p>
                             </div>
-
-                            <form onSubmit={handleAuthentication} className="max-w-md mx-auto">
-                                <div className="mb-4">
-                                    <label className="block text-sm font-medium text-yellow-800 mb-2">
-                                        {t('admin.auth.adminPassword')}
-                                    </label>
-                                    <div className="relative">
-                                        <input
-                                            type={showAdminPassword ? "text" : "password"}
-                                            value={motDePasseAdmin}
-                                            onChange={(e) => setMotDePasseAdmin(e.target.value)}
-                                            className="w-full px-3 py-2 pr-12 border border-yellow-300 rounded-md focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                                            placeholder={t('admin.auth.passwordPlaceholder')}
-                                            autoFocus
-                                            required
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowAdminPassword(!showAdminPassword)}
-                                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-yellow-600 hover:text-yellow-800 transition-colors"
-                                            title={showAdminPassword ? t('admin.auth.hidePassword') : t('admin.auth.showPassword')}
-                                        >
-                                            <Icon name={showAdminPassword ? "eye_off" : "eye"} size={20} />
-                                        </button>
-                                    </div>
-                                </div>
-                                <button
-                                    type="submit"
-                                    className="w-full px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors font-medium"
-                                >
-                                    <Icon name="key" size={16} className="inline mr-2" />
-                                    {t('admin.auth.authenticate')}
-                                </button>
-                            </form>
                         </div>
                     )}
 
-                    {/* Interface ressources - visible après authentification */}
+                    {/* Interface ressources - visible selon permissions */}
                     {peutAccederRessources() && (
                         <>
                             {/* Onglets et contrôles */}
