@@ -5,6 +5,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
 import { LanguageProvider } from './contexts/LanguageContext.jsx';
+import { registerServiceWorker } from './utils/registerServiceWorker.js';
 
 console.log('🚀 Chargement de l\'application C-Secur360 V6.7 - Version Modulaire');
 
@@ -38,6 +39,15 @@ try {
     );
 
     console.log('🎉 Application React initialisée avec succès');
+
+    // Enregistrer le service worker PWA
+    // Actif en production OU si déployé (détecté par HTTPS et domaine non-localhost)
+    const isDeployed = window.location.protocol === 'https:' && !window.location.hostname.includes('localhost');
+    if (import.meta.env.PROD || isDeployed) {
+        registerServiceWorker();
+    } else {
+        console.log('📱 PWA Service Worker non enregistré (mode développement)');
+    }
 
 } catch (error) {
     console.error('❌ Erreur lors de l\'initialisation:', error);

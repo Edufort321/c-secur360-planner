@@ -27,10 +27,39 @@ function AppContent() {
     const { isMobile, isTablet } = useScreenSize();
     const { t } = useLanguage();
 
-    // États d'authentification utilisateur - VERSION ORIGINALE
+    // États d'authentification utilisateur - VERSION ORIGINALE + SESSION 24H
     const [utilisateurConnecte, setUtilisateurConnecte] = useState(null);
     const [showUserLogin, setShowUserLogin] = useState(true);
     const [loginForm, setLoginForm] = useState({ nom: '', motDePasse: '' });
+
+    // Configuration session 24h
+    const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 heures en millisecondes
+    const SESSION_STORAGE_KEY = 'c-secur360-planner-session';
+    const USER_STORAGE_KEY = 'c-secur360-planner-user';
+
+    // Vérifier et restaurer la session au chargement
+    useEffect(() => {
+        const savedSession = localStorage.getItem(SESSION_STORAGE_KEY);
+        const savedUser = localStorage.getItem(USER_STORAGE_KEY);
+
+        if (savedSession && savedUser) {
+            const session = JSON.parse(savedSession);
+            const now = Date.now();
+
+            // Vérifier si la session n'est pas expirée
+            if (now < session.expires) {
+                const user = JSON.parse(savedUser);
+                setUtilisateurConnecte(user);
+                setShowUserLogin(false);
+                console.log('✅ Session restaurée pour:', user.nom, '- Expire dans:', Math.floor((session.expires - now) / 1000 / 60 / 60), 'heures');
+            } else {
+                // Session expirée, nettoyer
+                localStorage.removeItem(SESSION_STORAGE_KEY);
+                localStorage.removeItem(USER_STORAGE_KEY);
+                console.log('⏰ Session expirée, reconnexion requise');
+            }
+        }
+    }, []);
 
     // États pour les modals accessibles via le menu hamburger
     const [showCreateEvent, setShowCreateEvent] = useState(false);
@@ -70,9 +99,22 @@ function AppContent() {
         // Vérification du mot de passe
         if (utilisateurIdentifie.motDePasse === motDePasse) {
             console.log('✅ CONNEXION RÉUSSIE pour:', utilisateurIdentifie.nom);
+
+            // Créer la session avec expiration 24h
+            const session = {
+                userId: utilisateurIdentifie.id,
+                timestamp: Date.now(),
+                expires: Date.now() + SESSION_TIMEOUT
+            };
+
+            // Sauvegarder dans localStorage
+            localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+            localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(utilisateurIdentifie));
+
             setUtilisateurConnecte(utilisateurIdentifie);
             setShowUserLogin(false);
-            addNotification(`Connexion réussie - ${utilisateurIdentifie.nom}`, 'success');
+            addNotification(`Connexion réussie - ${utilisateurIdentifie.nom} (Session 24h)`, 'success');
+            console.log('💾 Session sauvegardée - Expire dans 24 heures');
         } else {
             console.log('❌ ÉCHEC DE CONNEXION pour:', utilisateurIdentifie.nom);
             console.log('Attendu:', utilisateurIdentifie.motDePasse, 'Reçu:', motDePasse);
@@ -192,9 +234,13 @@ function AppContent() {
                         <Header
                             utilisateurConnecte={utilisateurConnecte}
                             onLogout={() => {
+                                // Nettoyer la session
+                                localStorage.removeItem(SESSION_STORAGE_KEY);
+                                localStorage.removeItem(USER_STORAGE_KEY);
                                 setUtilisateurConnecte(null);
                                 setShowUserLogin(true);
                                 addNotification('Déconnexion réussie', 'info');
+                                console.log('🚪 Déconnexion - Session supprimée');
                             }}
                             onCreateEvent={() => setShowCreateEvent(true)}
                             onManageConges={() => setShowCongesManagement(true)}

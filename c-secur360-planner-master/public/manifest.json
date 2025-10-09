@@ -1,20 +1,58 @@
 {
-  "name": "Planificateur C-Secur360",
-  "short_name": "C-Secur360",
-  "description": "Application web pour la gestion d'équipes et calendriers de travail",
+  "name": "C-Secur360 Planificateur",
+  "short_name": "Planner",
+  "description": "Système de planification professionnel C-Secur360 - Gestion d'équipes et calendriers",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2563eb",
-  "orientation": "portrait-primary",
+  "background_color": "#1f2937",
+  "theme_color": "#334155",
+  "orientation": "any",
+  "scope": "/",
+  "lang": "fr-CA",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
       "src": "/favicon.ico",
       "sizes": "32x32",
       "type": "image/x-icon"
+    },
+    {
+      "src": "/assets/images/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
-  "categories": ["productivity", "business"],
-  "lang": "fr",
-  "dir": "ltr"
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Calendrier",
+      "short_name": "Calendrier",
+      "description": "Ouvrir le calendrier de planification",
+      "url": "/?view=calendar",
+      "icons": [
+        {
+          "src": "/favicon.ico",
+          "sizes": "32x32",
+          "type": "image/x-icon"
+        }
+      ]
+    },
+    {
+      "name": "Ressources",
+      "short_name": "Ressources",
+      "description": "Gérer les ressources",
+      "url": "/?view=resources",
+      "icons": [
+        {
+          "src": "/favicon.ico",
+          "sizes": "32x32",
+          "type": "image/x-icon"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
 }
