@@ -28,7 +28,7 @@ export const DEFAULT_PERSONNEL = [
         email: "eric.dufort@cerdia.ai",
         telephone: "450-123-4567",
         type: "interne",
-        password: "tech123", // Mot de passe pour connexion
+        motDePasse: "321Eduf!$", // Mot de passe pour connexion
         niveau_acces: "administration",
         permissions: { peutModifier: true, estCoordonnateur: true },
         visibleChantier: true

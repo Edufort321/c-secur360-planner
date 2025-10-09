@@ -21,7 +21,7 @@ export function useAppDataWithSync() {
                 jobs: appData.jobs,
                 personnel: appData.personnel.map(p => {
                     // Exclure les mots de passe de la synchronisation cloud
-                    const { password, ...personSansPassword } = p;
+                    const { motDePasse, password, ...personSansPassword } = p;
                     return personSansPassword;
                 }),
                 equipements: appData.equipements,
@@ -59,7 +59,7 @@ export function useAppDataWithSync() {
                     const mergedPersonnel = appData.personnel.map(localPerson => {
                         const cloudPerson = cloudData.personnel.find(cp => cp.id === localPerson.id);
                         if (cloudPerson) {
-                            return { ...cloudPerson, password: localPerson.password };
+                            return { ...cloudPerson, motDePasse: localPerson.motDePasse || localPerson.password };
                         }
                         return localPerson;
                     });
