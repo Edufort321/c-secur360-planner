@@ -11,6 +11,9 @@ export function useAppData() {
     const [equipements, setEquipements] = useState(DEFAULT_EQUIPMENTS);
     const [sousTraitants, setSousTraitants] = useState([]);
     const [conges, setConges] = useState([]);
+    const [postes, setPostes] = useState([]);
+    const [succursales, setSuccursales] = useState([]);
+    const [departements, setDepartements] = useState([]);
     const [currentUser, setCurrentUser] = useState(null);
     const [isAdminMode, setIsAdminMode] = useState(false);
     const [selectedView, setSelectedView] = useState('month');
@@ -46,6 +49,9 @@ export function useAppData() {
                 if (data.equipements) setEquipements(data.equipements);
                 if (data.sousTraitants) setSousTraitants(data.sousTraitants);
                 if (data.conges) setConges(data.conges);
+                if (data.postes) setPostes(data.postes);
+                if (data.succursales) setSuccursales(data.succursales);
+                if (data.departements) setDepartements(data.departements);
                 if (data.selectedView) setSelectedView(data.selectedView);
                 if (data.selectedDate) setSelectedDate(new Date(data.selectedDate));
 
@@ -79,6 +85,9 @@ export function useAppData() {
             equipements,
             sousTraitants,
             conges,
+            postes,
+            succursales,
+            departements,
             selectedView,
             selectedDate: selectedDate.toISOString(),
             lastSaved: new Date().toISOString()
@@ -90,7 +99,7 @@ export function useAppData() {
         } catch (error) {
             console.error('Erreur lors de la sauvegarde:', error);
         }
-    }, [jobs, personnel, equipements, sousTraitants, conges, selectedView, selectedDate]);
+    }, [jobs, personnel, equipements, sousTraitants, conges, postes, succursales, departements, selectedView, selectedDate]);
 
     // Auto-sauvegarde avec délai
     useEffect(() => {
@@ -154,6 +163,100 @@ export function useAppData() {
         ));
     }, []);
 
+    const saveEquipement = useCallback((equipementData) => {
+        if (equipementData.id && equipements.find(e => e.id === equipementData.id)) {
+            // Mise à jour
+            setEquipements(prev => prev.map(e => e.id === equipementData.id ? { ...e, ...equipementData } : e));
+        } else {
+            // Ajout
+            addEquipement(equipementData);
+        }
+    }, [equipements, addEquipement]);
+
+    const deleteEquipement = useCallback((equipementId) => {
+        setEquipements(prev => prev.filter(equipement => equipement.id !== equipementId));
+    }, []);
+
+    // Fonctions pour les postes
+    const addPoste = useCallback((poste) => {
+        const newPoste = {
+            ...poste,
+            id: poste.id || `poste-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        };
+        setPostes(prev => [...prev, newPoste]);
+    }, []);
+
+    const savePoste = useCallback((posteData) => {
+        if (posteData.id && postes.find(p => p.id === posteData.id)) {
+            // Mise à jour
+            setPostes(prev => prev.map(p => p.id === posteData.id ? { ...p, ...posteData } : p));
+        } else {
+            // Ajout
+            addPoste(posteData);
+        }
+    }, [postes, addPoste]);
+
+    const deletePoste = useCallback((posteId) => {
+        setPostes(prev => prev.filter(poste => poste.id !== posteId));
+    }, []);
+
+    // Fonctions pour les succursales
+    const addSuccursale = useCallback((succursale) => {
+        const newSuccursale = {
+            ...succursale,
+            id: succursale.id || `succursale-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        };
+        setSuccursales(prev => [...prev, newSuccursale]);
+    }, []);
+
+    const saveSuccursale = useCallback((succursaleData) => {
+        if (succursaleData.id && succursales.find(s => s.id === succursaleData.id)) {
+            // Mise à jour
+            setSuccursales(prev => prev.map(s => s.id === succursaleData.id ? { ...s, ...succursaleData } : s));
+        } else {
+            // Ajout
+            addSuccursale(succursaleData);
+        }
+    }, [succursales, addSuccursale]);
+
+    // Fonctions pour les départements
+    const addDepartement = useCallback((departement) => {
+        const newDepartement = {
+            ...departement,
+            id: departement.id || `dept-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        };
+        setDepartements(prev => [...prev, newDepartement]);
+    }, []);
+
+    // Fonctions congés
+    const addConge = useCallback((conge) => {
+        const newConge = {
+            ...conge,
+            id: conge.id || `conge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        };
+        setConges(prev => [...prev, newConge]);
+    }, []);
+
+    const updateConge = useCallback((congeId, updates) => {
+        setConges(prev => prev.map(conge =>
+            conge.id === congeId ? { ...conge, ...updates } : conge
+        ));
+    }, []);
+
+    const saveConge = useCallback((congeData) => {
+        if (congeData.id && conges.find(c => c.id === congeData.id)) {
+            // Mise à jour
+            setConges(prev => prev.map(c => c.id === congeData.id ? { ...c, ...congeData } : c));
+        } else {
+            // Ajout
+            addConge(congeData);
+        }
+    }, [conges, addConge]);
+
+    const deleteConge = useCallback((congeId) => {
+        setConges(prev => prev.filter(conge => conge.id !== congeId));
+    }, []);
+
     // Fonctions d'authentification
     const login = useCallback((nom, password) => {
         const user = personnel.find(p =>
@@ -180,6 +283,9 @@ export function useAppData() {
         setEquipements(DEFAULT_EQUIPMENTS);
         setSousTraitants([]);
         setConges([]);
+        setPostes([]);
+        setSuccursales([]);
+        setDepartements([]);
         localStorage.removeItem(STORAGE_CONFIG.KEY);
     }, []);
 
@@ -190,6 +296,9 @@ export function useAppData() {
         equipements,
         sousTraitants,
         conges,
+        postes,
+        succursales,
+        departements,
         currentUser,
         isAdminMode,
         selectedView,
@@ -217,10 +326,26 @@ export function useAppData() {
         setEquipements,
         addEquipement,
         updateEquipement,
+        saveEquipement,
+        deleteEquipement,
+
+        // Actions postes
+        addPoste,
+        savePoste,
+        deletePoste,
+
+        // Actions succursales
+        addSuccursale,
+        saveSuccursale,
+
+        // Actions départements
+        addDepartement,
 
         // Actions autres
         setSousTraitants,
         setConges,
+        saveConge,
+        deleteConge,
 
         // Authentification
         login,
