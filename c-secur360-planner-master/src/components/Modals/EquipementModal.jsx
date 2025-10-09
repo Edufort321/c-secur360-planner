@@ -4,7 +4,9 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../UI/Modal';
 import { Icon } from '../UI/Icon';
+import { Logo } from '../UI/Logo';
 import { DropZone } from '../UI/DropZone';
+import { BUREAU_COLORS } from '../../../config/constants.js';
 
 export function EquipementModal({
     isOpen,
@@ -15,7 +17,8 @@ export function EquipementModal({
     addNotification,
     utilisateurConnecte,
     peutModifier = true,
-    estCoordonnateur = false
+    estCoordonnateur = false,
+    succursalesDisponibles = []
 }) {
     // ===== ÉTATS PRINCIPAUX =====
     const [formData, setFormData] = useState({
@@ -29,7 +32,9 @@ export function EquipementModal({
         prixAchat: '',
         valeurActuelle: '',
         statut: 'disponible', // 'disponible', 'utilise', 'maintenance', 'hors_service', 'reserve'
+        succursale: '',
         emplacement: '',
+        departement: '',
         responsable: null,
 
         // Caractéristiques techniques
@@ -113,6 +118,19 @@ export function EquipementModal({
         { value: 'hors_service', label: '❌ Hors service', couleur: '#ef4444' },
         { value: 'reserve', label: '📅 Réservé', couleur: '#8b5cf6' }
     ];
+
+    // ===== SUCCURSALES DISPONIBLES =====
+    // Utiliser les données dynamiques des props, sinon les valeurs par défaut
+    const succursalesOptions = succursalesDisponibles.length > 0
+        ? succursalesDisponibles.map(succursale => succursale.nom || succursale)
+        : [
+            'Thetford',
+            'Quebec',
+            'Sherbrooke',
+            'Trois-Rivières',
+            'Montréal',
+            'Gatineau'
+        ];
 
     // ===== INITIALISATION =====
     useEffect(() => {
@@ -366,7 +384,12 @@ export function EquipementModal({
         }
 
         if (!formData.type) {
-            addNotification('Le type d\'équipement est requis', 'error');
+            addNotification('Le département de l\'équipement est requis', 'error');
+            return false;
+        }
+
+        if (!formData.succursale) {
+            addNotification('La succursale de l\'équipement est requise', 'error');
             return false;
         }
 
@@ -374,22 +397,25 @@ export function EquipementModal({
     };
 
     // ===== SAUVEGARDE =====
-    const handleSave = async () => {
+    const handleSave = () => {
         if (!validerFormulaire()) return;
 
         setIsSubmitting(true);
 
         try {
-            const typeEquipement = typesEquipements.find(t => t.value === formData.type);
+            // Obtenir la couleur basée sur la succursale (comme pour le personnel)
+            const couleurSuccursale = BUREAU_COLORS[formData.succursale] || '#6B7280'; // Gris par défaut
+
             const equipementData = {
                 ...formData,
                 derniereModification: new Date().toISOString(),
-                couleur: typeEquipement?.couleur || formData.couleurCalendrier,
+                couleur: couleurSuccursale,
+                succursaleEnCharge: formData.succursale, // Pour cohérence avec les jobs
                 alertesActives: verifierAlertes(),
                 prochaineMaintenance: calculerProchaineMaintenance() || formData.prochaineMaintenance
             };
 
-            await onSave(equipementData);
+            onSave(equipementData);
             addNotification(
                 `${equipement ? 'Équipement modifié' : 'Équipement créé'}: ${formData.nom}`,
                 'success'
@@ -424,13 +450,31 @@ export function EquipementModal({
     const statutActuel = statutsEquipement.find(s => s.value === formData.statut);
 
     return (
-        <Modal
-            isOpen={isOpen}
-            onClose={onClose}
-            title={equipement ? `Modifier - ${equipement.nom}` : 'Nouvel Équipement'}
-            size="xl"
-        >
-            <div className="space-y-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between p-6 border-b bg-gray-900">
+                    <div className="flex items-center gap-4">
+                        <Logo size="normal" showText={false} />
+                        <div>
+                            <h2 className="text-xl font-bold text-white flex items-center">
+                                <Icon name="wrench" className="mr-2" size={24} />
+                                {equipement ? 'Modifier l\'Équipement' : 'Nouvel Équipement'}
+                            </h2>
+                            <p className="text-sm text-gray-300">Gestion des équipements C-Secur360</p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-lg transition-all"
+                    >
+                        <Icon name="close" size={24} />
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+                    <div className="space-y-6">
                 {/* Alertes */}
                 {alertes.length > 0 && (
                     <div className="space-y-2">
@@ -508,7 +552,7 @@ export function EquipementModal({
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Type *
+                                        Département *
                                     </label>
                                     <select
                                         value={formData.type}
@@ -516,13 +560,33 @@ export function EquipementModal({
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                                         required
                                     >
-                                        <option value="">Sélectionner un type...</option>
+                                        <option value="">Sélectionner un département...</option>
                                         {typesEquipements.map(type => (
                                             <option key={type.value} value={type.value}>
                                                 {type.label}
                                             </option>
                                         ))}
                                     </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Succursale *
+                                    </label>
+                                    <select
+                                        value={formData.succursale}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, succursale: e.target.value }))}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                        required
+                                    >
+                                        <option value="">Sélectionner une succursale...</option>
+                                        {succursalesOptions.map(succursale => (
+                                            <option key={succursale} value={succursale}>{succursale}</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-blue-500 mt-1">
+                                        💡 Détermine la couleur au calendrier
+                                    </p>
                                 </div>
 
                                 <div>
@@ -579,8 +643,8 @@ export function EquipementModal({
                                 </div>
                             </div>
 
-                            {/* Statut et emplacement */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Statut, succursale et emplacement */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Statut
@@ -598,6 +662,7 @@ export function EquipementModal({
                                     </select>
                                 </div>
 
+
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Emplacement
@@ -608,6 +673,19 @@ export function EquipementModal({
                                         onChange={(e) => setFormData(prev => ({ ...prev, emplacement: e.target.value }))}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                                         placeholder="Ex: Entrepôt A, Étagère 3..."
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Département
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.departement}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, departement: e.target.value }))}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                        placeholder="Ex: Transformateur, Opérations..."
                                     />
                                 </div>
                             </div>
@@ -1264,6 +1342,9 @@ export function EquipementModal({
                     </div>
                 </div>
 
+                    </div>
+                </div>
+
                 {/* Modal de confirmation de suppression */}
                 {showDeleteConfirm && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -1292,6 +1373,6 @@ export function EquipementModal({
                     </div>
                 )}
             </div>
-        </Modal>
+        </div>
     );
 }
