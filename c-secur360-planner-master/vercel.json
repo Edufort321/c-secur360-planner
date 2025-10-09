@@ -1,17 +1,4 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "installCommand": "npm install --force",
-  "devCommand": "npm run dev",
-  "framework": "vite",
-  "git": {
-    "deploymentEnabled": {
-      "main": true
-    }
-  },
-  "github": {
-    "silent": false
-  },
   "rewrites": [
     {
       "source": "/(.*)",
