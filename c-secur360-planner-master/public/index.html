@@ -12,10 +12,17 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="C-Secur360 Planner">
     <link rel="manifest" href="/manifest.json">
-    <link rel="apple-touch-icon" href="/favicon.ico">
 
-    <!-- Favicon -->
-    <link rel="icon" id="favicon" type="image/x-icon">
+    <!-- Favicons & App Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-icons/icon-192x192.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/pwa-icons/icon-96x96.png">
+    <link rel="icon" type="image/png" sizes="72x72" href="/pwa-icons/icon-72x72.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/pwa-icons/icon-72x72.png">
+    <link rel="shortcut icon" href="/pwa-icons/icon-72x72.png">
+    <link rel="apple-touch-icon" sizes="192x192" href="/pwa-icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/pwa-icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/pwa-icons/icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="128x128" href="/pwa-icons/icon-128x128.png">
 
     <!-- Google Drive API Scripts -->
     <script src="https://apis.google.com/js/api.js"></script>
@@ -23,37 +30,6 @@
 
     <!-- TailwindCSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Génération du favicon dynamique -->
-    <script>
-        function createFavicon() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 32;
-            canvas.height = 32;
-            const ctx = canvas.getContext('2d');
-
-            // Fond bleu C-Secur360
-            ctx.fillStyle = '#2563eb';
-            ctx.fillRect(0, 0, 32, 32);
-
-            // Texte CS en blanc
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 14px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('CS', 16, 20);
-
-            // Convertir en favicon
-            const favicon = document.getElementById('favicon');
-            favicon.href = canvas.toDataURL('image/x-icon');
-        }
-
-        // Générer le favicon dès que possible
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', createFavicon);
-        } else {
-            createFavicon();
-        }
-    </script>
 </head>
 <body>
     <div id="root"></div>
