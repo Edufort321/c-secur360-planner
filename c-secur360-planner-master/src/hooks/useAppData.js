@@ -1,19 +1,70 @@
 // ============== HOOK APP DATA ==============
 // Hook principal pour la gestion des données de l'application
+// Intégration Supabase offline-first avec sync temps réel
 
 import { useState, useEffect, useCallback } from 'react';
 import { DEFAULT_PERSONNEL, DEFAULT_EQUIPMENTS, DEFAULT_JOBS, STORAGE_CONFIG } from '../../config/constants.js';
+import { useSupabaseSync } from './useSupabaseSync.js';
 
 export function useAppData() {
-    // États principaux
-    const [jobs, setJobs] = useState(DEFAULT_JOBS);
-    const [personnel, setPersonnel] = useState(DEFAULT_PERSONNEL);
-    const [equipements, setEquipements] = useState(DEFAULT_EQUIPMENTS);
+    // ========== SYNC SUPABASE (Offline-first + Realtime) ==========
+    const {
+        data: jobs,
+        add: addJobSync,
+        update: updateJobSync,
+        remove: removeJobSync,
+        isOnline: jobsOnline,
+        syncQueue: jobsSyncQueue
+    } = useSupabaseSync('jobs', 'c-secur360-jobs', DEFAULT_JOBS);
+
+    const {
+        data: personnel,
+        add: addPersonnelSync,
+        update: updatePersonnelSync,
+        remove: removePersonnelSync,
+        isOnline: personnelOnline,
+        syncQueue: personnelSyncQueue
+    } = useSupabaseSync('personnel', 'c-secur360-personnel', DEFAULT_PERSONNEL);
+
+    const {
+        data: equipements,
+        add: addEquipementSync,
+        update: updateEquipementSync,
+        remove: removeEquipementSync,
+        isOnline: equipementsOnline,
+        syncQueue: equipementsSyncQueue
+    } = useSupabaseSync('equipements', 'c-secur360-equipements', DEFAULT_EQUIPMENTS);
+
+    const {
+        data: postes,
+        add: addPosteSync,
+        update: updatePosteSync,
+        remove: removePosteSync
+    } = useSupabaseSync('postes', 'c-secur360-postes', []);
+
+    const {
+        data: succursales,
+        add: addSuccursaleSync,
+        update: updateSuccursaleSync,
+        remove: removeSuccursaleSync
+    } = useSupabaseSync('succursales', 'c-secur360-succursales', []);
+
+    const {
+        data: conges,
+        add: addCongeSync,
+        update: updateCongeSync,
+        remove: removeCongeSync
+    } = useSupabaseSync('conges', 'c-secur360-conges', []);
+
+    const {
+        data: departements,
+        add: addDepartementSync,
+        update: updateDepartementSync,
+        remove: removeDepartementSync
+    } = useSupabaseSync('departements', 'c-secur360-departements', []);
+
+    // ========== ÉTATS LOCAUX (Non synchronisés - navigation uniquement) ==========
     const [sousTraitants, setSousTraitants] = useState([]);
-    const [conges, setConges] = useState([]);
-    const [postes, setPostes] = useState([]);
-    const [succursales, setSuccursales] = useState([]);
-    const [departements, setDepartements] = useState([]);
     const [currentUser, setCurrentUser] = useState(null);
     const [isAdminMode, setIsAdminMode] = useState(false);
     const [selectedView, setSelectedView] = useState('month');
@@ -21,73 +72,36 @@ export function useAppData() {
     const [isLoading, setIsLoading] = useState(true);
     const [lastSaved, setLastSaved] = useState(null);
 
-    // Charger les données depuis localStorage au montage
+    // Sync status (pour affichage UI)
+    const isOnline = jobsOnline && personnelOnline && equipementsOnline;
+    const totalSyncQueue = jobsSyncQueue + personnelSyncQueue + equipementsSyncQueue;
+
+    // Charger uniquement les préférences locales (navigation) depuis localStorage
+    // Les données (jobs, personnel, etc.) sont gérées par useSupabaseSync
     useEffect(() => {
         try {
             const savedData = localStorage.getItem(STORAGE_CONFIG.KEY);
             if (savedData) {
                 const data = JSON.parse(savedData);
 
-                if (data.jobs) setJobs(data.jobs);
-                if (data.personnel) {
-                    // Merger avec le personnel par défaut pour conserver les mots de passe
-                    const mergedPersonnel = DEFAULT_PERSONNEL.map(defaultPerson => {
-                        const savedPerson = data.personnel.find(p => p.id === defaultPerson.id);
-                        return savedPerson ? { ...defaultPerson, ...savedPerson } : defaultPerson;
-                    });
-                    // Ajouter les nouveaux utilisateurs sauvegardés
-                    data.personnel.forEach(savedPerson => {
-                        if (!DEFAULT_PERSONNEL.find(p => p.id === savedPerson.id)) {
-                            mergedPersonnel.push(savedPerson);
-                        }
-                    });
-                    setPersonnel(mergedPersonnel);
-                } else {
-                    setPersonnel(DEFAULT_PERSONNEL);
-                }
-
-                if (data.equipements) setEquipements(data.equipements);
+                // Restaurer seulement les états de navigation (pas les données Supabase)
                 if (data.sousTraitants) setSousTraitants(data.sousTraitants);
-                if (data.conges) setConges(data.conges);
-                if (data.postes) setPostes(data.postes);
-                if (data.succursales) setSuccursales(data.succursales);
-                if (data.departements) setDepartements(data.departements);
                 if (data.selectedView) setSelectedView(data.selectedView);
                 if (data.selectedDate) setSelectedDate(new Date(data.selectedDate));
-
-                setLastSaved(new Date(data.lastSaved || Date.now()));
-            } else {
-                // Première utilisation, utiliser les données par défaut
-                setJobs(DEFAULT_JOBS);
-                setPersonnel(DEFAULT_PERSONNEL);
-                setEquipements(DEFAULT_EQUIPMENTS);
+                if (data.lastSaved) setLastSaved(new Date(data.lastSaved));
             }
         } catch (error) {
-            console.error('Erreur lors du chargement des données:', error);
-            // En cas d'erreur, utiliser les données par défaut
-            setJobs(DEFAULT_JOBS);
-            setPersonnel(DEFAULT_PERSONNEL);
-            setEquipements(DEFAULT_EQUIPMENTS);
+            console.error('Erreur lors du chargement des préférences:', error);
         } finally {
             setIsLoading(false);
         }
     }, []);
 
-    // Sauvegarder les données avec délai pour éviter les sauvegardes fréquentes
+    // Sauvegarder uniquement les préférences locales (navigation)
+    // Les données (jobs, personnel, etc.) sont auto-sauvegardées par useSupabaseSync
     const saveData = useCallback(() => {
         const dataToSave = {
-            jobs,
-            personnel: personnel.map(p => {
-                // Exclure les mots de passe de la sauvegarde
-                const { password, ...personSansPassword } = p;
-                return personSansPassword;
-            }),
-            equipements,
             sousTraitants,
-            conges,
-            postes,
-            succursales,
-            departements,
             selectedView,
             selectedDate: selectedDate.toISOString(),
             lastSaved: new Date().toISOString()
@@ -99,7 +113,7 @@ export function useAppData() {
         } catch (error) {
             console.error('Erreur lors de la sauvegarde:', error);
         }
-    }, [jobs, personnel, equipements, sousTraitants, conges, postes, succursales, departements, selectedView, selectedDate]);
+    }, [sousTraitants, selectedView, selectedDate]);
 
     // Auto-sauvegarde avec délai
     useEffect(() => {
@@ -112,163 +126,203 @@ export function useAppData() {
         return () => clearTimeout(timeoutId);
     }, [saveData, isLoading]);
 
-    // Fonctions utilitaires
-    const addJob = useCallback((job) => {
+    // ========== CRUD: JOBS ==========
+    const addJob = useCallback(async (job) => {
         const newJob = {
             ...job,
-            id: job.id || `job-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            dateCreation: new Date().toISOString(),
-            dateModification: new Date().toISOString()
+            id: job.id || crypto.randomUUID(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
         };
-        setJobs(prev => [...prev, newJob]);
+        return await addJobSync(newJob);
+    }, [addJobSync]);
+
+    const updateJob = useCallback(async (jobId, updates) => {
+        const updatedJob = {
+            ...updates,
+            updated_at: new Date().toISOString()
+        };
+        return await updateJobSync(jobId, updatedJob);
+    }, [updateJobSync]);
+
+    const deleteJob = useCallback(async (jobId) => {
+        return await removeJobSync(jobId);
+    }, [removeJobSync]);
+
+    // Setter pour compatibilité (utilise Supabase en arrière-plan)
+    const setJobs = useCallback((newJobsOrFunction) => {
+        console.warn('⚠️ setJobs appelé directement - utiliser addJob/updateJob/deleteJob pour sync Supabase');
+        // Pour compatibilité temporaire, ne fait rien (données gérées par useSupabaseSync)
     }, []);
 
-    const updateJob = useCallback((jobId, updates) => {
-        setJobs(prev => prev.map(job =>
-            job.id === jobId
-                ? { ...job, ...updates, dateModification: new Date().toISOString() }
-                : job
-        ));
-    }, []);
-
-    const deleteJob = useCallback((jobId) => {
-        setJobs(prev => prev.filter(job => job.id !== jobId));
-    }, []);
-
-    const addPersonnel = useCallback((person) => {
+    // ========== CRUD: PERSONNEL ==========
+    const addPersonnel = useCallback(async (person) => {
         const newPerson = {
             ...person,
-            id: person.id || `person-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+            id: person.id || crypto.randomUUID(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
         };
-        setPersonnel(prev => [...prev, newPerson]);
-    }, []);
+        return await addPersonnelSync(newPerson);
+    }, [addPersonnelSync]);
 
-    const updatePersonnel = useCallback((personId, updates) => {
-        setPersonnel(prev => prev.map(person =>
-            person.id === personId ? { ...person, ...updates } : person
-        ));
-    }, []);
+    const updatePersonnel = useCallback(async (personId, updates) => {
+        const updatedPerson = {
+            ...updates,
+            updated_at: new Date().toISOString()
+        };
+        return await updatePersonnelSync(personId, updatedPerson);
+    }, [updatePersonnelSync]);
 
-    const deletePersonnel = useCallback((personId) => {
-        setPersonnel(prev => prev.filter(person => person.id !== personId));
-    }, []);
+    const deletePersonnel = useCallback(async (personId) => {
+        return await removePersonnelSync(personId);
+    }, [removePersonnelSync]);
 
-    const savePersonnel = useCallback((personnelData) => {
+    const savePersonnel = useCallback(async (personnelData) => {
         if (personnelData.id && personnel.find(p => p.id === personnelData.id)) {
             // Mise à jour
-            setPersonnel(prev => prev.map(p => p.id === personnelData.id ? { ...p, ...personnelData, dateModification: new Date().toISOString() } : p));
+            return await updatePersonnel(personnelData.id, personnelData);
         } else {
             // Ajout
-            addPersonnel(personnelData);
+            return await addPersonnel(personnelData);
         }
-    }, [personnel, addPersonnel]);
+    }, [personnel, addPersonnel, updatePersonnel]);
 
-    const addEquipement = useCallback((equipement) => {
+    // Setter pour compatibilité
+    const setPersonnel = useCallback((newPersonnelOrFunction) => {
+        console.warn('⚠️ setPersonnel appelé directement - utiliser addPersonnel/updatePersonnel/deletePersonnel');
+    }, []);
+
+    // ========== CRUD: ÉQUIPEMENTS ==========
+    const addEquipement = useCallback(async (equipement) => {
         const newEquipement = {
             ...equipement,
-            id: equipement.id || `eq-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+            id: equipement.id || crypto.randomUUID(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
         };
-        setEquipements(prev => [...prev, newEquipement]);
-    }, []);
+        return await addEquipementSync(newEquipement);
+    }, [addEquipementSync]);
 
-    const updateEquipement = useCallback((equipementId, updates) => {
-        setEquipements(prev => prev.map(eq =>
-            eq.id === equipementId ? { ...eq, ...updates } : eq
-        ));
-    }, []);
+    const updateEquipement = useCallback(async (equipementId, updates) => {
+        const updatedEquipement = {
+            ...updates,
+            updated_at: new Date().toISOString()
+        };
+        return await updateEquipementSync(equipementId, updatedEquipement);
+    }, [updateEquipementSync]);
 
-    const saveEquipement = useCallback((equipementData) => {
+    const saveEquipement = useCallback(async (equipementData) => {
         if (equipementData.id && equipements.find(e => e.id === equipementData.id)) {
             // Mise à jour
-            setEquipements(prev => prev.map(e => e.id === equipementData.id ? { ...e, ...equipementData } : e));
+            return await updateEquipement(equipementData.id, equipementData);
         } else {
             // Ajout
-            addEquipement(equipementData);
+            return await addEquipement(equipementData);
         }
-    }, [equipements, addEquipement]);
+    }, [equipements, addEquipement, updateEquipement]);
 
-    const deleteEquipement = useCallback((equipementId) => {
-        setEquipements(prev => prev.filter(equipement => equipement.id !== equipementId));
+    const deleteEquipement = useCallback(async (equipementId) => {
+        return await removeEquipementSync(equipementId);
+    }, [removeEquipementSync]);
+
+    // Setter pour compatibilité
+    const setEquipements = useCallback((newEquipementsOrFunction) => {
+        console.warn('⚠️ setEquipements appelé directement - utiliser addEquipement/updateEquipement/deleteEquipement');
     }, []);
 
-    // Fonctions pour les postes
-    const addPoste = useCallback((poste) => {
+    // ========== CRUD: POSTES ==========
+    const addPoste = useCallback(async (poste) => {
         const newPoste = {
             ...poste,
-            id: poste.id || `poste-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+            id: poste.id || crypto.randomUUID(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
         };
-        setPostes(prev => [...prev, newPoste]);
-    }, []);
+        return await addPosteSync(newPoste);
+    }, [addPosteSync]);
 
-    const savePoste = useCallback((posteData) => {
+    const savePoste = useCallback(async (posteData) => {
         if (posteData.id && postes.find(p => p.id === posteData.id)) {
             // Mise à jour
-            setPostes(prev => prev.map(p => p.id === posteData.id ? { ...p, ...posteData } : p));
+            return await updatePosteSync(posteData.id, posteData);
         } else {
             // Ajout
-            addPoste(posteData);
+            return await addPoste(posteData);
         }
-    }, [postes, addPoste]);
+    }, [postes, addPoste, updatePosteSync]);
 
-    const deletePoste = useCallback((posteId) => {
-        setPostes(prev => prev.filter(poste => poste.id !== posteId));
-    }, []);
+    const deletePoste = useCallback(async (posteId) => {
+        return await removePosteSync(posteId);
+    }, [removePosteSync]);
 
-    // Fonctions pour les succursales
-    const addSuccursale = useCallback((succursale) => {
+    // ========== CRUD: SUCCURSALES ==========
+    const addSuccursale = useCallback(async (succursale) => {
         const newSuccursale = {
             ...succursale,
-            id: succursale.id || `succursale-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+            id: succursale.id || crypto.randomUUID(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
         };
-        setSuccursales(prev => [...prev, newSuccursale]);
-    }, []);
+        return await addSuccursaleSync(newSuccursale);
+    }, [addSuccursaleSync]);
 
-    const saveSuccursale = useCallback((succursaleData) => {
+    const saveSuccursale = useCallback(async (succursaleData) => {
         if (succursaleData.id && succursales.find(s => s.id === succursaleData.id)) {
             // Mise à jour
-            setSuccursales(prev => prev.map(s => s.id === succursaleData.id ? { ...s, ...succursaleData } : s));
+            return await updateSuccursaleSync(succursaleData.id, succursaleData);
         } else {
             // Ajout
-            addSuccursale(succursaleData);
+            return await addSuccursale(succursaleData);
         }
-    }, [succursales, addSuccursale]);
+    }, [succursales, addSuccursale, updateSuccursaleSync]);
 
-    // Fonctions pour les départements
-    const addDepartement = useCallback((departement) => {
+    // ========== CRUD: DÉPARTEMENTS ==========
+    const addDepartement = useCallback(async (departement) => {
         const newDepartement = {
             ...departement,
-            id: departement.id || `dept-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+            id: departement.id || crypto.randomUUID(),
+            created_at: new Date().toISOString()
         };
-        setDepartements(prev => [...prev, newDepartement]);
-    }, []);
+        return await addDepartementSync(newDepartement);
+    }, [addDepartementSync]);
 
-    // Fonctions congés
-    const addConge = useCallback((conge) => {
+    // ========== CRUD: CONGÉS ==========
+    const addConge = useCallback(async (conge) => {
         const newConge = {
             ...conge,
-            id: conge.id || `conge-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+            id: conge.id || crypto.randomUUID(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
         };
-        setConges(prev => [...prev, newConge]);
-    }, []);
+        return await addCongeSync(newConge);
+    }, [addCongeSync]);
 
-    const updateConge = useCallback((congeId, updates) => {
-        setConges(prev => prev.map(conge =>
-            conge.id === congeId ? { ...conge, ...updates } : conge
-        ));
-    }, []);
+    const updateConge = useCallback(async (congeId, updates) => {
+        const updatedConge = {
+            ...updates,
+            updated_at: new Date().toISOString()
+        };
+        return await updateCongeSync(congeId, updatedConge);
+    }, [updateCongeSync]);
 
-    const saveConge = useCallback((congeData) => {
+    const saveConge = useCallback(async (congeData) => {
         if (congeData.id && conges.find(c => c.id === congeData.id)) {
             // Mise à jour
-            setConges(prev => prev.map(c => c.id === congeData.id ? { ...c, ...congeData } : c));
+            return await updateConge(congeData.id, congeData);
         } else {
             // Ajout
-            addConge(congeData);
+            return await addConge(congeData);
         }
-    }, [conges, addConge]);
+    }, [conges, addConge, updateConge]);
 
-    const deleteConge = useCallback((congeId) => {
-        setConges(prev => prev.filter(conge => conge.id !== congeId));
+    const deleteConge = useCallback(async (congeId) => {
+        return await removeCongeSync(congeId);
+    }, [removeCongeSync]);
+
+    // Setter pour compatibilité
+    const setConges = useCallback((newCongesOrFunction) => {
+        console.warn('⚠️ setConges appelé directement - utiliser addConge/updateConge/deleteConge');
     }, []);
 
     // Fonctions d'authentification
@@ -292,19 +346,24 @@ export function useAppData() {
 
     // Fonction de réinitialisation des données
     const resetData = useCallback(() => {
-        setJobs([]);
-        setPersonnel(DEFAULT_PERSONNEL);
-        setEquipements(DEFAULT_EQUIPMENTS);
+        // Clear local navigation preferences
         setSousTraitants([]);
-        setConges([]);
-        setPostes([]);
-        setSuccursales([]);
-        setDepartements([]);
         localStorage.removeItem(STORAGE_CONFIG.KEY);
+
+        // Clear Supabase localStorage caches
+        localStorage.removeItem('c-secur360-jobs');
+        localStorage.removeItem('c-secur360-personnel');
+        localStorage.removeItem('c-secur360-equipements');
+        localStorage.removeItem('c-secur360-postes');
+        localStorage.removeItem('c-secur360-succursales');
+        localStorage.removeItem('c-secur360-conges');
+        localStorage.removeItem('c-secur360-departements');
+
+        console.log('🔄 Données réinitialisées - recharger la page pour sync Supabase');
     }, []);
 
     return {
-        // Données
+        // Données (Supabase sync)
         jobs,
         personnel,
         equipements,
@@ -313,12 +372,18 @@ export function useAppData() {
         postes,
         succursales,
         departements,
+
+        // État utilisateur et navigation
         currentUser,
         isAdminMode,
         selectedView,
         selectedDate,
         isLoading,
         lastSaved,
+
+        // Sync status (Supabase)
+        isOnline,
+        syncQueue: totalSyncQueue,
 
         // Setters pour les vues
         setSelectedView,

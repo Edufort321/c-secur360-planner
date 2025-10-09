@@ -15,6 +15,7 @@
     "git-status": "node auto-commit.js status"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.75.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "recharts": "^3.2.0"
