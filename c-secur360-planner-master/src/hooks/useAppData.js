@@ -149,6 +149,20 @@ export function useAppData() {
         ));
     }, []);
 
+    const deletePersonnel = useCallback((personId) => {
+        setPersonnel(prev => prev.filter(person => person.id !== personId));
+    }, []);
+
+    const savePersonnel = useCallback((personnelData) => {
+        if (personnelData.id && personnel.find(p => p.id === personnelData.id)) {
+            // Mise à jour
+            setPersonnel(prev => prev.map(p => p.id === personnelData.id ? { ...p, ...personnelData, dateModification: new Date().toISOString() } : p));
+        } else {
+            // Ajout
+            addPersonnel(personnelData);
+        }
+    }, [personnel, addPersonnel]);
+
     const addEquipement = useCallback((equipement) => {
         const newEquipement = {
             ...equipement,
@@ -321,6 +335,8 @@ export function useAppData() {
         setPersonnel,
         addPersonnel,
         updatePersonnel,
+        deletePersonnel,
+        savePersonnel,
 
         // Actions équipements
         setEquipements,
