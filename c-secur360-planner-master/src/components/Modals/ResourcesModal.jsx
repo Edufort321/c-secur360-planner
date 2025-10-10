@@ -1054,8 +1054,11 @@ export function ResourcesModal({
                     succursale={selectedSuccursale}
                     succursales={succursales}
                     personnel={personnel}
+                    equipements={equipements}
                     onSavePersonnel={onSavePersonnel}
                     onDeletePersonnel={onDeletePersonnel}
+                    onSaveEquipement={onSaveEquipement}
+                    onDeleteEquipement={onDeleteEquipement}
                     postes={postes}
                     departements={[]}
                     addNotification={addNotification}

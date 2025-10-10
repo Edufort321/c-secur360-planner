@@ -712,7 +712,8 @@ export function PersonnelModal({ isOpen, onClose, personnel = null, onSave, onDe
                                     </button>
                                 )}
 
-                                {personnel && personnel.id && (
+                                {/* Bouton d'envoi credentials - disponible après sauvegarde */}
+                                {personnel && personnel.id && formData.email && (
                                     <SendCredentialsButton
                                         personnel={formData}
                                         onPasswordGenerated={async (password) => {

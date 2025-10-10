@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Icon } from '../../components/UI/Icon';
 import { Logo } from '../../components/UI/Logo';
 import { PersonnelModal } from './PersonnelModal';
+import { EquipementModal } from './EquipementModal';
 
 export function SuccursaleModal({
     isOpen,
@@ -11,8 +12,11 @@ export function SuccursaleModal({
     succursale = null,
     succursales = [],
     personnel = [],
+    equipements = [],
     onSavePersonnel,
     onDeletePersonnel,
+    onSaveEquipement,
+    onDeleteEquipement,
     postes = [],
     departements = [],
     addNotification
@@ -33,9 +37,11 @@ export function SuccursaleModal({
         notes: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [activeSection, setActiveSection] = useState('info'); // 'info' ou 'personnel'
+    const [activeSection, setActiveSection] = useState('info'); // 'info', 'personnel' ou 'equipement'
     const [showPersonnelModal, setShowPersonnelModal] = useState(false);
     const [selectedPersonnel, setSelectedPersonnel] = useState(null);
+    const [showEquipementModal, setShowEquipementModal] = useState(false);
+    const [selectedEquipement, setSelectedEquipement] = useState(null);
 
     // Couleurs prédéfinies professionnelles
     const couleursPredefinies = [
@@ -206,6 +212,12 @@ export function SuccursaleModal({
         return personnel.filter(p => p.succursale === succursale.nom);
     };
 
+    // Filtrer les équipements de cette succursale
+    const getEquipementsSuccursale = () => {
+        if (!succursale) return [];
+        return equipements.filter(e => e.succursale === succursale.nom);
+    };
+
     // Gestion du personnel
     const handleAddPersonnel = () => {
         setSelectedPersonnel(null);
@@ -225,6 +237,29 @@ export function SuccursaleModal({
             onDeletePersonnel(personId);
             if (addNotification) {
                 addNotification(`${person.prenom} ${person.nom} supprimé avec succès`, 'success');
+            }
+        }
+    };
+
+    // Gestion des équipements
+    const handleAddEquipement = () => {
+        setSelectedEquipement(null);
+        setShowEquipementModal(true);
+    };
+
+    const handleEditEquipement = (equipement) => {
+        setSelectedEquipement(equipement);
+        setShowEquipementModal(true);
+    };
+
+    const handleDeleteEquipement = (equipementId) => {
+        const equipement = equipements.find(e => e.id === equipementId);
+        if (!equipement) return;
+
+        if (window.confirm(`Êtes-vous sûr de vouloir supprimer ${equipement.nom} ?`)) {
+            onDeleteEquipement(equipementId);
+            if (addNotification) {
+                addNotification(`${equipement.nom} supprimé avec succès`, 'success');
             }
         }
     };
@@ -280,6 +315,17 @@ export function SuccursaleModal({
                             >
                                 <Icon name="user" size={16} className="inline mr-2" />
                                 Personnel ({getPersonnelSuccursale().length})
+                            </button>
+                            <button
+                                onClick={() => setActiveSection('equipement')}
+                                className={`py-3 px-6 font-medium text-sm transition-all ${
+                                    activeSection === 'equipement'
+                                        ? 'text-white border-b-2 border-blue-400'
+                                        : 'text-gray-400 hover:text-gray-200'
+                                }`}
+                            >
+                                <Icon name="truck" size={16} className="inline mr-2" />
+                                Équipements ({getEquipementsSuccursale().length})
                             </button>
                         </div>
                     )}
@@ -732,6 +778,103 @@ export function SuccursaleModal({
                             )}
                         </div>
                     )}
+
+                    {/* Section Équipements */}
+                    {activeSection === 'equipement' && succursale && (
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                    Équipements de {succursale.nom}
+                                </h3>
+                                <button
+                                    onClick={handleAddEquipement}
+                                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                >
+                                    <Icon name="plus" size={16} />
+                                    Ajouter un équipement
+                                </button>
+                            </div>
+
+                            {/* Liste des équipements */}
+                            {getEquipementsSuccursale().length === 0 ? (
+                                <div className="text-center py-12 bg-gray-50 rounded-lg">
+                                    <Icon name="truck" size={48} className="mx-auto text-gray-300 mb-4" />
+                                    <p className="text-gray-500 text-lg mb-2">Aucun équipement dans cette succursale</p>
+                                    <p className="text-gray-400 text-sm">Cliquez sur "Ajouter un équipement" pour commencer</p>
+                                </div>
+                            ) : (
+                                <div className="grid gap-4">
+                                    {getEquipementsSuccursale().map(equipement => (
+                                        <div
+                                            key={equipement.id}
+                                            className="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow"
+                                        >
+                                            <div className="flex justify-between items-start">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3">
+                                                        <div
+                                                            className="w-4 h-4 rounded-full"
+                                                            style={{ backgroundColor: equipement.couleur || '#10B981' }}
+                                                        />
+                                                        <h4 className="font-semibold text-gray-900 text-lg">
+                                                            {equipement.nom}
+                                                        </h4>
+                                                    </div>
+                                                    <div className="mt-2 space-y-1">
+                                                        {equipement.type && (
+                                                            <p className="text-sm text-gray-600">
+                                                                <Icon name="tag" size={14} className="inline mr-2" />
+                                                                {equipement.type}
+                                                            </p>
+                                                        )}
+                                                        {equipement.marque && (
+                                                            <p className="text-sm text-gray-600">
+                                                                <Icon name="briefcase" size={14} className="inline mr-2" />
+                                                                {equipement.marque} {equipement.modele && `- ${equipement.modele}`}
+                                                            </p>
+                                                        )}
+                                                        {equipement.numeroSerie && (
+                                                            <p className="text-sm text-gray-600">
+                                                                <Icon name="hash" size={14} className="inline mr-2" />
+                                                                N/S: {equipement.numeroSerie}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="mt-3 flex gap-2">
+                                                        {equipement.disponible !== false ? (
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                                Disponible
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                                                Indisponible
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-2 ml-4">
+                                                    <button
+                                                        onClick={() => handleEditEquipement(equipement)}
+                                                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                                        title="Modifier"
+                                                    >
+                                                        <Icon name="edit" size={18} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteEquipement(equipement.id)}
+                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                        title="Supprimer"
+                                                    >
+                                                        <Icon name="trash" size={18} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Modal Personnel */}
@@ -763,6 +906,34 @@ export function SuccursaleModal({
                         succursales={succursales}
                         departements={departements}
                         forceSuccursale={succursale?.nom} // Forcer la succursale actuelle
+                    />
+                )}
+
+                {/* Modal Équipement */}
+                {showEquipementModal && (
+                    <EquipementModal
+                        isOpen={showEquipementModal}
+                        onClose={() => {
+                            setShowEquipementModal(false);
+                            setSelectedEquipement(null);
+                        }}
+                        onSave={(equipementData) => {
+                            // Forcer la succursale à être celle du modal
+                            const dataAvecSuccursale = {
+                                ...equipementData,
+                                succursale: succursale.nom
+                            };
+                            onSaveEquipement(dataAvecSuccursale);
+                            setShowEquipementModal(false);
+                            setSelectedEquipement(null);
+                            if (addNotification) {
+                                addNotification(
+                                    `${equipementData.nom} ${selectedEquipement ? 'modifié' : 'ajouté'} avec succès`,
+                                    'success'
+                                );
+                            }
+                        }}
+                        equipement={selectedEquipement}
                     />
                 )}
             </div>
