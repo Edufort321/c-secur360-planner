@@ -177,41 +177,106 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
     setSyncQueue([]);
   };
 
-  // Transformation des données pour Supabase (camelCase → snake_case + nettoyage)
+  // Transformation universelle des données pour Supabase (camelCase → snake_case + nettoyage)
   const transformForSupabase = (data) => {
     if (!data) return data;
 
-    // Nettoyage générique: supprimer les champs non-Supabase
     const cleanData = { ...data };
 
-    // Supprimer les champs camelCase qui n'existent pas dans Supabase
-    delete cleanData.dateCreation;
-    delete cleanData.dateModification;
-    delete cleanData.codePostal;
-    delete cleanData.nombreEmployes;
+    // MAP DE TRANSFORMATION camelCase → snake_case (TOUTES LES TABLES)
+    const fieldMappings = {
+      // Champs génériques
+      dateCreation: 'created_at',
+      dateModification: 'updated_at',
 
-    // Pour succursales: transformer les champs spécifiques
-    if (table === 'succursales') {
-      // code_postal
-      if (data.codePostal !== undefined) {
-        cleanData.code_postal = data.codePostal || null;
+      // Personnel
+      niveauAcces: 'niveau_acces',
+      dateEmbauche: 'date_embauche',
+      visibleChantier: 'visible_chantier',
+
+      // Jobs
+      dateDebut: 'date_debut',
+      dateFin: 'date_fin',
+      heureDebut: 'heure_debut',
+      heureFin: 'heure_fin',
+      personnelIds: 'personnel_ids',
+      equipementIds: 'equipement_ids',
+      typeService: 'type_service',
+      createdBy: 'created_by',
+
+      // Equipements
+      numeroSerie: 'numero_serie',
+      derniereMaintenance: 'derniere_maintenance',
+      prochaineMaintenance: 'prochaine_maintenance',
+
+      // Succursales
+      codePostal: 'code_postal',
+      nombreEmployes: 'nombre_employes',
+
+      // Postes
+      salaireMin: 'salaire_min',
+      salaireMax: 'salaire_max',
+
+      // Congés
+      personnelId: 'personnel_id',
+      approuvePar: 'approuve_par',
+
+      // Départements
+      responsableId: 'responsable_id'
+    };
+
+    // Appliquer toutes les transformations
+    Object.keys(fieldMappings).forEach(camelKey => {
+      if (data[camelKey] !== undefined) {
+        cleanData[fieldMappings[camelKey]] = data[camelKey];
+        delete cleanData[camelKey];
       }
+    });
 
-      // nombre_employes: convertir en integer ou null
-      if (data.nombreEmployes !== undefined) {
-        if (data.nombreEmployes === '' || data.nombreEmployes === null) {
-          cleanData.nombre_employes = null;
-        } else {
-          const parsed = parseInt(data.nombreEmployes, 10);
-          cleanData.nombre_employes = isNaN(parsed) ? null : parsed;
-        }
-      }
-    }
+    // CONVERSION DES TYPES (pour éviter erreurs PostgreSQL)
 
-    // Nettoyer les strings vides → null pour tous les champs
+    // Convertir strings vides → null pour TOUS les champs
     Object.keys(cleanData).forEach(key => {
       if (cleanData[key] === '') {
         cleanData[key] = null;
+      }
+    });
+
+    // Convertir INTEGER fields (si string → int, si vide → null)
+    const integerFields = ['nombre_employes', 'salaire', 'montant', 'salaire_min', 'salaire_max'];
+    integerFields.forEach(field => {
+      if (cleanData[field] !== undefined && cleanData[field] !== null) {
+        if (cleanData[field] === '') {
+          cleanData[field] = null;
+        } else {
+          const parsed = parseFloat(cleanData[field]);
+          cleanData[field] = isNaN(parsed) ? null : parsed;
+        }
+      }
+    });
+
+    // Convertir BOOLEAN fields (strings → boolean)
+    const booleanFields = ['visible_chantier', 'disponible', 'actif'];
+    booleanFields.forEach(field => {
+      if (cleanData[field] !== undefined && typeof cleanData[field] === 'string') {
+        cleanData[field] = cleanData[field] === 'true' || cleanData[field] === '1';
+      }
+    });
+
+    // Convertir ARRAY fields (strings → arrays si nécessaire)
+    const arrayFields = ['personnel_ids', 'equipement_ids', 'competences'];
+    arrayFields.forEach(field => {
+      if (cleanData[field] !== undefined) {
+        if (typeof cleanData[field] === 'string') {
+          try {
+            cleanData[field] = JSON.parse(cleanData[field]);
+          } catch {
+            cleanData[field] = [];
+          }
+        }
+        if (!Array.isArray(cleanData[field])) {
+          cleanData[field] = [];
+        }
       }
     });
 
