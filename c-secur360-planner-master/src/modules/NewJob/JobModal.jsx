@@ -4063,20 +4063,20 @@ export function JobModal({
                         {activeTab === 'gantt' && (
                             <div className={`${ganttFullscreen ? 'fixed inset-0 z-50 bg-white overflow-auto p-6' : 'h-full overflow-y-auto p-6'}`}>
                                 <div className="space-y-6">
-                                    {/* Header Gantt - NAVY */}
-                                    <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-blue-900 to-blue-800 rounded-lg shadow-lg">
+                                    {/* Header Gantt */}
+                                    <div className="flex items-center gap-4 p-4 bg-gray-900 rounded-lg">
                                         <Logo size="normal" showText={false} />
                                         <div className="flex-1">
                                             <h3 className="text-lg font-bold text-white flex items-center">
                                                 📊 Diagramme de Gantt et Chronologie
                                             </h3>
-                                            <p className="text-sm text-gray-200">
+                                            <p className="text-sm text-gray-300">
                                                 Planification temporelle ({formData.etapes.length} tâche{formData.etapes.length > 1 ? 's' : ''}, {getTotalProjectHours()}h total)
                                             </p>
                                         </div>
                                         <button
                                             onClick={() => setGanttFullscreen(!ganttFullscreen)}
-                                            className="text-gray-200 hover:text-white transition-colors"
+                                            className="text-gray-400 hover:text-white transition-colors"
                                         >
                                             {ganttFullscreen ? '🗗' : '🗖'}
                                         </button>
