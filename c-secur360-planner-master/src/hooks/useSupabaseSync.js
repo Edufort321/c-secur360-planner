@@ -193,6 +193,7 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
       niveauAcces: 'niveau_acces',
       dateEmbauche: 'date_embauche',
       visibleChantier: 'visible_chantier',
+      specialites: null, // Supprimer si n'existe pas dans Supabase
 
       // Jobs
       dateDebut: 'date_debut',
