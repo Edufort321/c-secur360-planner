@@ -3153,20 +3153,21 @@ export function JobModal({
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Numéro de Job
+                                                Client *
                                             </label>
                                             <input
                                                 type="text"
-                                                value={formData.numeroJob}
-                                                onChange={(e) => setFormData(prev => ({ ...prev, numeroJob: e.target.value }))}
+                                                value={formData.client}
+                                                onChange={(e) => setFormData(prev => ({ ...prev, client: e.target.value }))}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                placeholder="Ex: G25-0101"
+                                                placeholder="Nom du client"
+                                                required
                                             />
                                         </div>
 
                                         <div>
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Nom du Job
+                                                Nom du Job *
                                             </label>
                                             <input
                                                 type="text"
@@ -3334,29 +3335,16 @@ export function JobModal({
                                             )}
                                         </div>
 
-                                        <div>
+                                        <div className="md:col-span-2">
                                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Lieu
+                                                Lieu d'intervention
                                             </label>
                                             <input
                                                 type="text"
                                                 value={formData.lieu}
                                                 onChange={(e) => setFormData(prev => ({ ...prev, lieu: e.target.value }))}
                                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                placeholder="Lieu d'intervention"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                                Client
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={formData.client}
-                                                onChange={(e) => setFormData(prev => ({ ...prev, client: e.target.value }))}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                                placeholder="Nom du client"
+                                                placeholder="Adresse complète du lieu d'intervention"
                                             />
                                         </div>
                                     </div>
