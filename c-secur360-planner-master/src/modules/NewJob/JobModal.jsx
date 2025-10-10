@@ -1236,21 +1236,29 @@ export function JobModal({
             const level = calculateTaskLevel(etape.id, formData.etapes);
             const isCritical = etape.isCritical || formData.criticalPath?.includes(etape.id);
 
-            // Calculer la numérotation hiérarchique correcte
+            // Calculer la numérotation hiérarchique correcte (multi-niveaux)
             let displayName = etape.text;
             if (!displayName) {
-                if (etape.parentId) {
-                    // C'est une sous-tâche : compter les frères précédents
-                    const siblings = formData.etapes.filter(e => e.parentId === etape.parentId);
-                    const siblingIndex = siblings.findIndex(s => s.id === etape.id);
-                    const parentTask = formData.etapes.find(e => e.id === etape.parentId);
-                    const parentNumber = formData.etapes.filter(e => !e.parentId).findIndex(e => e.id === etape.parentId) + 1;
-                    displayName = `Étape ${parentNumber}.${siblingIndex + 1}`;
-                } else {
-                    // C'est une tâche parent : compter les parents précédents
-                    const parentIndex = formData.etapes.filter(e => !e.parentId).findIndex(e => e.id === etape.id) + 1;
-                    displayName = `Étape ${parentIndex}`;
-                }
+                // Fonction récursive pour construire le chemin de numérotation
+                const buildNumberPath = (taskId, allTasks) => {
+                    const task = allTasks.find(t => t.id === taskId);
+                    if (!task) return [];
+
+                    if (!task.parentId) {
+                        // Tâche racine : trouver son index parmi les racines
+                        const rootIndex = allTasks.filter(t => !t.parentId).findIndex(t => t.id === taskId);
+                        return [rootIndex + 1];
+                    } else {
+                        // Sous-tâche : trouver son index parmi ses frères, puis récursion sur le parent
+                        const siblings = allTasks.filter(t => t.parentId === task.parentId);
+                        const siblingIndex = siblings.findIndex(s => s.id === taskId);
+                        const parentPath = buildNumberPath(task.parentId, allTasks);
+                        return [...parentPath, siblingIndex + 1];
+                    }
+                };
+
+                const numberPath = buildNumberPath(etape.id, formData.etapes);
+                displayName = `Étape ${numberPath.join('.')}`;
             }
 
             return {
@@ -3656,7 +3664,7 @@ export function JobModal({
                                                                 </div>
                                                             </div>
                                                             <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto border border-gray-300 rounded bg-white">
-                                                                <div className="space-y-1 p-2 inline-block" style={{minWidth: '600px'}}>
+                                                                <div className="space-y-1 p-2 inline-block" style={{minWidth: '100%'}}>
                                                                     {(() => {
                                                                         const hierarchicalTasks = generateHierarchicalGanttData();
                                                                         const currentViewMode = formData.ganttViewMode || getDefaultViewMode();
@@ -7217,6 +7225,175 @@ export function JobModal({
                     </div>
                 </div>
             </div>
+
+            {/* Modal de Configuration Avancée d'Étape */}
+            {showStepConfigModal && selectedStep && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-center justify-center p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-purple-600 to-purple-500 p-6 flex items-center justify-between">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <Icon name="settings" size={24} />
+                                Configuration - {selectedStep.text || 'Étape'}
+                            </h3>
+                            <button
+                                onClick={closeStepConfigModal}
+                                className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-lg transition-all"
+                            >
+                                <Icon name="close" size={24} />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)] space-y-6">
+                            {/* Tâches Parallèles */}
+                            <div className="bg-white border rounded-lg overflow-hidden">
+                                <div className="bg-blue-50 p-4 border-b">
+                                    <h4 className="font-medium text-blue-800 flex items-center gap-2">
+                                        🔀 Tâches Parallèles
+                                    </h4>
+                                    <p className="text-xs text-blue-600 mt-1">
+                                        Sélectionnez les tâches qui peuvent s'exécuter en même temps
+                                    </p>
+                                </div>
+                                <div className="p-4 max-h-64 overflow-y-auto">
+                                    {generateHierarchicalCheckboxes(selectedStep)}
+                                </div>
+                            </div>
+
+                            {/* Type de Tâche */}
+                            <div className="bg-white border rounded-lg overflow-hidden">
+                                <div className="bg-purple-50 p-4 border-b">
+                                    <h4 className="font-medium text-purple-800 flex items-center gap-2">
+                                        📋 Type de Tâche
+                                    </h4>
+                                </div>
+                                <div className="p-4 space-y-2">
+                                    <label className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            checked={!selectedStep.isMilestone}
+                                            onChange={() => {
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    etapes: prev.etapes.map(e =>
+                                                        e.id === selectedStep.id
+                                                            ? { ...e, isMilestone: false }
+                                                            : e
+                                                    )
+                                                }));
+                                                setSelectedStep({ ...selectedStep, isMilestone: false });
+                                            }}
+                                            className="rounded-full border-gray-300"
+                                        />
+                                        <span className="text-sm">📄 Tâche normale</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            checked={selectedStep.isMilestone === true}
+                                            onChange={() => {
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    etapes: prev.etapes.map(e =>
+                                                        e.id === selectedStep.id
+                                                            ? { ...e, isMilestone: true, duration: 0 }
+                                                            : e
+                                                    )
+                                                }));
+                                                setSelectedStep({ ...selectedStep, isMilestone: true, duration: 0 });
+                                            }}
+                                            className="rounded-full border-gray-300"
+                                        />
+                                        <span className="text-sm">🎯 Jalon (milestone)</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Dépendances */}
+                            <div className="bg-white border rounded-lg overflow-hidden">
+                                <div className="bg-green-50 p-4 border-b">
+                                    <h4 className="font-medium text-green-800 flex items-center gap-2">
+                                        🔗 Dépendances
+                                    </h4>
+                                    <p className="text-xs text-green-600 mt-1">
+                                        Cette tâche dépend de: {selectedStep.dependsOn?.map(id => {
+                                            const dep = formData.etapes.find(e => e.id === id);
+                                            return dep?.text || id;
+                                        }).join(', ') || 'Aucune'}
+                                    </p>
+                                </div>
+                                <div className="p-4">
+                                    <select
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                        onChange={(e) => {
+                                            if (e.target.value) {
+                                                const newDeps = [...(selectedStep.dependsOn || []), e.target.value];
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    etapes: prev.etapes.map(et =>
+                                                        et.id === selectedStep.id
+                                                            ? { ...et, dependsOn: newDeps }
+                                                            : et
+                                                    )
+                                                }));
+                                                setSelectedStep({ ...selectedStep, dependsOn: newDeps });
+                                                e.target.value = '';
+                                            }
+                                        }}
+                                        value=""
+                                    >
+                                        <option value="">+ Ajouter une dépendance</option>
+                                        {generateHierarchicalSelectOptions(selectedStep)}
+                                    </select>
+
+                                    {/* Liste des dépendances actuelles */}
+                                    {selectedStep.dependsOn && selectedStep.dependsOn.length > 0 && (
+                                        <div className="mt-3 space-y-2">
+                                            {selectedStep.dependsOn.map(depId => {
+                                                const dep = formData.etapes.find(e => e.id === depId);
+                                                return (
+                                                    <div key={depId} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                                        <span className="text-sm">{dep?.text || depId}</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const newDeps = selectedStep.dependsOn.filter(id => id !== depId);
+                                                                setFormData(prev => ({
+                                                                    ...prev,
+                                                                    etapes: prev.etapes.map(et =>
+                                                                        et.id === selectedStep.id
+                                                                            ? { ...et, dependsOn: newDeps }
+                                                                            : et
+                                                                    )
+                                                                }));
+                                                                setSelectedStep({ ...selectedStep, dependsOn: newDeps });
+                                                            }}
+                                                            className="text-red-600 hover:bg-red-100 p-1 rounded"
+                                                        >
+                                                            <Icon name="trash" size={16} />
+                                                        </button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-end gap-2 p-4 border-t bg-gray-50">
+                            <button
+                                onClick={closeStepConfigModal}
+                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                            >
+                                Fermer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
