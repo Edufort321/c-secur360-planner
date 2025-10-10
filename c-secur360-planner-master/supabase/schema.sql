@@ -36,8 +36,10 @@ CREATE INDEX IF NOT EXISTS idx_personnel_disponible ON personnel(disponible);
 CREATE TABLE IF NOT EXISTS jobs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   titre TEXT NOT NULL,
+  nom TEXT, -- Nom du job (différent de titre)
   client TEXT,
   adresse TEXT,
+  lieu TEXT, -- Lieu d'intervention
   ville TEXT,
   code_postal TEXT,
   date_debut DATE,
@@ -47,12 +49,27 @@ CREATE TABLE IF NOT EXISTS jobs (
   statut TEXT CHECK (statut IN ('planifie', 'en_cours', 'termine', 'annule')),
   priorite TEXT CHECK (priorite IN ('basse', 'normale', 'haute', 'urgente')),
   couleur TEXT,
-  personnel_ids UUID[], -- Array d'IDs personnel assign�s
-  equipement_ids UUID[], -- Array d'IDs �quipements assign�s
+  personnel_ids UUID[], -- Array d'IDs personnel assignés
+  equipement_ids UUID[], -- Array d'IDs équipements assignés
   notes TEXT,
   description TEXT,
   type_service TEXT,
   montant NUMERIC(10, 2),
+  numero TEXT, -- Numéro de job
+  responsable TEXT,
+  sous_traitant TEXT,
+
+  -- Données avancées (JSONB)
+  etapes JSONB DEFAULT '[]'::jsonb, -- Étapes avec hiérarchie, durée, dépendances
+  gantt_view_mode TEXT, -- Mode vue Gantt: 6h, 12h, 24h, day, week, month
+  horaires_personnalises JSONB DEFAULT '{}'::jsonb, -- Horaires par jour
+  equipes JSONB DEFAULT '[]'::jsonb, -- Équipes assignées
+  fichiers JSONB DEFAULT '[]'::jsonb, -- Fichiers attachés
+  recurrence JSONB DEFAULT NULL, -- Configuration récurrence
+  baseline JSONB DEFAULT NULL, -- Baseline sauvegardée
+  critical_path JSONB DEFAULT '[]'::jsonb, -- IDs tâches critiques
+  show_critical_path BOOLEAN DEFAULT false, -- Afficher chemin critique
+
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   created_by UUID REFERENCES personnel(id)

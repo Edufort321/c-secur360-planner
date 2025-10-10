@@ -302,6 +302,11 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
       equipementIds: 'equipement_ids',
       typeService: 'type_service',
       createdBy: 'created_by',
+      sousTraitant: 'sous_traitant',
+      ganttViewMode: 'gantt_view_mode',
+      horairesPersonnalises: 'horaires_personnalises',
+      criticalPath: 'critical_path',
+      showCriticalPath: 'show_critical_path',
 
       // Equipements
       numeroSerie: 'numero_serie',
