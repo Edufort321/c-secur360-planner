@@ -80,6 +80,70 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
     }
   }, [data, storageKey]);
 
+
+  // Transformation inverse: snake_case (Supabase) → camelCase (JavaScript)
+  const transformFromSupabase = (data) => {
+    if (!data) return data;
+
+    // MAP DE TRANSFORMATION snake_case → camelCase (LECTURE depuis Supabase)
+    const reverseFieldMappings = {
+      // Champs génériques
+      'created_at': 'dateCreation',
+      'updated_at': 'dateModification',
+
+      // Personnel
+      'niveau_acces': 'niveauAcces',
+      'date_embauche': 'dateEmbauche',
+      'visible_chantier': 'visibleChantier',
+
+      // Jobs
+      'date_debut': 'dateDebut',
+      'date_fin': 'dateFin',
+      'heure_debut': 'heureDebut',
+      'heure_fin': 'heureFin',
+      'personnel_ids': 'personnelIds',
+      'equipement_ids': 'equipementIds',
+      'type_service': 'typeService',
+      'created_by': 'createdBy',
+
+      // Equipements
+      'numero_serie': 'numeroSerie',
+      'date_achat': 'dateAchat',
+      'cout_location': 'coutLocation',
+      'derniere_maintenance': 'derniereMaintenance',
+      'prochaine_maintenance': 'prochaineMaintenance',
+
+      // Succursales
+      'code_postal': 'codePostal',
+      'nombre_employes': 'nombreEmployes',
+
+      // Postes
+      'salaire_min': 'salaireMin',
+      'salaire_max': 'salaireMax',
+      'competences': 'competencesRequises',
+
+      // Congés
+      'personnel_id': 'personnelId',
+      'approuve_par': 'approuvePar',
+
+      // Départements
+      'responsable_id': 'responsableId'
+    };
+
+    const transformed = { ...data };
+
+    // Appliquer toutes les transformations snake_case → camelCase
+    Object.keys(reverseFieldMappings).forEach(snakeKey => {
+      if (data[snakeKey] !== undefined) {
+        const camelKey = reverseFieldMappings[snakeKey];
+        transformed[camelKey] = data[snakeKey];
+        // Garder AUSSI la version snake_case pour compatibilité
+      }
+    });
+
+    return transformed;
+  };
+
   // Sync initial depuis Supabase (si configur� et online)
   useEffect(() => {
     if (!isSupabaseConfigured() || !isOnline) {
@@ -97,8 +161,10 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
         if (error) throw error;
 
         if (remoteData && remoteData.length > 0) {
-          setData(remoteData);
-          localStorage.setItem(storageKey, JSON.stringify(remoteData));
+          // TRANSFORMER les données Supabase → JavaScript
+          const transformedData = remoteData.map(transformFromSupabase);
+          setData(transformedData);
+          localStorage.setItem(storageKey, JSON.stringify(transformedData));
           setLastSync(new Date());
           console.log(` [${table}] Sync initial:`, remoteData.length, '�l�ments');
         }
@@ -134,13 +200,13 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
               case 'INSERT':
                 // V�rifier si pas d�j� pr�sent (�viter doublons)
                 if (!newData.find(item => item.id === payload.new.id)) {
-                  newData = [payload.new, ...newData];
+                  newData = [transformFromSupabase(payload.new), ...newData];
                 }
                 break;
 
               case 'UPDATE':
                 newData = newData.map(item =>
-                  item.id === payload.new.id ? payload.new : item
+                  item.id === payload.new.id ? transformFromSupabase(payload.new) : item
                 );
                 break;
 
@@ -488,8 +554,9 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
       if (isSupabaseConfigured() && isOnline) {
         supabase.from(table).select('*').then(({ data: remoteData }) => {
           if (remoteData) {
-            setData(remoteData);
-            localStorage.setItem(storageKey, JSON.stringify(remoteData));
+            const transformedData = remoteData.map(transformFromSupabase);
+            setData(transformedData);
+            localStorage.setItem(storageKey, JSON.stringify(transformedData));
           }
         });
       }
