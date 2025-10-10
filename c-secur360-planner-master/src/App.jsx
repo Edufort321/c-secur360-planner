@@ -311,6 +311,7 @@ function AppContent() {
                                 onSavePoste={appData.savePoste}
                                 onDeletePoste={appData.deletePoste}
                                 onSaveSuccursale={appData.saveSuccursale}
+                                onDeleteSuccursale={appData.deleteSuccursale}
                                 onSaveConge={appData.saveConge}
                                 onDeleteConge={appData.deleteConge}
                                 utilisateurConnecte={utilisateurConnecte}

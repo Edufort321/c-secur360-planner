@@ -277,6 +277,10 @@ export function useAppData() {
         }
     }, [succursales, addSuccursale, updateSuccursaleSync]);
 
+    const deleteSuccursale = useCallback(async (succursaleId) => {
+        return await removeSuccursaleSync(succursaleId);
+    }, [removeSuccursaleSync]);
+
     // ========== CRUD: DÉPARTEMENTS ==========
     const addDepartement = useCallback(async (departement) => {
         const newDepartement = {
@@ -418,6 +422,7 @@ export function useAppData() {
         // Actions succursales
         addSuccursale,
         saveSuccursale,
+        deleteSuccursale,
 
         // Actions départements
         addDepartement,
