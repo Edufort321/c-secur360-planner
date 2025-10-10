@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Icon } from '../../components/UI/Icon';
+import { Logo } from '../../components/UI/Logo';
 
 export function EquipementModal({ isOpen, onClose, equipement = null, onSave, onDelete }) {
     const [formData, setFormData] = useState({
@@ -27,13 +28,6 @@ export function EquipementModal({ isOpen, onClose, equipement = null, onSave, on
         'Matériel électrique', 'Matériel plomberie', 'Échafaudage',
         'Grue', 'Compresseur', 'Générateur', 'Pompe', 'Soudure',
         'Mesure', 'Informatique', 'Autre'
-    ];
-
-    const marquesPredefinies = [
-        'Bosch', 'Makita', 'DeWalt', 'Milwaukee', 'Hilti', 'Festool',
-        'Metabo', 'Ryobi', 'Black & Decker', 'Stanley', 'Klein Tools',
-        'Fluke', 'Caterpillar', 'John Deere', 'Ford', 'Chevrolet',
-        'RAM', 'Isuzu', 'Freightliner', 'Peterbilt'
     ];
 
     useEffect(() => {
@@ -151,11 +145,14 @@ export function EquipementModal({ isOpen, onClose, equipement = null, onSave, on
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-green-600 to-green-700">
-                    <h2 className="text-xl font-bold text-white flex items-center">
-                        <Icon name={getIconByType(formData.type)} className="mr-2" size={24} />
-                        {equipement ? 'Modifier l\'Équipement' : 'Nouvel Équipement'}
-                    </h2>
+                <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-900 to-blue-800">
+                    <div className="flex items-center gap-3">
+                        <Logo size="sm" showText={false} />
+                        <h2 className="text-xl font-bold text-white flex items-center">
+                            <Icon name={getIconByType(formData.type)} className="mr-2" size={24} />
+                            {equipement ? 'Modifier l\'Équipement' : 'Nouvel Équipement'}
+                        </h2>
+                    </div>
                     <button
                         onClick={onClose}
                         className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-lg transition-all"
@@ -177,7 +174,7 @@ export function EquipementModal({ isOpen, onClose, equipement = null, onSave, on
                                     type="text"
                                     value={formData.nom}
                                     onChange={(e) => handleInputChange('nom', e.target.value)}
-                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
+                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-900"
                                     placeholder="Ex: Perceuse sans fil Makita"
                                     required
                                 />
@@ -192,7 +189,7 @@ export function EquipementModal({ isOpen, onClose, equipement = null, onSave, on
                                     list="types-list"
                                     value={formData.type}
                                     onChange={(e) => handleInputChange('type', e.target.value)}
-                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
+                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-900"
                                     placeholder="Ex: Outil électrique"
                                 />
                                 <datalist id="types-list">
@@ -208,17 +205,11 @@ export function EquipementModal({ isOpen, onClose, equipement = null, onSave, on
                                 </label>
                                 <input
                                     type="text"
-                                    list="marques-list"
                                     value={formData.marque}
                                     onChange={(e) => handleInputChange('marque', e.target.value)}
-                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
+                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-900"
                                     placeholder="Ex: Makita"
                                 />
-                                <datalist id="marques-list">
-                                    {marquesPredefinies.map(marque => (
-                                        <option key={marque} value={marque} />
-                                    ))}
-                                </datalist>
                             </div>
 
                             <div>
@@ -229,7 +220,7 @@ export function EquipementModal({ isOpen, onClose, equipement = null, onSave, on
                                     type="text"
                                     value={formData.modele}
                                     onChange={(e) => handleInputChange('modele', e.target.value)}
-                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
+                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-900"
                                     placeholder="Ex: XDT131"
                                 />
                             </div>
@@ -242,7 +233,7 @@ export function EquipementModal({ isOpen, onClose, equipement = null, onSave, on
                                     type="text"
                                     value={formData.numeroSerie}
                                     onChange={(e) => handleInputChange('numeroSerie', e.target.value)}
-                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
+                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-900"
                                     placeholder="Ex: SNJ123456789"
                                 />
                             </div>
@@ -255,7 +246,7 @@ export function EquipementModal({ isOpen, onClose, equipement = null, onSave, on
                                     type="date"
                                     value={formData.dateAchat}
                                     onChange={(e) => handleInputChange('dateAchat', e.target.value)}
-                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
+                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-900"
                                 />
                             </div>
 
@@ -268,7 +259,7 @@ export function EquipementModal({ isOpen, onClose, equipement = null, onSave, on
                                     step="0.01"
                                     value={formData.coutLocation}
                                     onChange={(e) => handleInputChange('coutLocation', e.target.value)}
-                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
+                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-900"
                                     placeholder="Ex: 25.50"
                                 />
                             </div>
@@ -281,7 +272,7 @@ export function EquipementModal({ isOpen, onClose, equipement = null, onSave, on
                                     type="date"
                                     value={formData.prochaineMaintenance}
                                     onChange={(e) => handleInputChange('prochaineMaintenance', e.target.value)}
-                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500"
+                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-900"
                                 />
                             </div>
                         </div>
@@ -385,7 +376,7 @@ export function EquipementModal({ isOpen, onClose, equipement = null, onSave, on
                             <textarea
                                 value={formData.notes}
                                 onChange={(e) => handleInputChange('notes', e.target.value)}
-                                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-green-500 h-24 resize-none"
+                                className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-900 h-24 resize-none"
                                 placeholder="Ajoutez des notes sur cet équipement (maintenance, problèmes, etc.)"
                             />
                         </div>
@@ -413,7 +404,7 @@ export function EquipementModal({ isOpen, onClose, equipement = null, onSave, on
                                 <button
                                     type="submit"
                                     disabled={isSubmitting}
-                                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                                    className="px-4 py-2 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-colors disabled:opacity-50"
                                 >
                                     {isSubmitting ? '⏳ Sauvegarde...' : '💾 Sauvegarder'}
                                 </button>
