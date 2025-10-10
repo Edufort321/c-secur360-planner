@@ -4131,12 +4131,12 @@ export function JobModal({
 
                                         {/* Ligne 2: Vue et modes */}
                                         <div className="flex items-center gap-3 flex-wrap">
-                                            <div className="flex items-center gap-2 bg-white bg-opacity-10 rounded-lg px-3 py-2">
+                                            <div className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
                                                 <span className="text-xs text-white font-medium">Vue:</span>
                                                 <select
                                                     value={formData.ganttViewMode || getDefaultViewMode()}
                                                     onChange={(e) => updateField('ganttViewMode', e.target.value)}
-                                                    className="bg-gray-800 text-white text-sm rounded px-2 py-1 font-medium border border-gray-600"
+                                                    className="bg-gray-900 text-white text-sm rounded px-2 py-1 font-medium border border-gray-600"
                                                 >
                                                     <option value="6h">⏰ 6 heures</option>
                                                     <option value="12h">🕐 12 heures</option>
@@ -4152,7 +4152,7 @@ export function JobModal({
                                                 className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                                                     formData.showCriticalPath
                                                         ? 'bg-red-600 text-white font-medium'
-                                                        : 'bg-white bg-opacity-10 text-white hover:bg-opacity-20'
+                                                        : 'bg-gray-800 text-white hover:bg-gray-900'
                                                 }`}
                                             >
                                                 🚨 {formData.showCriticalPath ? 'Critique ACTIVÉ' : 'Critique'}
@@ -4163,7 +4163,7 @@ export function JobModal({
                                                 className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                                                     ganttCompactMode
                                                         ? 'bg-purple-600 text-white font-medium'
-                                                        : 'bg-white bg-opacity-10 text-white hover:bg-opacity-20'
+                                                        : 'bg-gray-800 text-white hover:bg-gray-900'
                                                 }`}
                                             >
                                                 📄 {ganttCompactMode ? 'Normal' : 'Compact'}
@@ -4171,12 +4171,12 @@ export function JobModal({
 
                                             <button
                                                 onClick={toggleGanttFullscreen}
-                                                className="px-3 py-1.5 text-sm bg-white bg-opacity-10 text-white rounded-lg hover:bg-opacity-20 transition-colors"
+                                                className="px-3 py-1.5 text-sm bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors"
                                             >
                                                 {ganttFullscreen ? '🗗 Quitter plein écran' : '⛶ Plein écran'}
                                             </button>
 
-                                            <div className="ml-auto text-xs text-white bg-white bg-opacity-10 px-3 py-1.5 rounded-lg">
+                                            <div className="ml-auto text-xs text-white bg-gray-800 px-3 py-1.5 rounded-lg">
                                                 {formData.etapes.length} tâche{formData.etapes.length > 1 ? 's' : ''} • {getTotalProjectHours()}h total
                                             </div>
                                         </div>
