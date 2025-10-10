@@ -87,14 +87,18 @@ function AppContent() {
             return;
         }
 
+        // Support des deux noms de champ: motDePasse (français) et password (anglais)
+        const passwordAttendu = utilisateurIdentifie.motDePasse || utilisateurIdentifie.password;
+
         console.log('🔍 Vérification:', {
-            motDePasseAttendu: utilisateurIdentifie.motDePasse,
+            motDePasseAttendu: passwordAttendu,
             motDePasseSaisi: motDePasse,
-            typesIdentiques: typeof utilisateurIdentifie.motDePasse === typeof motDePasse
+            champUtilise: utilisateurIdentifie.motDePasse ? 'motDePasse' : 'password',
+            typesIdentiques: typeof passwordAttendu === typeof motDePasse
         });
 
         // Vérification du mot de passe
-        if (utilisateurIdentifie.motDePasse === motDePasse) {
+        if (passwordAttendu === motDePasse) {
             console.log('✅ CONNEXION RÉUSSIE pour:', utilisateurIdentifie.nom);
 
             // Créer la session avec expiration 24h
@@ -114,7 +118,7 @@ function AppContent() {
             console.log('💾 Session sauvegardée - Expire dans 24 heures');
         } else {
             console.log('❌ ÉCHEC DE CONNEXION pour:', utilisateurIdentifie.nom);
-            console.log('Attendu:', utilisateurIdentifie.motDePasse, 'Reçu:', motDePasse);
+            console.log('Attendu:', passwordAttendu, 'Reçu:', motDePasse);
             addNotification('Mot de passe incorrect', 'error');
         }
     };
