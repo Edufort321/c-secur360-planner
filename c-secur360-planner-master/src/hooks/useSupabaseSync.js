@@ -216,6 +216,8 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
       // Postes
       salaireMin: 'salaire_min',
       salaireMax: 'salaire_max',
+      competencesRequises: 'competences',
+      responsabilites: null, // Supprimer si n'existe pas dans Supabase
 
       // Congés
       personnelId: 'personnel_id',
@@ -228,8 +230,15 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
     // Appliquer toutes les transformations
     Object.keys(fieldMappings).forEach(camelKey => {
       if (data[camelKey] !== undefined) {
-        cleanData[fieldMappings[camelKey]] = data[camelKey];
-        delete cleanData[camelKey];
+        const snakeKey = fieldMappings[camelKey];
+
+        // Si mapping === null, supprimer le champ (n'existe pas dans Supabase)
+        if (snakeKey === null) {
+          delete cleanData[camelKey];
+        } else {
+          cleanData[snakeKey] = data[camelKey];
+          delete cleanData[camelKey];
+        }
       }
     });
 
