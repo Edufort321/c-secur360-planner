@@ -182,10 +182,18 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
     if (!data || table !== 'succursales') return data;
 
     const { codePostal, nombreEmployes, dateCreation, dateModification, ...rest } = data;
+
+    // Convertir nombre_employes: string vide → null, string nombre → int
+    let nombreEmployesValue = null;
+    if (nombreEmployes !== undefined && nombreEmployes !== '') {
+      const parsed = parseInt(nombreEmployes, 10);
+      nombreEmployesValue = isNaN(parsed) ? null : parsed;
+    }
+
     return {
       ...rest,
       ...(codePostal !== undefined && { code_postal: codePostal }),
-      ...(nombreEmployes !== undefined && { nombre_employes: nombreEmployes })
+      ...(nombreEmployes !== undefined && { nombre_employes: nombreEmployesValue })
     };
   };
 
