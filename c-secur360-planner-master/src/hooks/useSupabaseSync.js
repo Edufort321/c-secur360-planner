@@ -24,13 +24,45 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
   const [lastSync, setLastSync] = useState(null);
   const channelRef = useRef(null);
 
-  // Charger depuis localStorage au montage
+  // Helper: Vérifier si ID valide
+  const isValidId = (id) => {
+    if (!id) return false;
+    // UUID valide OU nombre > 1000 (pour compatibilité temporaire)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isUUID = uuidRegex.test(id);
+    const isDateNow = /^\d{13}$/.test(String(id));
+    const isSimpleNumber = typeof id === 'number' && id < 1000;
+
+    // Rejeter Date.now() et petits nombres (1, 2, 3...)
+    if (isDateNow || isSimpleNumber) return false;
+
+    return isUUID || typeof id === 'string';
+  };
+
+  // Charger depuis localStorage au montage + AUTO-NETTOYAGE
   useEffect(() => {
     try {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
-        setData(JSON.parse(saved));
-        console.log(`=� [${table}] Charg� depuis localStorage:`, JSON.parse(saved).length, '�l�ments');
+        const parsedData = JSON.parse(saved);
+
+        // AUTO-NETTOYAGE: Filtrer les IDs invalides SILENCIEUSEMENT
+        const validData = parsedData.filter(item => {
+          const valid = isValidId(item.id);
+          if (!valid) {
+            console.warn(`🗑️ [${table}] Auto-nettoyage: ID invalide supprimé: ${item.id}`);
+          }
+          return valid;
+        });
+
+        // Si des données ont été nettoyées, sauvegarder
+        if (validData.length !== parsedData.length) {
+          localStorage.setItem(storageKey, JSON.stringify(validData));
+          console.log(`✨ [${table}] ${parsedData.length - validData.length} élément(s) nettoyé(s) automatiquement`);
+        }
+
+        setData(validData);
+        console.log(`=� [${table}] Charg� depuis localStorage:`, validData.length, '�l�ments');
       } else {
         setData(defaultData);
         localStorage.setItem(storageKey, JSON.stringify(defaultData));
@@ -392,12 +424,18 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
   // CRUD Operations (localStorage-first)
 
   const add = useCallback(async (newItem) => {
+    // FORCER UUID valide si ID invalide ou manquant
+    const needsNewId = !newItem.id || !isValidId(newItem.id);
     const item = {
       ...newItem,
-      id: newItem.id || crypto.randomUUID(),
+      id: needsNewId ? crypto.randomUUID() : newItem.id,
       created_at: newItem.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
+
+    if (needsNewId && newItem.id) {
+      console.warn(`🔄 [${table}] ID invalide remplacé: ${newItem.id} → ${item.id}`);
+    }
 
     // 1. Mettre � jour localStorage imm�diatement
     setData(prev => [item, ...prev]);
