@@ -3649,8 +3649,8 @@ export function JobModal({
                                                                     {formData.etapes.length} étape{formData.etapes.length > 1 ? 's' : ''}
                                                                 </div>
                                                             </div>
-                                                            <div className="flex-1 overflow-x-auto overflow-y-auto border border-gray-300 rounded bg-white" style={{minWidth: '800px'}}>
-                                                                <div className="space-y-1 p-2 min-w-max" style={{minWidth: '1200px'}}>
+                                                            <div className="flex-1 overflow-x-auto overflow-y-auto border border-gray-300 rounded bg-white max-w-full">
+                                                                <div className="space-y-1 p-2 inline-block" style={{minWidth: '600px'}}>
                                                                     {(() => {
                                                                         const hierarchicalTasks = generateHierarchicalGanttData();
                                                                         const currentViewMode = formData.ganttViewMode || getDefaultViewMode();
