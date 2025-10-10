@@ -3420,9 +3420,9 @@ export function JobModal({
                                         {/* Affichage différent selon l'état d'expansion */}
                                         {expandedSections.etapes ? (
                                             /* Vue élargie avec Gantt côte à côte */
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[70vh]">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[80vh]">
                                                 {/* Colonne gauche - Étapes */}
-                                                <div className="flex flex-col">
+                                                <div className="flex flex-col h-full">
                                                     <div className="flex items-center justify-between mb-2">
                                                         <span className="font-medium text-gray-700">📝 Configuration</span>
                                                         <button
@@ -3434,7 +3434,7 @@ export function JobModal({
                                                             Ajouter
                                                         </button>
                                                     </div>
-                                                    <div className="flex-1 min-h-[400px] max-h-[60vh] overflow-y-auto border border-gray-300 rounded bg-white p-3">
+                                                    <div className="flex-1 overflow-y-auto border border-gray-300 rounded bg-white p-3">
                                                         {(() => {
                                                             // Fonction pour rendre les étapes avec structure WBS
                                                             // Filtrer et organiser les étapes selon la hiérarchie WBS
@@ -3628,16 +3628,16 @@ export function JobModal({
                                                 </div>
 
                                                 {/* Colonne droite - Aperçu Gantt */}
-                                                <div className="flex flex-col">
+                                                <div className="flex flex-col h-full">
                                                     {formData.etapes && formData.etapes.length > 0 ? (
-                                                        <div className="jsx-fragment-wrapper">
+                                                        <div className="flex flex-col h-full">
                                                             <div className="flex items-center justify-between mb-2">
                                                                 <span className="font-medium text-gray-700">📊 Aperçu Gantt</span>
                                                                 <div className="text-xs text-gray-500">
                                                                     {formData.etapes.length} étape{formData.etapes.length > 1 ? 's' : ''}
                                                                 </div>
                                                             </div>
-                                                            <div className="flex-1 overflow-x-auto overflow-y-auto border border-gray-300 rounded bg-white max-w-full">
+                                                            <div className="flex-1 overflow-x-auto overflow-y-auto border border-gray-300 rounded bg-white">
                                                                 <div className="space-y-1 p-2 inline-block" style={{minWidth: '600px'}}>
                                                                     {(() => {
                                                                         const hierarchicalTasks = generateHierarchicalGanttData();
