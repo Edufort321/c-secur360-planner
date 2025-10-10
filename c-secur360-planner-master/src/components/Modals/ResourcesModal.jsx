@@ -24,6 +24,7 @@ export function ResourcesModal({
     onSavePoste,
     onDeletePoste,
     onSaveSuccursale,
+    onDeleteSuccursale,
     utilisateurConnecte,
     estCoordonnateur,
     peutModifier,
@@ -231,8 +232,10 @@ export function ResourcesModal({
         }
 
         if (window.confirm(t('admin.branch.confirmDelete', `Êtes-vous sûr de vouloir supprimer la succursale "${succursale.nom}" ?`))) {
-            // La fonction onDeleteSuccursale n'existe pas encore dans useAppData, donc pour l'instant on ne fait rien
-            addNotification(t('admin.branch.deleteSuccess', `Succursale "${succursale.nom}" supprimée avec succès`), 'success');
+            if (onDeleteSuccursale) {
+                onDeleteSuccursale(succursaleId);
+                addNotification(t('admin.branch.deleteSuccess', `Succursale "${succursale.nom}" supprimée avec succès`), 'success');
+            }
         }
     };
 

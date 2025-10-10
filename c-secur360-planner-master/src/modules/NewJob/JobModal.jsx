@@ -3750,11 +3750,11 @@ export function JobModal({
 
                                                                                                         if (task.parentId) {
                                                                                                             const parentIndex = hierarchicalTasks.filter(t => !t.parentId).findIndex(t => t.id === task.parentId);
-                                                                                                            const colorSet = parentColors[parentIndex % parentColors.length];
+                                                                                                            const colorSet = parentColors[Math.max(0, parentIndex) % parentColors.length];
                                                                                                             return { bg: colorSet.bg.replace('400', '300'), hover: colorSet.hover }; // Plus clair pour les enfants
                                                                                                         } else {
                                                                                                             const parentIndex = hierarchicalTasks.filter(t => !t.parentId).findIndex(t => t.id === task.id);
-                                                                                                            return parentColors[parentIndex % parentColors.length];
+                                                                                                            return parentColors[Math.max(0, parentIndex) % parentColors.length];
                                                                                                         }
                                                                                                     };
 
