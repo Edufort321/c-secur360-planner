@@ -94,6 +94,33 @@ CREATE POLICY "Allow all operations for now" ON jobs
 
 ⚠️ **Note**: En production, créer des policies plus restrictives basées sur l'authentification.
 
+## 🔄 ACTIVER SYNCHRONISATION TEMPS RÉEL
+
+Pour que les utilisateurs voient les changements instantanément:
+
+### 1. Exécuter le script enable_realtime.sql
+```sql
+-- Copier/coller depuis supabase/enable_realtime.sql
+ALTER PUBLICATION supabase_realtime ADD TABLE jobs;
+ALTER PUBLICATION supabase_realtime ADD TABLE personnel;
+ALTER PUBLICATION supabase_realtime ADD TABLE equipements;
+-- ... etc
+```
+
+### 2. Vérifier dans Supabase Dashboard
+- Database → Replication
+- Vérifier que toutes les tables sont cochées
+
+### 3. Tester le temps réel
+1. Ouvrir l'app dans 2 navigateurs différents (ou 2 onglets)
+2. Créer un événement dans le premier
+3. **Il devrait apparaître instantanément dans le second** ✅
+
+### Comment ça fonctionne:
+- Utilisateur A crée un job → Supabase envoie notification
+- Utilisateur B reçoit la notification → Affichage instantané
+- Pas besoin de rafraîchir la page! 🚀
+
 ## 📝 MAPPING DES CHAMPS
 
 FormData (JavaScript) → Supabase (snake_case):
@@ -109,3 +136,22 @@ FormData (JavaScript) → Supabase (snake_case):
 - etc.
 
 La transformation camelCase ↔ snake_case est gérée automatiquement par `useSupabaseSync.js`.
+
+## 🎯 RÉSUMÉ COMPLET
+
+### ✅ Ce qui est déjà fait (dans le code):
+- Sync offline-first (localStorage + Supabase)
+- Écoute des changements temps réel
+- Transformation automatique des champs
+- Queue de sync en cas de déconnexion
+- Re-tentative automatique quand online
+
+### 🔧 Ce que VOUS devez faire:
+1. **Exécuter migration_add_job_data.sql** → Ajoute colonnes manquantes
+2. **Exécuter enable_realtime.sql** → Active synchronisation temps réel
+3. **Configurer RLS si nécessaire** → Sécurité (optionnel en dev)
+
+Après ces 2 étapes:
+- ✅ Événements persistent entre sessions
+- ✅ Synchronisation instantanée entre utilisateurs
+- ✅ Fonctionne même hors ligne (sync à la reconnexion)
