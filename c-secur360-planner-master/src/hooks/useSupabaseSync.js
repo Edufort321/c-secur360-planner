@@ -177,24 +177,45 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
     setSyncQueue([]);
   };
 
-  // Transformation des données pour Supabase (camelCase → snake_case)
+  // Transformation des données pour Supabase (camelCase → snake_case + nettoyage)
   const transformForSupabase = (data) => {
-    if (!data || table !== 'succursales') return data;
+    if (!data) return data;
 
-    const { codePostal, nombreEmployes, dateCreation, dateModification, ...rest } = data;
+    // Nettoyage générique: supprimer les champs non-Supabase
+    const cleanData = { ...data };
 
-    // Convertir nombre_employes: string vide → null, string nombre → int
-    let nombreEmployesValue = null;
-    if (nombreEmployes !== undefined && nombreEmployes !== '') {
-      const parsed = parseInt(nombreEmployes, 10);
-      nombreEmployesValue = isNaN(parsed) ? null : parsed;
+    // Supprimer les champs camelCase qui n'existent pas dans Supabase
+    delete cleanData.dateCreation;
+    delete cleanData.dateModification;
+    delete cleanData.codePostal;
+    delete cleanData.nombreEmployes;
+
+    // Pour succursales: transformer les champs spécifiques
+    if (table === 'succursales') {
+      // code_postal
+      if (data.codePostal !== undefined) {
+        cleanData.code_postal = data.codePostal || null;
+      }
+
+      // nombre_employes: convertir en integer ou null
+      if (data.nombreEmployes !== undefined) {
+        if (data.nombreEmployes === '' || data.nombreEmployes === null) {
+          cleanData.nombre_employes = null;
+        } else {
+          const parsed = parseInt(data.nombreEmployes, 10);
+          cleanData.nombre_employes = isNaN(parsed) ? null : parsed;
+        }
+      }
     }
 
-    return {
-      ...rest,
-      ...(codePostal !== undefined && { code_postal: codePostal }),
-      ...(nombreEmployes !== undefined && { nombre_employes: nombreEmployesValue })
-    };
+    // Nettoyer les strings vides → null pour tous les champs
+    Object.keys(cleanData).forEach(key => {
+      if (cleanData[key] === '') {
+        cleanData[key] = null;
+      }
+    });
+
+    return cleanData;
   };
 
   // Sync vers Supabase
