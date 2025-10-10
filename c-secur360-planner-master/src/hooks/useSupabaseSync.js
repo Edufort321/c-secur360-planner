@@ -306,11 +306,29 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
     return cleanData;
   };
 
+  // Validation UUID
+  const isValidUUID = (str) => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
+
+  const isDateNowId = (id) => {
+    return /^\d{13}$/.test(String(id));
+  };
+
   // Sync vers Supabase
   const syncToSupabase = async (type, item, itemId = null) => {
     if (!isSupabaseConfigured()) {
       console.log(`� [${table}] Supabase non configur� - sauvegarde locale uniquement`);
       return { success: true, local: true };
+    }
+
+    // BLOQUER les IDs invalides (Date.now) - NE PAS SYNC
+    const idToCheck = itemId || item?.id;
+    if (idToCheck && isDateNowId(idToCheck)) {
+      console.warn(`u26A0uFE0F [${table}] ID invalide detecte (Date.now): ${idToCheck} - SYNC BLOQUE`);
+      console.warn(`u27A1uFE0F Utilisez /cleanup-old-data.html pour nettoyer les anciennes donnees`);
+      return { success: false, error: "Invalid UUID (Date.now)", blocked: true };
     }
 
     if (!isOnline) {
