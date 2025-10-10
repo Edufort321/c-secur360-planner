@@ -2857,9 +2857,9 @@ export function JobModal({
                     </div>
 
                     {/* Tabs - Responsive comme OLD */}
-                    <div className="flex border-b bg-gray-50 overflow-x-auto sticky top-0 z-10">
+                    <div className="flex-shrink-0 border-b bg-gray-50 sticky top-0 z-20 shadow-sm">
                         {/* Afficher tous les onglets sur desktop et tablet */}
-                        <div className="hidden sm:flex w-full">
+                        <div className="hidden sm:flex w-full overflow-x-auto">
                             <button
                                 onClick={() => setActiveTab('form')}
                                 className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
