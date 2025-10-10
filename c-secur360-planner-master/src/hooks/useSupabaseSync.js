@@ -239,6 +239,8 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
 
       // Equipements
       numeroSerie: 'numero_serie',
+      dateAchat: 'date_achat',
+      coutLocation: 'cout_location',
       derniereMaintenance: 'derniere_maintenance',
       prochaineMaintenance: 'prochaine_maintenance',
 
