@@ -29,7 +29,7 @@ export function UserLoginModal({
         }
     }, [personnel]);
 
-    // Filtrer le personnel en fonction de la recherche
+    // Filtrer le personnel en fonction de la recherche (NOM + PRÉNOM)
     useEffect(() => {
         if (personnel && personnel.length > 0) {
             if (!loginForm.nom || loginForm.nom.trim() === '') {
@@ -39,7 +39,16 @@ export function UserLoginModal({
                 const searchTerm = normaliserChaine(loginForm.nom);
                 const filtered = personnel
                     .filter(p => p.visibleChantier !== false)
-                    .filter(p => normaliserChaine(p.nom).includes(searchTerm))
+                    .filter(p => {
+                        const nomComplet = `${p.prenom || ''} ${p.nom}`.trim();
+                        const nomNormalise = normaliserChaine(p.nom);
+                        const prenomNormalise = normaliserChaine(p.prenom || '');
+                        const completNormalise = normaliserChaine(nomComplet);
+
+                        return nomNormalise.includes(searchTerm) ||
+                               prenomNormalise.includes(searchTerm) ||
+                               completNormalise.includes(searchTerm);
+                    })
                     .slice(0, 8); // Limiter à 8 résultats
                 setFilteredPersonnel(filtered);
                 setShowDropdown(filtered.length > 0 && loginForm.nom.length > 0);
@@ -100,10 +109,15 @@ export function UserLoginModal({
         const nomNormalise = normaliserChaine(loginForm.nom);
         console.log('🔍 Recherche utilisateur:', nomNormalise);
 
-        // Chercher l'utilisateur correspondant
+        // Chercher l'utilisateur correspondant (NOM ou PRÉNOM ou NOM COMPLET)
         const utilisateurTrouve = personnel.find(p => {
             const nomPersonneNormalise = normaliserChaine(p.nom);
-            return nomPersonneNormalise === nomNormalise;
+            const prenomNormalise = normaliserChaine(p.prenom || '');
+            const nomComplet = normaliserChaine(`${p.prenom || ''} ${p.nom}`.trim());
+
+            return nomPersonneNormalise === nomNormalise ||
+                   prenomNormalise === nomNormalise ||
+                   nomComplet === nomNormalise;
         });
 
         if (utilisateurTrouve) {
@@ -218,26 +232,33 @@ export function UserLoginModal({
                                     ref={dropdownRef}
                                     className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-64 overflow-y-auto"
                                 >
-                                    {filteredPersonnel.map((person) => (
-                                        <button
-                                            key={person.id}
-                                            type="button"
-                                            onClick={() => selectUser(person)}
-                                            className="w-full px-4 py-3 text-left hover:bg-blue-50 border-b border-gray-100 last:border-b-0 flex items-center gap-3 transition-colors"
-                                        >
-                                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
-                                                {person.nom.charAt(0).toUpperCase()}
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="font-medium text-gray-900">{person.nom}</div>
-                                                <div className="text-sm text-gray-600">{person.poste}</div>
-                                                {person.succursale && (
-                                                    <div className="text-xs text-gray-500">{person.succursale}</div>
-                                                )}
-                                            </div>
-                                            <Icon name="chevronRight" size={16} className="text-gray-400" />
-                                        </button>
-                                    ))}
+                                    {filteredPersonnel.map((person) => {
+                                        const nomComplet = person.prenom ? `${person.prenom} ${person.nom}` : person.nom;
+                                        const initiales = person.prenom
+                                            ? `${person.prenom.charAt(0)}${person.nom.charAt(0)}`.toUpperCase()
+                                            : person.nom.charAt(0).toUpperCase();
+
+                                        return (
+                                            <button
+                                                key={person.id}
+                                                type="button"
+                                                onClick={() => selectUser(person)}
+                                                className="w-full px-4 py-3 text-left hover:bg-blue-50 border-b border-gray-100 last:border-b-0 flex items-center gap-3 transition-colors"
+                                            >
+                                                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-semibold">
+                                                    {initiales}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <div className="font-medium text-gray-900">{nomComplet}</div>
+                                                    <div className="text-sm text-gray-600">{person.poste}</div>
+                                                    {person.succursale && (
+                                                        <div className="text-xs text-gray-500">{person.succursale}</div>
+                                                    )}
+                                                </div>
+                                                <Icon name="chevronRight" size={16} className="text-gray-400" />
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             )}
 
@@ -270,7 +291,9 @@ export function UserLoginModal({
                                     <Icon name="user" size={20} className="text-white" />
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-gray-900">{utilisateurIdentifie.nom}</h3>
+                                    <h3 className="font-semibold text-gray-900">
+                                        {utilisateurIdentifie.prenom ? `${utilisateurIdentifie.prenom} ${utilisateurIdentifie.nom}` : utilisateurIdentifie.nom}
+                                    </h3>
                                     <p className="text-sm text-gray-600">{utilisateurIdentifie.poste}</p>
                                     <p className="text-xs text-gray-500">{utilisateurIdentifie.succursale}</p>
                                 </div>
