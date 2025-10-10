@@ -3749,13 +3749,26 @@ export function JobModal({
                                                                                                         if (task.completed) return { bg: 'bg-gray-400', hover: 'hover:bg-gray-500' };
 
                                                                                                         if (task.parentId) {
-                                                                                                            const parentIndex = hierarchicalTasks.filter(t => !t.parentId).findIndex(t => t.id === task.parentId);
-                                                                                                            const colorSet = parentColors[Math.max(0, parentIndex) % parentColors.length];
-                                                                                                            return { bg: colorSet.bg.replace('400', '300'), hover: colorSet.hover }; // Plus clair pour les enfants
+                                                                                                            // Trouve le parent racine pour les sous-sous-tâches
+                                                                                                            const findRootParent = (taskId) => {
+                                                                                                                const parent = hierarchicalTasks.find(t => t.id === taskId);
+                                                                                                                if (!parent) return null;
+                                                                                                                if (!parent.parentId) return parent;
+                                                                                                                return findRootParent(parent.parentId);
+                                                                                                            };
+
+                                                                                                            const rootParent = findRootParent(task.parentId);
+                                                                                                            if (rootParent) {
+                                                                                                                const parentIndex = hierarchicalTasks.filter(t => !t.parentId).findIndex(t => t.id === rootParent.id);
+                                                                                                                const colorSet = parentColors[Math.max(0, parentIndex) % parentColors.length];
+                                                                                                                return { bg: colorSet.bg.replace('400', '300'), hover: colorSet.hover }; // Plus clair pour les enfants
+                                                                                                            }
                                                                                                         } else {
                                                                                                             const parentIndex = hierarchicalTasks.filter(t => !t.parentId).findIndex(t => t.id === task.id);
                                                                                                             return parentColors[Math.max(0, parentIndex) % parentColors.length];
                                                                                                         }
+
+                                                                                                        return parentColors[0]; // Couleur par défaut
                                                                                                     };
 
                                                                                                     const taskColors = getTaskColors(task, hierarchicalTasks);
@@ -4453,10 +4466,17 @@ export function JobModal({
                                                                             }
 
                                                                             if (task.parentId) {
-                                                                                // C'est une sous-tâche : utilise la couleur de son parent
-                                                                                const parentTask = hierarchicalTasks.find(t => t.id === task.parentId);
-                                                                                if (parentTask) {
-                                                                                    const parentIndex = hierarchicalTasks.filter(t => !t.parentId).findIndex(t => t.id === task.parentId);
+                                                                                // C'est une sous-tâche : trouve le parent racine pour la couleur
+                                                                                const findRootParent = (taskId) => {
+                                                                                    const parent = hierarchicalTasks.find(t => t.id === taskId);
+                                                                                    if (!parent) return null;
+                                                                                    if (!parent.parentId) return parent; // C'est une racine
+                                                                                    return findRootParent(parent.parentId); // Récursif pour sous-sous-tâches
+                                                                                };
+
+                                                                                const rootParent = findRootParent(task.parentId);
+                                                                                if (rootParent) {
+                                                                                    const parentIndex = hierarchicalTasks.filter(t => !t.parentId).findIndex(t => t.id === rootParent.id);
                                                                                     const colorSet = parentColors[parentIndex % parentColors.length];
                                                                                     return { bg: colorSet.light, hover: colorSet.hover, light: colorSet.light }; // Couleur plus claire pour les enfants
                                                                                 }
