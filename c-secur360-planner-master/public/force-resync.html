@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Force Resync - C-Secur360</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f3f4f6;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1e3a8a;
+            margin-top: 0;
+        }
+        button {
+            background: #dc2626;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #b91c1c;
+        }
+        .success {
+            background: #10b981;
+        }
+        .success:hover {
+            background: #059669;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+        }
+        .info {
+            background: #dbeafe;
+            color: #1e40af;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Force Resynchronisation Supabase</h1>
+
+        <div class="info">
+            <strong>⚠️ Attention:</strong> Cette opération va vider tout le localStorage et forcer une nouvelle synchronisation depuis Supabase au prochain chargement de l'application.
+        </div>
+
+        <p>Si tu as perdu tes données localement mais qu'elles existent dans Supabase, cette opération va les récupérer.</p>
+
+        <button onclick="clearAndResync()">🗑️ Vider localStorage et Resync</button>
+        <button onclick="viewLocalStorage()" class="success">👁️ Voir localStorage actuel</button>
+        <button onclick="goHome()" class="success">🏠 Retour à l'application</button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function clearAndResync() {
+            const keys = [
+                'c-secur360-jobs',
+                'c-secur360-personnel',
+                'c-secur360-equipements',
+                'c-secur360-postes',
+                'c-secur360-succursales',
+                'c-secur360-conges',
+                'c-secur360-departements',
+                'c-secur360-planner' // Préférences UI
+            ];
+
+            const result = document.getElementById('result');
+            result.style.display = 'block';
+            result.style.background = '#fee2e2';
+            result.style.color = '#991b1b';
+
+            let message = '<h3>🗑️ localStorage vidé:</h3><ul>';
+
+            keys.forEach(key => {
+                const before = localStorage.getItem(key);
+                if (before) {
+                    const count = JSON.parse(before).length || 'N/A';
+                    message += `<li><strong>${key}</strong>: ${count} éléments supprimés</li>`;
+                    localStorage.removeItem(key);
+                } else {
+                    message += `<li><strong>${key}</strong>: déjà vide</li>`;
+                }
+            });
+
+            message += '</ul><p><strong>✅ Recharge maintenant la page principale pour resync depuis Supabase!</strong></p>';
+            result.innerHTML = message;
+
+            setTimeout(() => {
+                if (confirm('Recharger l\'application maintenant?')) {
+                    window.location.href = '/';
+                }
+            }, 2000);
+        }
+
+        function viewLocalStorage() {
+            const result = document.getElementById('result');
+            result.style.display = 'block';
+            result.style.background = '#dbeafe';
+            result.style.color = '#1e40af';
+
+            let message = '<h3>📊 Contenu localStorage actuel:</h3><ul>';
+
+            const keys = [
+                'c-secur360-jobs',
+                'c-secur360-personnel',
+                'c-secur360-equipements',
+                'c-secur360-postes',
+                'c-secur360-succursales',
+                'c-secur360-conges',
+                'c-secur360-departements'
+            ];
+
+            keys.forEach(key => {
+                const data = localStorage.getItem(key);
+                if (data) {
+                    try {
+                        const parsed = JSON.parse(data);
+                        const count = Array.isArray(parsed) ? parsed.length : 'N/A';
+                        message += `<li><strong>${key}</strong>: ${count} éléments</li>`;
+                    } catch {
+                        message += `<li><strong>${key}</strong>: Erreur parsing</li>`;
+                    }
+                } else {
+                    message += `<li><strong>${key}</strong>: vide</li>`;
+                }
+            });
+
+            message += '</ul>';
+            result.innerHTML = message;
+        }
+
+        function goHome() {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>
