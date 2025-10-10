@@ -157,12 +157,12 @@ export function SuccursaleModal({
         try {
             const succursaleData = {
                 ...formData,
-                id: succursale?.id || Date.now(),
+                id: succursale?.id || crypto.randomUUID(),
                 nom: formData.nom.trim(),
                 adresse: formData.adresse.trim(),
                 ville: formData.ville.trim(),
-                dateCreation: succursale?.dateCreation || new Date().toISOString(),
-                dateModification: new Date().toISOString()
+                created_at: succursale?.created_at || new Date().toISOString(),
+                updated_at: new Date().toISOString()
             };
 
             await onSave(succursaleData);
