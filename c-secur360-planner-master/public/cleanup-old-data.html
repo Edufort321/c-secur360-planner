@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nettoyage des anciennes données - C-Secur360</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            margin-top: 0;
+            font-size: 2em;
+        }
+        .warning {
+            background: rgba(255, 193, 7, 0.2);
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .info {
+            background: rgba(33, 150, 243, 0.2);
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .danger {
+            background: linear-gradient(135deg, #f44336 0%, #e91e63 100%);
+        }
+        .success {
+            background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%);
+        }
+        pre {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            display: none;
+        }
+        .show {
+            display: block !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Nettoyage des Anciennes Données</h1>
+
+        <div class="warning">
+            <strong>⚠️ ATTENTION!</strong><br>
+            Cette page nettoie les anciennes données qui utilisaient <code>Date.now()</code> au lieu d'UUIDs.
+            Les nouvelles données avec UUIDs valides seront préservées.
+        </div>
+
+        <div class="info">
+            <strong>📊 État actuel du localStorage:</strong>
+            <pre id="currentData">Chargement...</pre>
+        </div>
+
+        <h2>Actions disponibles:</h2>
+
+        <button onclick="analyzeData()" class="success">
+            🔍 Analyser les données
+        </button>
+
+        <button onclick="cleanupInvalidData()" class="danger">
+            🗑️ Nettoyer les IDs invalides (Date.now)
+        </button>
+
+        <button onclick="forceResync()">
+            🔄 Forcer resync depuis Supabase
+        </button>
+
+        <button onclick="clearAll()" class="danger">
+            ⚠️ TOUT SUPPRIMER (localStorage complet)
+        </button>
+
+        <div id="status"></div>
+    </div>
+
+    <script>
+        const STORAGE_KEYS = [
+            'c-secur360-jobs',
+            'c-secur360-personnel',
+            'c-secur360-equipements',
+            'c-secur360-postes',
+            'c-secur360-succursales',
+            'c-secur360-conges',
+            'c-secur360-departements',
+            'c-secur360-soustraitants'
+        ];
+
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.className = type;
+            status.innerHTML = message;
+            status.classList.add('show');
+        }
+
+        function isValidUUID(str) {
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            return uuidRegex.test(str);
+        }
+
+        function isDateNowId(id) {
+            // Date.now() génère des nombres de 13 chiffres
+            return /^\d{13}$/.test(String(id));
+        }
+
+        function loadCurrentData() {
+            const data = {};
+            let totalItems = 0;
+
+            STORAGE_KEYS.forEach(key => {
+                try {
+                    const stored = localStorage.getItem(key);
+                    if (stored) {
+                        const parsed = JSON.parse(stored);
+                        data[key] = {
+                            count: parsed.length,
+                            items: parsed
+                        };
+                        totalItems += parsed.length;
+                    }
+                } catch (e) {
+                    data[key] = { error: e.message };
+                }
+            });
+
+            const display = document.getElementById('currentData');
+            display.textContent = JSON.stringify(data, null, 2);
+
+            return { data, totalItems };
+        }
+
+        function analyzeData() {
+            const { data, totalItems } = loadCurrentData();
+
+            let invalidIds = 0;
+            let validIds = 0;
+            let details = [];
+
+            STORAGE_KEYS.forEach(key => {
+                if (data[key] && data[key].items) {
+                    const items = data[key].items;
+                    const invalid = items.filter(item => isDateNowId(item.id));
+                    const valid = items.filter(item => isValidUUID(item.id));
+
+                    if (invalid.length > 0) {
+                        invalidIds += invalid.length;
+                        details.push(`<strong>${key}:</strong> ${invalid.length} IDs invalides (Date.now)`);
+                    }
+                    validIds += valid.length;
+                }
+            });
+
+            let message = `
+                <h3>📊 Résultats de l'analyse:</h3>
+                <p>✅ <strong>${validIds}</strong> éléments avec UUIDs valides</p>
+                <p>❌ <strong>${invalidIds}</strong> éléments avec IDs invalides (Date.now)</p>
+            `;
+
+            if (details.length > 0) {
+                message += '<h4>Détails:</h4><ul>';
+                details.forEach(d => message += `<li>${d}</li>`);
+                message += '</ul>';
+            }
+
+            showStatus(message, 'info');
+        }
+
+        function cleanupInvalidData() {
+            if (!confirm('⚠️ Nettoyer toutes les données avec IDs invalides (Date.now)?\n\nCeci supprimera uniquement les anciennes données. Les données avec UUIDs valides seront préservées.')) {
+                return;
+            }
+
+            let cleaned = 0;
+            let kept = 0;
+
+            STORAGE_KEYS.forEach(key => {
+                try {
+                    const stored = localStorage.getItem(key);
+                    if (stored) {
+                        const items = JSON.parse(stored);
+                        const validItems = items.filter(item => isValidUUID(item.id));
+
+                        cleaned += items.length - validItems.length;
+                        kept += validItems.length;
+
+                        localStorage.setItem(key, JSON.stringify(validItems));
+                    }
+                } catch (e) {
+                    console.error(`Erreur nettoyage ${key}:`, e);
+                }
+            });
+
+            loadCurrentData();
+            showStatus(`
+                <h3>✅ Nettoyage terminé!</h3>
+                <p>🗑️ <strong>${cleaned}</strong> éléments supprimés (IDs invalides)</p>
+                <p>✅ <strong>${kept}</strong> éléments conservés (UUIDs valides)</p>
+                <p><strong>Rechargez la page principale pour voir les changements.</strong></p>
+            `, 'success');
+        }
+
+        function forceResync() {
+            if (!confirm('🔄 Supprimer toutes les données locales et forcer un resync depuis Supabase?\n\nTOUTES les données locales seront supprimées et rechargées depuis le serveur.')) {
+                return;
+            }
+
+            let deleted = 0;
+            STORAGE_KEYS.forEach(key => {
+                if (localStorage.getItem(key)) {
+                    localStorage.removeItem(key);
+                    deleted++;
+                }
+            });
+
+            loadCurrentData();
+            showStatus(`
+                <h3>✅ Resync forcé!</h3>
+                <p>🗑️ <strong>${deleted}</strong> tables supprimées</p>
+                <p><strong>Rechargez la page principale pour resync depuis Supabase.</strong></p>
+            `, 'success');
+        }
+
+        function clearAll() {
+            if (!confirm('⚠️⚠️⚠️ DANGER!\n\nSupprimer TOUT le localStorage?\n\nCeci supprimera TOUTES les données locales, y compris les préférences et paramètres.')) {
+                return;
+            }
+
+            if (!confirm('Êtes-vous ABSOLUMENT SÛR?\n\nCette action est IRRÉVERSIBLE.')) {
+                return;
+            }
+
+            const count = localStorage.length;
+            localStorage.clear();
+
+            loadCurrentData();
+            showStatus(`
+                <h3>⚠️ Tout supprimé!</h3>
+                <p>🗑️ <strong>${count}</strong> clés supprimées du localStorage</p>
+                <p><strong>Rechargez la page principale pour repartir à zéro.</strong></p>
+            `, 'danger');
+        }
+
+        // Charger les données au démarrage
+        window.addEventListener('DOMContentLoaded', () => {
+            loadCurrentData();
+        });
+    </script>
+</body>
+</html>
