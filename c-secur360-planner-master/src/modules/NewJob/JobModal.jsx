@@ -2664,12 +2664,30 @@ export function JobModal({
             addNotification?.('Veuillez remplir tous les champs obligatoires', 'error');
             return;
         }
+
+        if (typeof onSave !== 'function') {
+            console.error('❌ onSave is not a function:', onSave);
+            addNotification?.('Erreur: fonction de sauvegarde non disponible', 'error');
+            return;
+        }
+
         onSave(formData);
         onClose();
     };
 
     // Handler pour la suppression du job
     const handleDelete = () => {
+        if (!job?.id) {
+            addNotification?.('Erreur: impossible de supprimer un job sans ID', 'error');
+            return;
+        }
+
+        if (typeof onDelete !== 'function') {
+            console.error('❌ onDelete is not a function:', onDelete);
+            addNotification?.('Erreur: fonction de suppression non disponible', 'error');
+            return;
+        }
+
         if (window.confirm('Êtes-vous sûr de vouloir supprimer ce job ?')) {
             onDelete(job.id);
             onClose();
