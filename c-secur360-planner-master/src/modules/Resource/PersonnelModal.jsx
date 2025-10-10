@@ -162,10 +162,31 @@ export function PersonnelModal({ isOpen, onClose, personnel = null, onSave, onDe
         setNouveauSpecialite('');
     }, [personnel, isOpen]);
 
+    // Fonction pour formater le numéro de téléphone automatiquement
+    const formatPhoneNumber = (value) => {
+        // Retirer tous les caractères non numériques
+        const cleaned = value.replace(/\D/g, '');
+
+        // Limiter à 10 chiffres
+        const limited = cleaned.substring(0, 10);
+
+        // Appliquer le format (819) 546-6454
+        if (limited.length <= 3) {
+            return limited;
+        } else if (limited.length <= 6) {
+            return `(${limited.slice(0, 3)}) ${limited.slice(3)}`;
+        } else {
+            return `(${limited.slice(0, 3)}) ${limited.slice(3, 6)}-${limited.slice(6)}`;
+        }
+    };
+
     const handleInputChange = (field, value) => {
+        // Appliquer le formatage automatique du téléphone
+        const finalValue = field === 'telephone' ? formatPhoneNumber(value) : value;
+
         setFormData(prev => ({
             ...prev,
-            [field]: value
+            [field]: finalValue
         }));
 
         // Auto-remplir le département quand un poste est sélectionné
@@ -433,26 +454,48 @@ export function PersonnelModal({ isOpen, onClose, personnel = null, onSave, onDe
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     {t('personnel.phone')}
                                 </label>
-                                <input
-                                    type="tel"
-                                    value={formData.telephone}
-                                    onChange={(e) => handleInputChange('telephone', e.target.value)}
-                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Ex: 514-555-0123"
-                                />
+                                <div className="relative">
+                                    <input
+                                        type="tel"
+                                        value={formData.telephone}
+                                        onChange={(e) => handleInputChange('telephone', e.target.value)}
+                                        className="w-full p-3 pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        placeholder="(819) 546-6454"
+                                    />
+                                    {formData.telephone && (
+                                        <a
+                                            href={`tel:+1${formData.telephone.replace(/\D/g, '')}`}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-600 hover:text-blue-800"
+                                            title="Appeler"
+                                        >
+                                            <Icon name="phone" size={20} />
+                                        </a>
+                                    )}
+                                </div>
                             </div>
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     {t('personnel.email')}
                                 </label>
-                                <input
-                                    type="email"
-                                    value={formData.email}
-                                    onChange={(e) => handleInputChange('email', e.target.value)}
-                                    className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Ex: jean.dupont@email.com"
-                                />
+                                <div className="relative">
+                                    <input
+                                        type="email"
+                                        value={formData.email}
+                                        onChange={(e) => handleInputChange('email', e.target.value)}
+                                        className="w-full p-3 pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                                        placeholder="jean.dupont@email.com"
+                                    />
+                                    {formData.email && (
+                                        <a
+                                            href={`mailto:${formData.email}`}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-blue-600 hover:text-blue-800"
+                                            title="Envoyer un courriel"
+                                        >
+                                            <Icon name="email" size={20} />
+                                        </a>
+                                    )}
+                                </div>
                             </div>
 
                             <div>
