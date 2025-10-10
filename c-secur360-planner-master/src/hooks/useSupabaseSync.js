@@ -228,6 +228,19 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
       responsableId: 'responsable_id'
     };
 
+    // LISTE DES CHAMPS À TOUJOURS SUPPRIMER (n'existent pas dans Supabase)
+    const fieldsToRemove = [
+      'specialites',
+      'responsabilites',
+      'dateCreation',
+      'dateModification'
+    ];
+
+    // Supprimer les champs non-Supabase
+    fieldsToRemove.forEach(field => {
+      delete cleanData[field];
+    });
+
     // Appliquer toutes les transformations
     Object.keys(fieldMappings).forEach(camelKey => {
       if (data[camelKey] !== undefined) {
