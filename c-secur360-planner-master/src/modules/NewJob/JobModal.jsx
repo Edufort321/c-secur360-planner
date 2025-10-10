@@ -2857,7 +2857,7 @@ export function JobModal({
                     </div>
 
                     {/* Tabs - Responsive comme OLD */}
-                    <div className="flex border-b bg-gray-50 overflow-x-auto">
+                    <div className="flex border-b bg-gray-50 overflow-x-auto sticky top-0 z-10">
                         {/* Afficher tous les onglets sur desktop et tablet */}
                         <div className="hidden sm:flex w-full">
                             <button
