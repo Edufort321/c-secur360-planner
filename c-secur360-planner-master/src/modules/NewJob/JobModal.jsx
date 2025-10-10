@@ -4063,32 +4063,32 @@ export function JobModal({
                         {activeTab === 'gantt' && (
                             <div className={`${ganttFullscreen ? 'fixed inset-0 z-50 bg-white overflow-auto p-6' : 'h-full overflow-y-auto p-6'}`}>
                                 <div className="space-y-6">
-                                    {/* Header Gantt */}
-                                    <div className="flex items-center gap-4 p-4 bg-gray-900 rounded-lg">
+                                    {/* Header Gantt - NAVY */}
+                                    <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-blue-900 to-blue-800 rounded-lg shadow-lg">
                                         <Logo size="normal" showText={false} />
                                         <div className="flex-1">
                                             <h3 className="text-lg font-bold text-white flex items-center">
-                                                📊 Diagramme de Gantt et Timeline
+                                                📊 Diagramme de Gantt et Chronologie
                                             </h3>
-                                            <p className="text-sm text-gray-300">
-                                                Planification temporelle ({formData.etapes.length} tâches, {getTotalProjectHours()}h total)
+                                            <p className="text-sm text-gray-200">
+                                                Planification temporelle ({formData.etapes.length} tâche{formData.etapes.length > 1 ? 's' : ''}, {getTotalProjectHours()}h total)
                                             </p>
                                         </div>
                                         <button
                                             onClick={() => setGanttFullscreen(!ganttFullscreen)}
-                                            className="text-gray-400 hover:text-white transition-colors"
+                                            className="text-gray-200 hover:text-white transition-colors"
                                         >
                                             {ganttFullscreen ? '🗗' : '🗖'}
                                         </button>
                                     </div>
 
-                                    {/* Contrôles Gantt - RESTRUCTURÉ NAVY */}
-                                    <div className="bg-gradient-to-r from-blue-900 to-blue-800 p-4 rounded-lg shadow-lg">
+                                    {/* Contrôles Gantt - GRIS MÉTALLIQUE */}
+                                    <div className="bg-gradient-to-r from-gray-700 to-gray-600 p-4 rounded-lg shadow-lg">
                                         {/* Ligne 1: Actions principales */}
                                         <div className="flex items-center gap-2 flex-wrap mb-3">
                                             <button
                                                 onClick={addNewTask}
-                                                className="px-4 py-2 bg-white text-blue-900 rounded-lg hover:bg-gray-100 transition-colors font-medium flex items-center gap-2"
+                                                className="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors font-medium flex items-center gap-2"
                                             >
                                                 <Icon name="plus" size={16} />
                                                 Ajouter tâche
@@ -4109,21 +4109,21 @@ export function JobModal({
                                                     }));
                                                     addNotification?.(`Chemin critique: ${criticalPath.length} tâche(s)`, 'info');
                                                 }}
-                                                className="px-3 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 text-sm"
+                                                className="px-3 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors flex items-center gap-2 text-sm"
                                             >
                                                 🎯 Calculer critique
                                             </button>
 
                                             <button
                                                 onClick={saveBaseline}
-                                                className="px-3 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 text-sm"
+                                                className="px-3 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors flex items-center gap-2 text-sm"
                                             >
-                                                💾 Baseline
+                                                💾 Référence
                                             </button>
 
                                             <button
                                                 onClick={printGanttAndForms}
-                                                className="px-3 py-2 bg-blue-700 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 text-sm"
+                                                className="px-3 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors flex items-center gap-2 text-sm"
                                             >
                                                 🖨️ Imprimer
                                             </button>
@@ -4136,7 +4136,7 @@ export function JobModal({
                                                 <select
                                                     value={formData.ganttViewMode || getDefaultViewMode()}
                                                     onChange={(e) => updateField('ganttViewMode', e.target.value)}
-                                                    className="bg-white text-blue-900 text-sm rounded px-2 py-1 font-medium"
+                                                    className="bg-gray-800 text-white text-sm rounded px-2 py-1 font-medium border border-gray-600"
                                                 >
                                                     <option value="6h">⏰ 6 heures</option>
                                                     <option value="12h">🕐 12 heures</option>
@@ -4155,7 +4155,7 @@ export function JobModal({
                                                         : 'bg-white bg-opacity-10 text-white hover:bg-opacity-20'
                                                 }`}
                                             >
-                                                🚨 {formData.showCriticalPath ? 'Critique ON' : 'Critique'}
+                                                🚨 {formData.showCriticalPath ? 'Critique ACTIVÉ' : 'Critique'}
                                             </button>
 
                                             <button
@@ -4173,7 +4173,7 @@ export function JobModal({
                                                 onClick={toggleGanttFullscreen}
                                                 className="px-3 py-1.5 text-sm bg-white bg-opacity-10 text-white rounded-lg hover:bg-opacity-20 transition-colors"
                                             >
-                                                {ganttFullscreen ? '🗗 Quitter' : '⛶ Plein écran'}
+                                                {ganttFullscreen ? '🗗 Quitter plein écran' : '⛶ Plein écran'}
                                             </button>
 
                                             <div className="ml-auto text-xs text-white bg-white bg-opacity-10 px-3 py-1.5 rounded-lg">
