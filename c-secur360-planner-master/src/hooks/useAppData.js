@@ -63,8 +63,14 @@ export function useAppData() {
         remove: removeDepartementSync
     } = useSupabaseSync('departements', 'c-secur360-departements', []);
 
+    const {
+        data: sousTraitants,
+        add: addSousTraitantSync,
+        update: updateSousTraitantSync,
+        remove: removeSousTraitantSync
+    } = useSupabaseSync('soustraitants', 'c-secur360-soustraitants', []);
+
     // ========== ÉTATS LOCAUX (Non synchronisés - navigation uniquement) ==========
-    const [sousTraitants, setSousTraitants] = useState([]);
     const [currentUser, setCurrentUser] = useState(null);
     const [isAdminMode, setIsAdminMode] = useState(false);
     const [selectedView, setSelectedView] = useState('month');
@@ -85,7 +91,6 @@ export function useAppData() {
                 const data = JSON.parse(savedData);
 
                 // Restaurer seulement les états de navigation (pas les données Supabase)
-                if (data.sousTraitants) setSousTraitants(data.sousTraitants);
                 if (data.selectedView) setSelectedView(data.selectedView);
                 if (data.selectedDate) setSelectedDate(new Date(data.selectedDate));
                 if (data.lastSaved) setLastSaved(new Date(data.lastSaved));
@@ -101,7 +106,6 @@ export function useAppData() {
     // Les données (jobs, personnel, etc.) sont auto-sauvegardées par useSupabaseSync
     const saveData = useCallback(() => {
         const dataToSave = {
-            sousTraitants,
             selectedView,
             selectedDate: selectedDate.toISOString(),
             lastSaved: new Date().toISOString()
@@ -291,6 +295,29 @@ export function useAppData() {
         return await addDepartementSync(newDepartement);
     }, [addDepartementSync]);
 
+    // ========== CRUD: SOUS-TRAITANTS ==========
+    const addSousTraitant = useCallback(async (sousTraitant) => {
+        const newSousTraitant = {
+            ...sousTraitant,
+            id: sousTraitant.id || crypto.randomUUID(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+        return await addSousTraitantSync(newSousTraitant);
+    }, [addSousTraitantSync]);
+
+    const updateSousTraitant = useCallback(async (sousTraitantId, updates) => {
+        const updatedSousTraitant = {
+            ...updates,
+            updated_at: new Date().toISOString()
+        };
+        return await updateSousTraitantSync(sousTraitantId, updatedSousTraitant);
+    }, [updateSousTraitantSync]);
+
+    const deleteSousTraitant = useCallback(async (sousTraitantId) => {
+        return await removeSousTraitantSync(sousTraitantId);
+    }, [removeSousTraitantSync]);
+
     // ========== CRUD: CONGÉS ==========
     const addConge = useCallback(async (conge) => {
         const newConge = {
@@ -427,8 +454,12 @@ export function useAppData() {
         // Actions départements
         addDepartement,
 
+        // Actions sous-traitants
+        addSousTraitant,
+        updateSousTraitant,
+        deleteSousTraitant,
+
         // Actions autres
-        setSousTraitants,
         setConges,
         saveConge,
         deleteConge,

@@ -152,11 +152,10 @@ function AppContent() {
         return utilisateurConnecte.nom === 'Administrateur' || utilisateurConnecte.nom === 'Eric Dufort';
     };
 
-    // Fonction pour ajouter un sous-traitant - VERSION ORIGINALE
-    const addSousTraitant = useCallback((newSousTraitant) => {
+    // Fonction pour ajouter un sous-traitant - Wrapper pour compatibilité
+    const addSousTraitant = useCallback(async (newSousTraitant) => {
         if (newSousTraitant && newSousTraitant.trim()) {
             const nouveauSousTraitant = {
-                id: Date.now(),
                 nom: newSousTraitant.trim(),
                 specialite: "À spécifier",
                 telephone: "",
@@ -164,11 +163,11 @@ function AppContent() {
                 disponible: true,
                 tarif: "À négocier"
             };
-            appData.setSousTraitants(prev => [...prev, nouveauSousTraitant]);
-            return nouveauSousTraitant.id;
+            const result = await appData.addSousTraitant(nouveauSousTraitant);
+            return result?.id || null;
         }
         return null;
-    }, [appData.setSousTraitants]);
+    }, [appData.addSousTraitant]);
 
     // Debug au démarrage
     useEffect(() => {
