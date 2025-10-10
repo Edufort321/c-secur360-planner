@@ -261,20 +261,32 @@ export function useAppData() {
     }, [removePosteSync]);
 
     // ========== CRUD: SUCCURSALES ==========
+    // Convertir camelCase → snake_case pour Supabase
+    const succursaleToDb = (succursale) => ({
+        ...succursale,
+        code_postal: succursale.codePostal,
+        nombre_employes: succursale.nombreEmployes,
+        codePostal: undefined,  // Supprimer
+        nombreEmployes: undefined,
+        dateCreation: undefined,
+        dateModification: undefined
+    });
+
     const addSuccursale = useCallback(async (succursale) => {
-        const newSuccursale = {
+        const newSuccursale = succursaleToDb({
             ...succursale,
             id: succursale.id || crypto.randomUUID(),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
-        };
+        });
         return await addSuccursaleSync(newSuccursale);
     }, [addSuccursaleSync]);
 
     const saveSuccursale = useCallback(async (succursaleData) => {
         if (succursaleData.id && succursales.find(s => s.id === succursaleData.id)) {
             // Mise à jour
-            return await updateSuccursaleSync(succursaleData.id, succursaleData);
+            const dataToUpdate = succursaleToDb(succursaleData);
+            return await updateSuccursaleSync(succursaleData.id, dataToUpdate);
         } else {
             // Ajout
             return await addSuccursale(succursaleData);
