@@ -4182,8 +4182,8 @@ export function JobModal({
                                         </div>
                                     </div>
 
-                                    {/* Vue Gantt avancée avec hiérarchie - VERSION OLD COMPLÈTE */}
-                                    <div className={`bg-white border rounded-lg p-4 ${ganttFullscreen ? 'min-h-screen' : 'min-h-96'} ${ganttCompactMode ? 'max-h-screen overflow-auto print:overflow-visible print:max-h-none' : ''}`}>
+                                    {/* Vue Gantt avancée avec hiérarchie - AVEC SCROLL CONTENEUR */}
+                                    <div className={`bg-white border rounded-lg ${ganttFullscreen ? 'h-[calc(100vh-250px)]' : 'h-[600px]'} ${ganttCompactMode ? 'print:overflow-visible print:max-h-none' : ''} overflow-auto`}>
                                         {formData.etapes.length === 0 ? (
                                             <div className="text-center py-8 text-gray-500">
                                                 <div className="text-5xl mb-4 opacity-50">📊</div>
@@ -4196,7 +4196,7 @@ export function JobModal({
                                             console.log(`🔍 DEBUG GANTT - Tâches générées:`, hierarchicalTasks);
 
                                             return (
-                                                <div className="space-y-1">
+                                                <div className="p-4 min-w-max">{/* min-w-max permet le scroll horizontal */}
                                                     {/* En-tête du timeline */}
                                                     <div className="flex items-center mb-4 pb-2 border-b">
                                                         <div className="w-1/3 font-medium text-gray-700">
