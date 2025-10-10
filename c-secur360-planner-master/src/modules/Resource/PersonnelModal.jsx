@@ -4,6 +4,7 @@ import { Logo } from '../../components/UI/Logo';
 import { getBureauOptions } from '../../utils/bureauUtils';
 import { useAppData } from '../../hooks/useAppData';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { SendCredentialsButton } from '../../components/Personnel/SendCredentialsButton';
 
 export function PersonnelModal({ isOpen, onClose, personnel = null, onSave, onDelete, forceSuccursale = null, postes: postesProp = null, succursales: succursalesProp = null }) {
     const appData = useAppData();
@@ -307,9 +308,10 @@ export function PersonnelModal({ isOpen, onClose, personnel = null, onSave, onDe
             const personnelData = {
                 ...formData,
                 nom: formData.nom.trim(),
-                id: personnel?.id || Date.now(),
-                dateEmbauche: formData.dateEmbauche ? new Date(formData.dateEmbauche) : null,
-                dateModification: new Date()
+                id: personnel?.id || crypto.randomUUID(),
+                created_at: personnel?.created_at || new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                date_embauche: formData.dateEmbauche || null
             };
 
             await onSave(personnelData);
@@ -699,15 +701,26 @@ export function PersonnelModal({ isOpen, onClose, personnel = null, onSave, onDe
 
                         {/* Actions */}
                         <div className="flex justify-between pt-4 border-t">
-                            {personnel && (
-                                <button
-                                    type="button"
-                                    onClick={handleDelete}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                                >
-                                    {t('personnel.delete')}
-                                </button>
-                            )}
+                            <div className="flex gap-2">
+                                {personnel && (
+                                    <button
+                                        type="button"
+                                        onClick={handleDelete}
+                                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                                    >
+                                        {t('personnel.delete')}
+                                    </button>
+                                )}
+
+                                {personnel && personnel.id && (
+                                    <SendCredentialsButton
+                                        personnel={formData}
+                                        onPasswordGenerated={async (password) => {
+                                            setFormData(prev => ({ ...prev, password }));
+                                        }}
+                                    />
+                                )}
+                            </div>
 
                             <div className="flex space-x-3 ml-auto">
                                 <button
