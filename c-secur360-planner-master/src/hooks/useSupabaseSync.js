@@ -1,5 +1,5 @@
 // ============== HOOK SUPABASE SYNC ==============
-// Gestion offline-first avec synchronisation temps réel multi-utilisateurs
+// Gestion offline-first avec synchronisation temps rï¿½el multi-utilisateurs
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
@@ -7,15 +7,15 @@ import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 /**
  * Hook pour synchronisation offline-first avec Supabase
  *
- * Stratégie:
+ * Stratï¿½gie:
  * - LECTURE: Toujours depuis localStorage (instant)
- * - ÉCRITURE: localStorage + Supabase en parallèle
- * - REALTIME: Écoute changements Supabase ’ met à jour localStorage
+ * - ï¿½CRITURE: localStorage + Supabase en parallï¿½le
+ * - REALTIME: ï¿½coute changements Supabase ï¿½ met ï¿½ jour localStorage
  * - OFFLINE: Queue de sync, re-tentative quand online
  *
  * @param {string} table - Nom de la table Supabase
- * @param {string} storageKey - Clé localStorage
- * @param {Array} defaultData - Données par défaut si aucune donnée
+ * @param {string} storageKey - Clï¿½ localStorage
+ * @param {Array} defaultData - Donnï¿½es par dï¿½faut si aucune donnï¿½e
  */
 export function useSupabaseSync(table, storageKey, defaultData = []) {
   const [data, setData] = useState([]);
@@ -30,7 +30,7 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         setData(JSON.parse(saved));
-        console.log(`=æ [${table}] Chargé depuis localStorage:`, JSON.parse(saved).length, 'éléments');
+        console.log(`=ï¿½ [${table}] Chargï¿½ depuis localStorage:`, JSON.parse(saved).length, 'ï¿½lï¿½ments');
       } else {
         setData(defaultData);
         localStorage.setItem(storageKey, JSON.stringify(defaultData));
@@ -41,17 +41,17 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
     }
   }, [table, storageKey]);
 
-  // Sauvegarder dans localStorage à chaque changement
+  // Sauvegarder dans localStorage ï¿½ chaque changement
   useEffect(() => {
     if (data.length > 0 || data.length === 0) { // Permettre array vide
       localStorage.setItem(storageKey, JSON.stringify(data));
     }
   }, [data, storageKey]);
 
-  // Sync initial depuis Supabase (si configuré et online)
+  // Sync initial depuis Supabase (si configurï¿½ et online)
   useEffect(() => {
     if (!isSupabaseConfigured() || !isOnline) {
-      console.log(`  [${table}] Supabase non configuré ou offline - mode local uniquement`);
+      console.log(`ï¿½ [${table}] Supabase non configurï¿½ ou offline - mode local uniquement`);
       return;
     }
 
@@ -68,7 +68,7 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
           setData(remoteData);
           localStorage.setItem(storageKey, JSON.stringify(remoteData));
           setLastSync(new Date());
-          console.log(` [${table}] Sync initial:`, remoteData.length, 'éléments');
+          console.log(` [${table}] Sync initial:`, remoteData.length, 'ï¿½lï¿½ments');
         }
       } catch (error) {
         console.error(`L [${table}] Erreur sync initial:`, error);
@@ -78,11 +78,11 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
     syncFromSupabase();
   }, [table, storageKey, isOnline]);
 
-  // Écoute temps réel Supabase (si configuré)
+  // ï¿½coute temps rï¿½el Supabase (si configurï¿½)
   useEffect(() => {
     if (!isSupabaseConfigured() || !isOnline) return;
 
-    // Créer le canal de realtime
+    // Crï¿½er le canal de realtime
     const channel = supabase
       .channel(`public:${table}`)
       .on(
@@ -93,14 +93,14 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
           table: table
         },
         (payload) => {
-          console.log(`= [${table}] Changement reçu:`, payload.eventType, payload.new || payload.old);
+          console.log(`= [${table}] Changement reï¿½u:`, payload.eventType, payload.new || payload.old);
 
           setData(prevData => {
             let newData = [...prevData];
 
             switch (payload.eventType) {
               case 'INSERT':
-                // Vérifier si pas déjà présent (éviter doublons)
+                // Vï¿½rifier si pas dï¿½jï¿½ prï¿½sent (ï¿½viter doublons)
                 if (!newData.find(item => item.id === payload.new.id)) {
                   newData = [payload.new, ...newData];
                 }
@@ -124,7 +124,7 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
         }
       )
       .subscribe((status) => {
-        console.log(`=á [${table}] Realtime status:`, status);
+        console.log(`=ï¿½ [${table}] Realtime status:`, status);
       });
 
     channelRef.current = channel;
@@ -133,21 +133,21 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
     return () => {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
-        console.log(`= [${table}] Canal realtime fermé`);
+        console.log(`= [${table}] Canal realtime fermï¿½`);
       }
     };
   }, [table, storageKey, isOnline]);
 
-  // Écouter online/offline
+  // ï¿½couter online/offline
   useEffect(() => {
     const handleOnline = () => {
-      console.log('< [Global] Connexion rétablie');
+      console.log('< [Global] Connexion rï¿½tablie');
       setIsOnline(true);
       processSyncQueue();
     };
 
     const handleOffline = () => {
-      console.log('=ô [Global] Connexion perdue - mode offline');
+      console.log('=ï¿½ [Global] Connexion perdue - mode offline');
       setIsOnline(false);
     };
 
@@ -164,7 +164,7 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
   const processSyncQueue = async () => {
     if (syncQueue.length === 0 || !isOnline || !isSupabaseConfigured()) return;
 
-    console.log(`= [${table}] Traitement queue:`, syncQueue.length, 'opérations');
+    console.log(`= [${table}] Traitement queue:`, syncQueue.length, 'opï¿½rations');
 
     for (const operation of syncQueue) {
       try {
@@ -177,28 +177,41 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
     setSyncQueue([]);
   };
 
+  // Transformation des donnÃ©es pour Supabase (camelCase â†’ snake_case)
+  const transformForSupabase = (data) => {
+    if (!data || table !== 'succursales') return data;
+
+    const { codePostal, nombreEmployes, dateCreation, dateModification, ...rest } = data;
+    return {
+      ...rest,
+      ...(codePostal !== undefined && { code_postal: codePostal }),
+      ...(nombreEmployes !== undefined && { nombre_employes: nombreEmployes })
+    };
+  };
+
   // Sync vers Supabase
   const syncToSupabase = async (type, item, itemId = null) => {
     if (!isSupabaseConfigured()) {
-      console.log(`  [${table}] Supabase non configuré - sauvegarde locale uniquement`);
+      console.log(`ï¿½ [${table}] Supabase non configurï¿½ - sauvegarde locale uniquement`);
       return { success: true, local: true };
     }
 
     if (!isOnline) {
-      // Ajouter à la queue
+      // Ajouter ï¿½ la queue
       setSyncQueue(prev => [...prev, { type, data: item, id: itemId }]);
-      console.log(`=å [${table}] Ajouté à la queue:`, type);
+      console.log(`=ï¿½ [${table}] Ajoutï¿½ ï¿½ la queue:`, type);
       return { success: true, queued: true };
     }
 
     try {
       let result;
+      const transformedItem = transformForSupabase(item);
 
       switch (type) {
         case 'INSERT':
           const { data: insertData, error: insertError } = await supabase
             .from(table)
-            .insert([item])
+            .insert([transformedItem])
             .select()
             .single();
           if (insertError) throw insertError;
@@ -208,7 +221,7 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
         case 'UPDATE':
           const { data: updateData, error: updateError } = await supabase
             .from(table)
-            .update(item)
+            .update(transformedItem)
             .eq('id', itemId)
             .select()
             .single();
@@ -232,7 +245,7 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
     } catch (error) {
       console.error(`L [${table}] Erreur sync Supabase:`, error);
 
-      // Si offline pendant l'opération, ajouter à la queue
+      // Si offline pendant l'opï¿½ration, ajouter ï¿½ la queue
       if (!navigator.onLine) {
         setSyncQueue(prev => [...prev, { type, data: item, id: itemId }]);
       }
@@ -251,7 +264,7 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
       updated_at: new Date().toISOString()
     };
 
-    // 1. Mettre à jour localStorage immédiatement
+    // 1. Mettre ï¿½ jour localStorage immï¿½diatement
     setData(prev => [item, ...prev]);
 
     // 2. Sync Supabase en background
@@ -266,7 +279,7 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
       updated_at: new Date().toISOString()
     };
 
-    // 1. Mettre à jour localStorage immédiatement
+    // 1. Mettre ï¿½ jour localStorage immï¿½diatement
     setData(prev => prev.map(item =>
       item.id === itemId ? { ...item, ...updatedItem } : item
     ));
@@ -278,7 +291,7 @@ export function useSupabaseSync(table, storageKey, defaultData = []) {
   }, [table]);
 
   const remove = useCallback(async (itemId) => {
-    // 1. Supprimer de localStorage immédiatement
+    // 1. Supprimer de localStorage immï¿½diatement
     setData(prev => prev.filter(item => item.id !== itemId));
 
     // 2. Sync Supabase en background
