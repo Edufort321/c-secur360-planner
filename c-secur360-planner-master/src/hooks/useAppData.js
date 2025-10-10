@@ -153,6 +153,16 @@ export function useAppData() {
         return await removeJobSync(jobId);
     }, [removeJobSync]);
 
+    const saveJob = useCallback(async (job) => {
+        if (job.id && jobs.some(j => j.id === job.id)) {
+            // Job existe déjà, on le met à jour
+            return await updateJob(job.id, job);
+        } else {
+            // Nouveau job
+            return await addJob(job);
+        }
+    }, [jobs, addJob, updateJob]);
+
     // Setter pour compatibilité (utilise Supabase en arrière-plan)
     const setJobs = useCallback((newJobsOrFunction) => {
         console.warn('⚠️ setJobs appelé directement - utiliser addJob/updateJob/deleteJob pour sync Supabase');
@@ -438,6 +448,7 @@ export function useAppData() {
         addJob,
         updateJob,
         deleteJob,
+        saveJob,
 
         // Actions personnel
         setPersonnel,
