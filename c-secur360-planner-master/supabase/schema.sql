@@ -1,8 +1,8 @@
 -- ============== SCHEMA SUPABASE - C-SECUR360 PLANIFICATEUR ==============
--- ¿ exÈcuter dans SQL Editor de Supabase Dashboard
+-- ÔøΩ exÔøΩcuter dans SQL Editor de Supabase Dashboard
 -- https://supabase.com/dashboard/project/YOUR_PROJECT/editor
 
--- Extension UUID (si pas dÈj‡ activÈe)
+-- Extension UUID (si pas dÔøΩjÔøΩ activÔøΩe)
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============== TABLE: personnel ==============
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS personnel (
   poste TEXT,
   departement TEXT,
   succursale TEXT,
-  password TEXT, -- Mot de passe (‡ hasher en prod)
+  password TEXT, -- Mot de passe (ÔøΩ hasher en prod)
   niveau_acces TEXT CHECK (niveau_acces IN ('consultation', 'modification', 'coordination', 'administration')),
   permissions JSONB DEFAULT '{}'::jsonb,
   telephone TEXT,
@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS personnel (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Index pour recherches frÈquentes
+-- Index pour recherches frÔøΩquentes
 CREATE INDEX IF NOT EXISTS idx_personnel_nom ON personnel(nom);
 CREATE INDEX IF NOT EXISTS idx_personnel_succursale ON personnel(succursale);
 CREATE INDEX IF NOT EXISTS idx_personnel_disponible ON personnel(disponible);
@@ -47,8 +47,8 @@ CREATE TABLE IF NOT EXISTS jobs (
   statut TEXT CHECK (statut IN ('planifie', 'en_cours', 'termine', 'annule')),
   priorite TEXT CHECK (priorite IN ('basse', 'normale', 'haute', 'urgente')),
   couleur TEXT,
-  personnel_ids UUID[], -- Array d'IDs personnel assignÈs
-  equipement_ids UUID[], -- Array d'IDs Èquipements assignÈs
+  personnel_ids UUID[], -- Array d'IDs personnel assignÔøΩs
+  equipement_ids UUID[], -- Array d'IDs ÔøΩquipements assignÔøΩs
   notes TEXT,
   description TEXT,
   type_service TEXT,
@@ -149,7 +149,29 @@ CREATE TABLE IF NOT EXISTS departements (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============== TRIGGERS: Mise ‡ jour automatique updated_at ==============
+-- ============== TABLE: soustraitants ==============
+CREATE TABLE IF NOT EXISTS soustraitants (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  nom TEXT NOT NULL,
+  specialite TEXT,
+  telephone TEXT,
+  email TEXT,
+  disponible BOOLEAN DEFAULT true,
+  tarif TEXT,
+  adresse TEXT,
+  ville TEXT,
+  code_postal TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index
+CREATE INDEX IF NOT EXISTS idx_soustraitants_nom ON soustraitants(nom);
+CREATE INDEX IF NOT EXISTS idx_soustraitants_disponible ON soustraitants(disponible);
+CREATE INDEX IF NOT EXISTS idx_soustraitants_specialite ON soustraitants(specialite);
+
+-- ============== TRIGGERS: Mise √† jour automatique updated_at ==============
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -158,7 +180,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Appliquer le trigger ‡ toutes les tables
+-- Appliquer le trigger ÔøΩ toutes les tables
 CREATE TRIGGER update_personnel_updated_at BEFORE UPDATE ON personnel
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -177,6 +199,9 @@ CREATE TRIGGER update_postes_updated_at BEFORE UPDATE ON postes
 CREATE TRIGGER update_conges_updated_at BEFORE UPDATE ON conges
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+CREATE TRIGGER update_soustraitants_updated_at BEFORE UPDATE ON soustraitants
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- ============== ROW LEVEL SECURITY (RLS) ==============
 -- Activer RLS sur toutes les tables
 ALTER TABLE personnel ENABLE ROW LEVEL SECURITY;
@@ -186,9 +211,10 @@ ALTER TABLE succursales ENABLE ROW LEVEL SECURITY;
 ALTER TABLE postes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE departements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE soustraitants ENABLE ROW LEVEL SECURITY;
 
--- Politique: Permettre toutes opÈrations pour le moment (‡ affiner selon besoins)
--- NOTE: En production, crÈer des politiques plus restrictives basÈes sur auth.uid()
+-- Politique: Permettre toutes op√©rations pour le moment (√† affiner selon besoins)
+-- NOTE: En production, cr√©er des politiques plus restrictives bas√©es sur auth.uid()
 
 CREATE POLICY "Permettre tout pour personnel" ON personnel FOR ALL USING (true);
 CREATE POLICY "Permettre tout pour jobs" ON jobs FOR ALL USING (true);
@@ -197,10 +223,11 @@ CREATE POLICY "Permettre tout pour succursales" ON succursales FOR ALL USING (tr
 CREATE POLICY "Permettre tout pour postes" ON postes FOR ALL USING (true);
 CREATE POLICY "Permettre tout pour conges" ON conges FOR ALL USING (true);
 CREATE POLICY "Permettre tout pour departements" ON departements FOR ALL USING (true);
+CREATE POLICY "Permettre tout pour soustraitants" ON soustraitants FOR ALL USING (true);
 
 -- ============== VUES UTILES ==============
 
--- Vue: Personnel avec leur succursale complËte
+-- Vue: Personnel avec leur succursale complÔøΩte
 CREATE OR REPLACE VIEW v_personnel_complet AS
 SELECT
   p.*,
@@ -218,19 +245,19 @@ SELECT
   CARDINALITY(j.equipement_ids) as nb_equipements
 FROM jobs j;
 
--- ============== DONN…ES DE TEST ==============
--- InsÈrer quelques donnÈes de test (optionnel)
+-- ============== DONNÔøΩES DE TEST ==============
+-- InsÔøΩrer quelques donnÔøΩes de test (optionnel)
 
 INSERT INTO succursales (nom, ville, couleur) VALUES
   ('C-Secur360 Sherbrooke', 'Sherbrooke', '#1E40AF'),
-  ('C-Secur360 MontrÈal', 'MontrÈal', '#DC2626'),
-  ('C-Secur360 QuÈbec', 'QuÈbec', '#059669')
+  ('C-Secur360 MontrÔøΩal', 'MontrÔøΩal', '#DC2626'),
+  ('C-Secur360 QuÔøΩbec', 'QuÔøΩbec', '#059669')
 ON CONFLICT (nom) DO NOTHING;
 
 -- ============== CONFIGURATION REALTIME ==============
 -- Activer realtime sur toutes les tables
 
--- Note: ExÈcuter dans SQL Editor:
+-- Note: Ex√©cuter dans SQL Editor:
 -- ALTER PUBLICATION supabase_realtime ADD TABLE personnel;
 -- ALTER PUBLICATION supabase_realtime ADD TABLE jobs;
 -- ALTER PUBLICATION supabase_realtime ADD TABLE equipements;
@@ -238,9 +265,11 @@ ON CONFLICT (nom) DO NOTHING;
 -- ALTER PUBLICATION supabase_realtime ADD TABLE postes;
 -- ALTER PUBLICATION supabase_realtime ADD TABLE conges;
 -- ALTER PUBLICATION supabase_realtime ADD TABLE departements;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE soustraitants;
 
 -- OU via Dashboard: Database > Replication > Enable realtime for tables
 
 -- ============== FIN ==============
--- Schema crÈÈ avec succËs !
--- Prochaine Ètape: Configurer .env.local avec VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY
+-- Schema cr√©√© avec succ√®s !
+-- 8 tables synchronis√©es: personnel, jobs, equipements, succursales, postes, conges, departements, soustraitants
+-- Prochaine √©tape: Configurer .env.local avec VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY
