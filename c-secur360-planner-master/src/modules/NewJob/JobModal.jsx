@@ -3367,14 +3367,14 @@ export function JobModal({
                                 🔄 <span className="hidden md:inline">Récurrence</span> {formData.recurrence?.active ? '✓' : ''}
                             </button>
                             <button
-                                onClick={() => setActiveTab('teams')}
+                                onClick={() => setActiveTab('customization')}
                                 className={`px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors whitespace-nowrap ${
-                                    activeTab === 'teams'
+                                    activeTab === 'customization'
                                         ? 'text-purple-600 border-b-2 border-purple-600 bg-white'
                                         : 'text-gray-600 hover:text-gray-900'
                                 }`}
                             >
-                                🎯 <span className="hidden md:inline">Équipes</span> {formData.horaireMode === 'personnalise' ? '⚙️' : ''}
+                                ⚙️ <span className="hidden md:inline">Personnalisation</span> {formData.horaireMode === 'personnalise' ? '✓' : ''}
                             </button>
                         </div>
                         {/* Mode mobile - Menu hamburger avec onglet actif */}
@@ -3388,7 +3388,7 @@ export function JobModal({
                                 {activeTab === 'resources' && '👥 Ressources'}
                                 {activeTab === 'files' && `📎 Fichiers (${(formData.documents?.length || 0) + (formData.photos?.length || 0)})`}
                                 {activeTab === 'recurrence' && '🔄 Récurrence'}
-                                {activeTab === 'teams' && '🎯 Équipes'}
+                                {activeTab === 'customization' && '⚙️ Personnalisation'}
                             </button>
                             <div className="relative">
                                 <button
@@ -3449,12 +3449,12 @@ export function JobModal({
                                                 🔄 Récurrence {formData.recurrence?.active ? '✓' : ''}
                                             </button>
                                             <button
-                                                onClick={() => { setActiveTab('teams'); setShowMobileTabMenu(false); }}
+                                                onClick={() => { setActiveTab('customization'); setShowMobileTabMenu(false); }}
                                                 className={`w-full px-4 py-3 text-left font-medium transition-colors flex items-center gap-2 ${
-                                                    activeTab === 'teams' ? 'bg-purple-50 text-purple-600' : 'text-gray-700 hover:bg-gray-50'
+                                                    activeTab === 'customization' ? 'bg-purple-50 text-purple-600' : 'text-gray-700 hover:bg-gray-50'
                                                 }`}
                                             >
-                                                🎯 Équipes {formData.horaireMode === 'personnalise' ? '⚙️' : ''}
+                                                ⚙️ Personnalisation {formData.horaireMode === 'personnalise' ? '✓' : ''}
                                             </button>
                                         </div>
                                     </>
@@ -7721,19 +7721,19 @@ export function JobModal({
                             </div>
                         )}
 
-                        {/* Onglet Équipes Avancées */}
-                        {activeTab === 'teams' && (
+                        {/* Onglet Personnalisation */}
+                        {activeTab === 'customization' && (
                             <div className="h-full overflow-y-auto p-6">
                                 <div className="space-y-6">
-                                    {/* Header Équipes */}
-                                    <div className="flex items-center gap-4 px-6 py-4 bg-gray-900 border-b border-gray-700 rounded-lg">
-                                        <div className="text-4xl">🎯</div>
+                                    {/* Header Personnalisation */}
+                                    <div className="flex items-center gap-4 px-6 py-4 bg-gradient-to-r from-purple-900 to-indigo-900 border-b border-purple-700 rounded-lg">
+                                        <div className="text-4xl">⚙️</div>
                                         <div>
                                             <h3 className="text-lg font-bold text-white flex items-center">
-                                                Gestion Avancée des Équipes
+                                                Personnalisation Avancée
                                             </h3>
-                                            <p className="text-sm text-gray-300">
-                                                Optimisation automatique et gestion personnalisée des horaires d'équipe
+                                            <p className="text-sm text-gray-200">
+                                                Horaires personnalisés et dates multiples pour votre projet
                                             </p>
                                         </div>
                                     </div>
