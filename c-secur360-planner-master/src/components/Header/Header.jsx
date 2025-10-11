@@ -83,7 +83,7 @@ export function Header({
                     )}
 
                     {/* Sélecteur de langue - compact */}
-                    <LanguageSelector showLabel={false} size="normal" />
+                    <LanguageSelector showLabel={false} compact={true} />
 
                     {/* Sélecteur de thème - compact */}
                     <ThemeToggle className="hidden sm:flex" />

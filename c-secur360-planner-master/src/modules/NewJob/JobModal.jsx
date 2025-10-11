@@ -86,7 +86,7 @@ export function JobModal({
         ganttBaseline: {},
         criticalPath: [],
         showCriticalPath: false,
-        ganttViewMode: 'day',
+        ganttViewMode: 'auto',
         equipesNumerotees: {},
         ganttMode: 'individuel',
         prochainNumeroEquipe: 1,
@@ -111,6 +111,12 @@ export function JobModal({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [ganttFullscreen, setGanttFullscreen] = useState(false);
     const [ganttCompactMode, setGanttCompactMode] = useState(false);
+    const [showMobileTabMenu, setShowMobileTabMenu] = useState(false);
+    const [showGanttMenu, setShowGanttMenu] = useState(false);
+
+    // États pour la navigation temporelle du Gantt
+    const [ganttViewOffset, setGanttViewOffset] = useState(0); // Décalage en jours/heures selon le mode
+    const [editingGanttTask, setEditingGanttTask] = useState(null); // ID de la tâche en cours d'édition dans Gantt
 
     // États pour la gestion des horaires hiérarchiques
     const [showDailySchedules, setShowDailySchedules] = useState(false);
@@ -189,25 +195,6 @@ export function JobModal({
         if (totalTaskHours <= 8760) return 'month'; // 1 mois - 1 an → vue par mois
         return 'year'; // Plus d'1 an → vue annuelle
     };
-
-    // Effect pour forcer l'onglet Gantt en mode mobile
-    useEffect(() => {
-        const handleResize = () => {
-            const isMobile = window.innerWidth < 640; // sm breakpoint
-            if (isMobile && activeTab !== 'gantt') {
-                setActiveTab('gantt');
-            }
-        };
-
-        // Vérifier au chargement
-        handleResize();
-
-        // Ajouter le listener
-        window.addEventListener('resize', handleResize);
-
-        // Nettoyer
-        return () => window.removeEventListener('resize', handleResize);
-    }, [activeTab]);
 
     // Initialisation des données si c'est un job existant
     useEffect(() => {
@@ -1359,64 +1346,151 @@ export function JobModal({
         return arrows;
     };
 
-    // Fonction pour générer le contenu d'impression
+    // Fonction pour générer le contenu d'impression détaillé avec Gantt visuel
     const generatePrintContent = () => {
         const hierarchicalTasks = generateHierarchicalGanttData();
+        let effectiveViewMode = formData.ganttViewMode || 'auto';
+        const currentViewMode = (effectiveViewMode === 'auto') ? getDefaultViewMode() : effectiveViewMode;
+        const timeScale = generateTimeScale(currentViewMode, ganttViewOffset);
+
+        // Calculer les couleurs des tâches
+        const getTaskColor = (task) => {
+            if (task.isCritical) return '#ef4444';
+            if (task.completed) return '#10b981';
+            const parentColors = ['#3b82f6', '#10b981', '#a855f7', '#f97316', '#14b8a6', '#ec4899', '#6366f1', '#eab308'];
+            if (task.parentId) {
+                const rootParent = hierarchicalTasks.find(t => t.id === task.parentId);
+                if (rootParent) {
+                    const parentIndex = hierarchicalTasks.filter(t => !t.parentId).findIndex(t => t.id === rootParent.id);
+                    return parentColors[parentIndex % parentColors.length];
+                }
+            }
+            const parentIndex = hierarchicalTasks.filter(t => !t.parentId).findIndex(t => t.id === task.id);
+            return parentColors[parentIndex % parentColors.length];
+        };
+
+        // Générer le Gantt visuel pour l'impression
+        const ganttVisual = `
+            <div class="gantt-visual">
+                <!-- En-tête Timeline -->
+                <div class="timeline-header">
+                    <div class="task-column">Tâche</div>
+                    <div class="gantt-timeline">
+                        ${timeScale.map(period => `
+                            <div class="time-cell">${period.label}</div>
+                        `).join('')}
+                    </div>
+                    <div class="duration-column">Durée</div>
+                </div>
+
+                <!-- Tâches avec barres Gantt -->
+                ${hierarchicalTasks.map(task => {
+                    const projectStart = new Date(formData.dateDebut || new Date());
+                    const taskStartHours = task.startHours || 0;
+                    const taskDurationHours = task.duration || 1;
+
+                    // Calculer la durée totale de la vue
+                    let totalViewHours = 0;
+                    switch(currentViewMode) {
+                        case '6h': totalViewHours = 6; break;
+                        case '12h': totalViewHours = 12; break;
+                        case '24h': totalViewHours = 24; break;
+                        case 'day': totalViewHours = 24 * timeScale.length; break;
+                        case 'week': totalViewHours = 7 * 24 * timeScale.length; break;
+                        case 'month': totalViewHours = 30 * 24 * timeScale.length; break;
+                        case 'year': totalViewHours = 365 * 24 * timeScale.length; break;
+                        default: totalViewHours = Math.max(...hierarchicalTasks.map(t => (t.endHours || 0)));
+                    }
+
+                    const startPercent = (taskStartHours / totalViewHours) * 100;
+                    const widthPercent = (taskDurationHours / totalViewHours) * 100;
+                    const taskProgress = calculateTaskProgress(task.id, formData.etapes);
+                    const taskColor = getTaskColor(task);
+
+                    return `
+                        <div class="gantt-row ${task.isCritical ? 'critical-row' : ''}">
+                            <div class="task-column" style="padding-left: ${task.level * 20}px;">
+                                <input type="checkbox" ${task.completed ? 'checked' : ''} disabled />
+                                ${task.hasChildren ? '📁' : '📄'}
+                                <strong>${task.displayName || task.text || `Étape ${task.order + 1}`}</strong>
+                                ${task.autoCalculated ? '<span class="auto-badge">📊</span>' : ''}
+                            </div>
+                            <div class="gantt-bar-container">
+                                <div class="gantt-bar-bg" style="left: ${startPercent}%; width: ${widthPercent}%; background-color: ${taskColor}40;">
+                                    <div class="gantt-bar-progress" style="width: ${taskProgress}%; background-color: ${taskColor};"></div>
+                                    ${widthPercent > 8 ? `<span class="progress-text">${taskProgress}%</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="duration-column">${task.duration}h (${taskProgress}%)</div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
 
         return `
-            <div class="header">
-                <h1>Rapport de Projet: ${formData.nom}</h1>
-                <p>Numéro: ${formData.numeroJob} | Période: ${formData.dateDebut} - ${formData.dateFin}</p>
+            <div class="page-header">
+                <div class="logo-container">
+                    <svg width="50" height="50" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="50" cy="50" r="45" fill="#1a1a1a"/>
+                        <circle cx="50" cy="50" r="35" fill="none" stroke="#3b82f6" stroke-width="4"/>
+                        <path d="M30 50 L45 65 L70 35" stroke="#3b82f6" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                    </svg>
+                </div>
+                <div class="header-info">
+                    <h1>C-SECUR360 - Rapport de Projet</h1>
+                    <h2>${formData.nom || 'Sans titre'}</h2>
+                    <p>Numéro: ${formData.numeroJob || 'N/A'} | Période: ${new Date(formData.dateDebut || new Date()).toLocaleDateString('fr-FR')} - ${new Date(formData.dateFin || new Date()).toLocaleDateString('fr-FR')}</p>
+                    <p>Imprimé le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}</p>
+                </div>
             </div>
 
             <div class="section">
-                <h2>Informations Générales</h2>
-                <p><strong>Description:</strong> ${formData.description}</p>
-                <p><strong>Lieu:</strong> ${formData.lieu}</p>
-                <p><strong>Contact:</strong> ${formData.contact}</p>
+                <h2>📋 Informations Générales</h2>
+                <div class="info-grid">
+                    <div class="info-item"><strong>Description:</strong> ${formData.description || 'N/A'}</div>
+                    <div class="info-item"><strong>Lieu:</strong> ${formData.lieu || 'N/A'}</div>
+                    <div class="info-item"><strong>Contact:</strong> ${formData.contact || 'N/A'}</div>
+                    <div class="info-item"><strong>Total Heures:</strong> ${getTotalProjectHours()}h</div>
+                    <div class="info-item"><strong>Nombre de Tâches:</strong> ${formData.etapes.length}</div>
+                    <div class="info-item"><strong>Vue Gantt:</strong> ${currentViewMode}</div>
+                </div>
             </div>
 
-            <div class="section">
-                <h2>Diagramme de Gantt</h2>
-                <table class="gantt-chart">
-                    <thead>
-                        <tr>
-                            <th>Tâche</th>
-                            <th>Durée</th>
-                            <th>Ressources</th>
-                            <th>État</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${hierarchicalTasks.map(task => `
-                            <tr>
-                                <td style="padding-left: ${task.level * 20}px">
-                                    ${task.hasChildren ? '📁' : '📄'} ${task.displayName || task.text || `Étape ${task.order + 1}`}
-                                </td>
-                                <td>${task.duration}h</td>
-                                <td>
-                                    ${Object.values(task.assignedResources || {}).flat().length} ressource(s)
-                                </td>
-                                <td>
-                                    ${task.completed ? 'Terminé' : task.isCritical ? 'Critique' : 'En cours'}
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+            <div class="section gantt-section">
+                <h2>📊 Diagramme de Gantt - Vue Détaillée</h2>
+                ${ganttVisual}
             </div>
 
-            <div class="section">
-                <h2>Étapes Détaillées</h2>
+            <div class="section page-break">
+                <h2>📝 Détails des Étapes</h2>
                 ${hierarchicalTasks.map(task => `
-                    <div style="margin-left: ${task.level * 20}px; margin-bottom: 15px; border-left: 3px solid ${task.isCritical ? '#ef4444' : '#3b82f6'}; padding-left: 10px;">
-                        <h4>${task.hasChildren ? '📁' : '📄'} ${task.text || task.displayName || `Étape ${task.order + 1}`}</h4>
+                    <div class="task-detail" style="margin-left: ${task.level * 20}px; border-left: 3px solid ${getTaskColor(task)};">
+                        <h4>
+                            ${task.hasChildren ? '📁' : '📄'}
+                            ${task.text || task.displayName || `Étape ${task.order + 1}`}
+                            ${task.completed ? ' ✓' : ''}
+                            ${task.isCritical ? ' 🎯 (CRITIQUE)' : ''}
+                        </h4>
                         ${task.description ? `<p><strong>Description:</strong> ${task.description}</p>` : ''}
-                        <p><strong>Durée:</strong> ${task.duration}h | <strong>Priorité:</strong> ${task.priority}</p>
-                        ${task.dependencies?.length ? `<p><strong>Dépendances:</strong> ${task.dependencies.length}</p>` : ''}
+                        <p><strong>Durée:</strong> ${task.duration}h | <strong>Avancement:</strong> ${calculateTaskProgress(task.id, formData.etapes)}% | <strong>Priorité:</strong> ${task.priority}</p>
+                        ${task.dependencies?.length ? `<p><strong>Dépendances:</strong> ${task.dependencies.map(d => {
+                            const depTask = formData.etapes.find(e => e.id === d.id);
+                            return depTask ? depTask.text || 'Sans nom' : 'Inconnue';
+                        }).join(', ')}</p>` : ''}
+                        ${task.assignedResources?.personnel?.length || task.assignedResources?.equipements?.length || task.assignedResources?.equipes?.length ?
+                            `<p><strong>Ressources:</strong>
+                                ${task.assignedResources.personnel?.length || 0} personnel,
+                                ${task.assignedResources.equipements?.length || 0} équipement(s),
+                                ${task.assignedResources.equipes?.length || 0} équipe(s)
+                            </p>` : ''}
                         ${task.notes ? `<p><strong>Notes:</strong> ${task.notes}</p>` : ''}
                     </div>
                 `).join('')}
+            </div>
+
+            <div class="page-footer">
+                <p>Document généré par C-SECUR360 Planificateur</p>
             </div>
         `;
     };
@@ -1429,19 +1503,211 @@ export function JobModal({
         printWindow.document.write(`
             <html>
                 <head>
-                    <title>Rapport de Projet - ${formData.nom}</title>
+                    <title>Rapport de Projet - ${formData.nom || 'Sans titre'}</title>
+                    <meta charset="UTF-8">
                     <style>
-                        body { font-family: Arial, sans-serif; margin: 20px; }
-                        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-                        .section { margin-bottom: 30px; page-break-inside: avoid; }
-                        .gantt-chart { width: 100%; border-collapse: collapse; }
-                        .gantt-chart th, .gantt-chart td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                        .gantt-task { height: 20px; border-radius: 4px; margin: 2px 0; }
-                        .task-critical { background-color: #ef4444; }
-                        .task-normal { background-color: #3b82f6; }
-                        .task-completed { background-color: #10b981; }
-                        .hierarchy-indent { padding-left: 20px; }
-                        @media print { .no-print { display: none; } }
+                        /* Styles généraux */
+                        * { box-sizing: border-box; margin: 0; padding: 0; }
+                        body {
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                            font-size: 11pt;
+                            line-height: 1.5;
+                            color: #333;
+                            background: white;
+                        }
+
+                        /* Header avec logo */
+                        .page-header {
+                            display: flex;
+                            align-items: center;
+                            gap: 20px;
+                            padding: 20px;
+                            border-bottom: 3px solid #1a1a1a;
+                            margin-bottom: 20px;
+                            background: linear-gradient(135deg, #f5f7fa 0%, #e8edf2 100%);
+                        }
+                        .logo-container {
+                            flex-shrink: 0;
+                        }
+                        .header-info h1 {
+                            font-size: 20pt;
+                            color: #1a1a1a;
+                            margin-bottom: 5px;
+                        }
+                        .header-info h2 {
+                            font-size: 16pt;
+                            color: #3b82f6;
+                            margin-bottom: 10px;
+                        }
+                        .header-info p {
+                            font-size: 9pt;
+                            color: #666;
+                            margin: 2px 0;
+                        }
+
+                        /* Sections */
+                        .section {
+                            margin: 20px 0;
+                            padding: 15px;
+                            border-radius: 8px;
+                            background: white;
+                        }
+                        .section h2 {
+                            font-size: 14pt;
+                            color: #1a1a1a;
+                            margin-bottom: 15px;
+                            padding-bottom: 5px;
+                            border-bottom: 2px solid #3b82f6;
+                        }
+
+                        /* Info grid */
+                        .info-grid {
+                            display: grid;
+                            grid-template-columns: repeat(2, 1fr);
+                            gap: 10px;
+                        }
+                        .info-item {
+                            padding: 8px;
+                            background: #f8f9fa;
+                            border-radius: 4px;
+                            font-size: 10pt;
+                        }
+
+                        /* Gantt visuel */
+                        .gantt-section {
+                            background: #f8f9fa;
+                        }
+                        .gantt-visual {
+                            width: 100%;
+                            border: 1px solid #ddd;
+                            border-radius: 4px;
+                            overflow: hidden;
+                        }
+                        .timeline-header {
+                            display: flex;
+                            background: #1a1a1a;
+                            color: white;
+                            font-weight: bold;
+                            font-size: 9pt;
+                            border-bottom: 2px solid #3b82f6;
+                        }
+                        .task-column {
+                            width: 250px;
+                            padding: 8px;
+                            border-right: 1px solid #ddd;
+                            flex-shrink: 0;
+                            display: flex;
+                            align-items: center;
+                            gap: 5px;
+                        }
+                        .gantt-timeline {
+                            flex: 1;
+                            display: flex;
+                            border-right: 1px solid #ddd;
+                        }
+                        .time-cell {
+                            flex: 1;
+                            padding: 8px 4px;
+                            text-align: center;
+                            border-right: 1px solid #444;
+                            font-size: 8pt;
+                        }
+                        .duration-column {
+                            width: 100px;
+                            padding: 8px;
+                            text-align: center;
+                            flex-shrink: 0;
+                        }
+                        .gantt-row {
+                            display: flex;
+                            border-bottom: 1px solid #eee;
+                            min-height: 32px;
+                            align-items: center;
+                        }
+                        .gantt-row:hover {
+                            background: #f8f9fa;
+                        }
+                        .critical-row {
+                            background: #fef2f2;
+                        }
+                        .gantt-bar-container {
+                            flex: 1;
+                            position: relative;
+                            height: 24px;
+                            border-right: 1px solid #ddd;
+                        }
+                        .gantt-bar-bg {
+                            position: absolute;
+                            top: 2px;
+                            height: 20px;
+                            border-radius: 3px;
+                            overflow: hidden;
+                        }
+                        .gantt-bar-progress {
+                            height: 100%;
+                            transition: width 0.3s;
+                        }
+                        .progress-text {
+                            position: absolute;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            color: white;
+                            font-size: 8pt;
+                            font-weight: bold;
+                            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+                        }
+                        .auto-badge {
+                            font-size: 8pt;
+                            color: #3b82f6;
+                        }
+
+                        /* Détails des tâches */
+                        .task-detail {
+                            margin: 10px 0;
+                            padding: 10px;
+                            padding-left: 15px;
+                            background: white;
+                            border-radius: 4px;
+                            font-size: 10pt;
+                        }
+                        .task-detail h4 {
+                            font-size: 11pt;
+                            margin-bottom: 5px;
+                            color: #1a1a1a;
+                        }
+                        .task-detail p {
+                            margin: 3px 0;
+                            font-size: 9pt;
+                            color: #555;
+                        }
+
+                        /* Footer */
+                        .page-footer {
+                            margin-top: 40px;
+                            padding-top: 20px;
+                            border-top: 2px solid #1a1a1a;
+                            text-align: center;
+                            color: #666;
+                            font-size: 9pt;
+                        }
+
+                        /* Pagination automatique */
+                        .page-break {
+                            page-break-before: always;
+                        }
+
+                        /* Print styles */
+                        @media print {
+                            body { margin: 0; padding: 15mm; }
+                            .section { page-break-inside: avoid; }
+                            .gantt-row { page-break-inside: avoid; }
+                            .task-detail { page-break-inside: avoid; }
+                            @page {
+                                margin: 15mm;
+                                size: landscape;
+                            }
+                        }
                     </style>
                 </head>
                 <body>
@@ -1502,6 +1768,35 @@ export function JobModal({
         });
 
         return stats;
+    };
+
+    // ============== CALCUL PROGRESS HIÉRARCHIQUE ==============
+    // Calcule le progress d'une tâche parent depuis ses sous-tâches
+    const calculateTaskProgress = (taskId, allTasks) => {
+        const task = allTasks.find(t => t.id === taskId);
+        if (!task) return 0;
+
+        // Si la tâche a un progress défini manuellement et n'a pas d'enfants, utiliser celui-ci
+        const children = allTasks.filter(t => t.parentId === taskId);
+
+        if (children.length === 0) {
+            // Tâche feuille : utiliser son propre progress (ou 0 par défaut)
+            return task.progress || 0;
+        }
+
+        // Tâche parent : calculer la moyenne pondérée du progress des enfants
+        let totalProgress = 0;
+        let totalWeight = 0;
+
+        children.forEach(child => {
+            const childProgress = calculateTaskProgress(child.id, allTasks);
+            const childDuration = child.duration || 1;
+
+            totalProgress += childProgress * childDuration;
+            totalWeight += childDuration;
+        });
+
+        return totalWeight > 0 ? Math.round(totalProgress / totalWeight) : 0;
     };
 
     // ============== GESTION HORAIRES PAR JOUR (Partie 1/2) ==============
@@ -2358,8 +2653,8 @@ export function JobModal({
     };
 
     // ============== P2-2: GÉNÉRATION ÉCHELLE TEMPS GANTT ==============
-    const generateTimeScale = (viewMode = null) => {
-        console.log('🐛 DEBUG generateTimeScale called with viewMode:', viewMode);
+    const generateTimeScale = (viewMode = null, offset = 0) => {
+        console.log('🐛 DEBUG generateTimeScale called with viewMode:', viewMode, 'offset:', offset);
         console.log('🐛 DEBUG formData.dateDebut:', formData.dateDebut);
         console.log('🐛 DEBUG formData.ganttViewMode:', formData.ganttViewMode);
 
@@ -2367,7 +2662,7 @@ export function JobModal({
 
         // **FORCER LA VUE AUTOMATIQUE** pour corriger le problème
         const autoViewMode = getDefaultViewMode();
-        const currentViewMode = viewMode || autoViewMode;
+        const currentViewMode = (viewMode === 'auto' || !viewMode) ? autoViewMode : viewMode;
         console.log('🐛 DEBUG auto view mode:', autoViewMode);
         console.log('🐛 DEBUG currentViewMode selected:', currentViewMode);
 
@@ -2376,10 +2671,11 @@ export function JobModal({
 
         switch (currentViewMode) {
             case '6h':
-                // Vue 6 heures fixe - toujours 6 cellules d'1h chacune
-                console.log('🐛 DEBUG - Generating 6h fixed view');
+                // Vue 6 heures fixe - toujours 6 cellules d'1h chacune (avec offset)
+                console.log('🐛 DEBUG - Generating 6h fixed view with offset:', offset);
                 for (let hour = 0; hour < 6; hour++) {
-                    const currentTime = new Date(startDate.getTime() + (hour * 60 * 60 * 1000));
+                    const actualHour = hour + (offset * 6); // Décaler par fenêtre de 6h
+                    const currentTime = new Date(startDate.getTime() + (actualHour * 60 * 60 * 1000));
                     const timeLabel = currentTime.toLocaleTimeString('fr-FR', {
                         hour: '2-digit',
                         minute: '2-digit'
@@ -2387,17 +2683,18 @@ export function JobModal({
                     scale.push({
                         date: currentTime,
                         label: timeLabel,
-                        key: `hour-${hour}`,
-                        value: hour
+                        key: `hour-${actualHour}`,
+                        value: actualHour
                     });
                 }
                 break;
 
             case '12h':
-                // Vue 12 heures fixe - toujours 12 cellules d'1h chacune
-                console.log('🐛 DEBUG - Generating 12h fixed view');
+                // Vue 12 heures fixe - toujours 12 cellules d'1h chacune (avec offset)
+                console.log('🐛 DEBUG - Generating 12h fixed view with offset:', offset);
                 for (let hour = 0; hour < 12; hour++) {
-                    const currentTime = new Date(startDate.getTime() + (hour * 60 * 60 * 1000));
+                    const actualHour = hour + (offset * 12); // Décaler par fenêtre de 12h
+                    const currentTime = new Date(startDate.getTime() + (actualHour * 60 * 60 * 1000));
                     const timeLabel = currentTime.toLocaleTimeString('fr-FR', {
                         hour: '2-digit',
                         minute: '2-digit'
@@ -2405,17 +2702,18 @@ export function JobModal({
                     scale.push({
                         date: currentTime,
                         label: timeLabel,
-                        key: `hour-${hour}`,
-                        value: hour
+                        key: `hour-${actualHour}`,
+                        value: actualHour
                     });
                 }
                 break;
 
             case '24h':
-                // Vue 24 heures fixe - toujours 24 cellules d'1h chacune
-                console.log('🐛 DEBUG - Generating 24h fixed view');
+                // Vue 24 heures fixe - toujours 24 cellules d'1h chacune (avec offset)
+                console.log('🐛 DEBUG - Generating 24h fixed view with offset:', offset);
                 for (let hour = 0; hour < 24; hour++) {
-                    const currentTime = new Date(startDate.getTime() + (hour * 60 * 60 * 1000));
+                    const actualHour = hour + (offset * 24); // Décaler par fenêtre de 24h
+                    const currentTime = new Date(startDate.getTime() + (actualHour * 60 * 60 * 1000));
                     const timeLabel = currentTime.toLocaleTimeString('fr-FR', {
                         hour: '2-digit',
                         minute: '2-digit'
@@ -2423,82 +2721,94 @@ export function JobModal({
                     scale.push({
                         date: currentTime,
                         label: timeLabel,
-                        key: `hour-${hour}`,
-                        value: hour
+                        key: `hour-${actualHour}`,
+                        value: actualHour
                     });
                 }
                 break;
 
             case 'day':
-                // Vue journalière adaptative selon la durée du projet
+                // Vue journalière adaptative selon la durée du projet (avec offset)
                 const totalTaskHours = formData.etapes.reduce((sum, etape) => sum + (etape.duration || 0), 0);
                 const totalDays = Math.max(1, Math.ceil(totalTaskHours / 24));
-                console.log('🐛 DEBUG - Generating day view with totalDays:', totalDays);
-                for (let day = 0; day < totalDays; day++) {
-                    const currentDate = new Date(startDate.getTime() + (day * 24 * 60 * 60 * 1000));
+                const visibleDays = Math.min(7, totalDays); // Afficher max 7 jours à la fois
+                console.log('🐛 DEBUG - Generating day view with totalDays:', totalDays, 'offset:', offset);
+                for (let day = 0; day < visibleDays; day++) {
+                    const actualDay = day + (offset * visibleDays);
+                    if (actualDay >= totalDays) break; // Ne pas dépasser la durée totale
+                    const currentDate = new Date(startDate.getTime() + (actualDay * 24 * 60 * 60 * 1000));
                     scale.push({
                         date: currentDate,
                         label: currentDate.toLocaleDateString('fr-FR', {
                             day: '2-digit',
                             month: 'short'
                         }),
-                        key: `day-${day}`,
-                        value: day
+                        key: `day-${actualDay}`,
+                        value: actualDay
                     });
                 }
                 break;
 
             case 'week':
-                // Vue hebdomadaire adaptative selon la durée du projet
+                // Vue hebdomadaire adaptative selon la durée du projet (avec offset)
                 const totalTaskHoursWeek = formData.etapes.reduce((sum, etape) => sum + (etape.duration || 0), 0);
                 const totalWeeks = Math.max(1, Math.ceil(totalTaskHoursWeek / (7 * 24)));
-                console.log('🐛 DEBUG - Generating week view with totalWeeks:', totalWeeks);
-                for (let week = 0; week < totalWeeks; week++) {
-                    const weekStart = new Date(startDate.getTime() + (week * 7 * 24 * 60 * 60 * 1000));
+                const visibleWeeks = Math.min(4, totalWeeks); // Afficher max 4 semaines à la fois
+                console.log('🐛 DEBUG - Generating week view with totalWeeks:', totalWeeks, 'offset:', offset);
+                for (let week = 0; week < visibleWeeks; week++) {
+                    const actualWeek = week + (offset * visibleWeeks);
+                    if (actualWeek >= totalWeeks) break;
+                    const weekStart = new Date(startDate.getTime() + (actualWeek * 7 * 24 * 60 * 60 * 1000));
                     scale.push({
                         date: weekStart,
-                        label: `S${week + 1}`,
+                        label: `S${actualWeek + 1}`,
                         longLabel: weekStart.toLocaleDateString('fr-FR', {
                             day: '2-digit',
                             month: 'short'
                         }),
-                        key: `week-${week}`,
-                        value: week
+                        key: `week-${actualWeek}`,
+                        value: actualWeek
                     });
                 }
                 break;
 
             case 'month':
-                // Vue mensuelle adaptative selon la durée du projet
+                // Vue mensuelle adaptative selon la durée du projet (avec offset)
                 const totalTaskHoursMonth = formData.etapes.reduce((sum, etape) => sum + (etape.duration || 0), 0);
                 const totalMonths = Math.max(1, Math.ceil(totalTaskHoursMonth / (30 * 24)));
-                console.log('🐛 DEBUG - Generating month view with totalMonths:', totalMonths);
-                for (let month = 0; month < totalMonths; month++) {
-                    const monthStart = new Date(startDate.getTime() + (month * 30 * 24 * 60 * 60 * 1000));
+                const visibleMonths = Math.min(6, totalMonths); // Afficher max 6 mois à la fois
+                console.log('🐛 DEBUG - Generating month view with totalMonths:', totalMonths, 'offset:', offset);
+                for (let month = 0; month < visibleMonths; month++) {
+                    const actualMonth = month + (offset * visibleMonths);
+                    if (actualMonth >= totalMonths) break;
+                    const monthStart = new Date(startDate.getTime() + (actualMonth * 30 * 24 * 60 * 60 * 1000));
                     scale.push({
                         date: monthStart,
                         label: monthStart.toLocaleDateString('fr-FR', {
                             month: 'short',
                             year: '2-digit'
                         }),
-                        key: `month-${month}`,
-                        value: month
+                        key: `month-${actualMonth}`,
+                        value: actualMonth
                     });
                 }
                 break;
 
             case 'year':
-                // Vue annuelle adaptative selon la durée du projet
+                // Vue annuelle adaptative selon la durée du projet (avec offset)
                 const totalTaskHoursYear = formData.etapes.reduce((sum, etape) => sum + (etape.duration || 0), 0);
                 const totalYears = Math.max(1, Math.ceil(totalTaskHoursYear / (365 * 24)));
-                console.log('🐛 DEBUG - Generating year view with totalYears:', totalYears);
-                for (let year = 0; year < totalYears; year++) {
-                    const yearStart = new Date(startDate.getTime() + (year * 365 * 24 * 60 * 60 * 1000));
+                const visibleYears = Math.min(3, totalYears); // Afficher max 3 ans à la fois
+                console.log('🐛 DEBUG - Generating year view with totalYears:', totalYears, 'offset:', offset);
+                for (let year = 0; year < visibleYears; year++) {
+                    const actualYear = year + (offset * visibleYears);
+                    if (actualYear >= totalYears) break;
+                    const yearStart = new Date(startDate.getTime() + (actualYear * 365 * 24 * 60 * 60 * 1000));
                     scale.push({
                         date: yearStart,
                         label: yearStart.getFullYear().toString(),
-                        key: `year-${year}`,
-                        value: year
+                        key: `year-${actualYear}`,
+                        value: actualYear
                     });
                 }
                 break;
@@ -2508,7 +2818,7 @@ export function JobModal({
     };
 
     // ============== P2-3: POSITIONNEMENT TÂCHES DANS GANTT ==============
-    const calculateTaskPosition = (task, timeScale, viewMode = null) => {
+    const calculateTaskPosition = (task, timeScale, viewMode = null, offset = 0) => {
         if (!formData.dateDebut || !task.calculatedStart || !task.calculatedEnd || timeScale.length === 0) {
             return { startIndex: -1, endIndex: -1, duration: 0 };
         }
@@ -2529,16 +2839,18 @@ export function JobModal({
             case '6h':
             case '12h':
             case '24h':
-                // Vues horaires fixes - calcul précis proportionnel
+                // Vues horaires fixes - calcul précis proportionnel avec offset
                 const totalHours = parseInt(currentViewMode.replace('h', ''));
+                const windowOffsetHours = offset * totalHours; // Décalage en heures
+                const adjustedStartHours = taskStartHours - windowOffsetHours;
                 const hourlyUnitWidth = 100 / totalHours; // % par heure
 
-                // Position de début (en % de la timeline)
-                const startPercent = Math.max(0, (taskStartHours / totalHours) * 100);
+                // Position de début (en % de la timeline visible)
+                const startPercent = Math.max(0, (adjustedStartHours / totalHours) * 100);
                 // Largeur proportionnelle (en % de la timeline)
                 const widthPercent = (taskDurationHours / totalHours) * 100;
 
-                console.log(`🎯 GANTT - Tâche "${task.text}": ${taskStartHours}h→${taskStartHours + taskDurationHours}h (${taskDurationHours}h) = ${startPercent.toFixed(1)}%→${widthPercent.toFixed(1)}%`);
+                console.log(`🎯 GANTT - Tâche "${task.text}": ${taskStartHours}h→${taskStartHours + taskDurationHours}h (${taskDurationHours}h) offset:${windowOffsetHours}h = ${startPercent.toFixed(1)}%→${widthPercent.toFixed(1)}%`);
 
                 return {
                     startIndex: startPercent,
@@ -2549,27 +2861,35 @@ export function JobModal({
                 };
 
             case 'day':
-                // Mode jour adaptatif - chaque index = 1 jour (24h)
-                startIndex = Math.max(0, Math.floor(taskStartHours / 24));
-                endIndex = Math.max(startIndex, Math.floor((taskStartHours + taskDurationHours - 1) / 24));
+                // Mode jour adaptatif - chaque index = 1 jour (24h) avec offset
+                const visibleDaysCalc = Math.min(7, Math.ceil(formData.etapes.reduce((sum, e) => sum + (e.duration || 0), 0) / 24));
+                const dayOffset = offset * visibleDaysCalc;
+                startIndex = Math.max(0, Math.floor(taskStartHours / 24) - dayOffset);
+                endIndex = Math.max(startIndex, Math.floor((taskStartHours + taskDurationHours - 1) / 24) - dayOffset);
                 break;
 
             case 'week':
-                // Mode semaine - chaque index = 1 semaine (168h)
-                startIndex = Math.max(0, Math.floor(taskStartHours / (7 * 24)));
-                endIndex = Math.max(startIndex, Math.floor((taskStartHours + taskDurationHours - 1) / (7 * 24)));
+                // Mode semaine - chaque index = 1 semaine (168h) avec offset
+                const visibleWeeksCalc = Math.min(4, Math.ceil(formData.etapes.reduce((sum, e) => sum + (e.duration || 0), 0) / (7 * 24)));
+                const weekOffset = offset * visibleWeeksCalc;
+                startIndex = Math.max(0, Math.floor(taskStartHours / (7 * 24)) - weekOffset);
+                endIndex = Math.max(startIndex, Math.floor((taskStartHours + taskDurationHours - 1) / (7 * 24)) - weekOffset);
                 break;
 
             case 'month':
-                // Mode mois - chaque index = 1 mois (720h)
-                startIndex = Math.max(0, Math.floor(taskStartHours / (30 * 24)));
-                endIndex = Math.max(startIndex, Math.floor((taskStartHours + taskDurationHours - 1) / (30 * 24)));
+                // Mode mois - chaque index = 1 mois (720h) avec offset
+                const visibleMonthsCalc = Math.min(6, Math.ceil(formData.etapes.reduce((sum, e) => sum + (e.duration || 0), 0) / (30 * 24)));
+                const monthOffset = offset * visibleMonthsCalc;
+                startIndex = Math.max(0, Math.floor(taskStartHours / (30 * 24)) - monthOffset);
+                endIndex = Math.max(startIndex, Math.floor((taskStartHours + taskDurationHours - 1) / (30 * 24)) - monthOffset);
                 break;
 
             case 'years':
-                // Mode année - chaque index = 1 année (8760h)
-                startIndex = Math.max(0, Math.floor(taskStartHours / (365 * 24)));
-                endIndex = Math.max(startIndex, Math.floor((taskStartHours + taskDurationHours - 1) / (365 * 24)));
+                // Mode année - chaque index = 1 année (8760h) avec offset
+                const visibleYearsCalc = Math.min(3, Math.ceil(formData.etapes.reduce((sum, e) => sum + (e.duration || 0), 0) / (365 * 24)));
+                const yearOffset = offset * visibleYearsCalc;
+                startIndex = Math.max(0, Math.floor(taskStartHours / (365 * 24)) - yearOffset);
+                endIndex = Math.max(startIndex, Math.floor((taskStartHours + taskDurationHours - 1) / (365 * 24)) - yearOffset);
                 break;
         }
 
@@ -2951,14 +3271,89 @@ export function JobModal({
                                 🎯 <span className="hidden md:inline">Équipes</span> {formData.horaireMode === 'personnalise' ? '⚙️' : ''}
                             </button>
                         </div>
-                        {/* Mode mobile - Seulement l'onglet actif */}
-                        <div className="flex sm:hidden w-full">
+                        {/* Mode mobile - Menu hamburger avec onglet actif */}
+                        <div className="flex sm:hidden w-full items-center border-b-2 border-purple-600 bg-white">
                             <button
-                                onClick={() => setActiveTab('gantt')}
-                                className="w-full px-6 py-3 font-medium text-purple-600 border-b-2 border-purple-600 bg-white"
+                                onClick={() => setActiveTab(activeTab)}
+                                className="flex-1 px-4 py-3 font-medium text-purple-600 flex items-center justify-center gap-2"
                             >
-                                📊 Aperçu Gantt
+                                {activeTab === 'form' && '📝 Formulaire'}
+                                {activeTab === 'gantt' && '📊 Gantt'}
+                                {activeTab === 'resources' && '👥 Ressources'}
+                                {activeTab === 'files' && `📎 Fichiers (${(formData.documents?.length || 0) + (formData.photos?.length || 0)})`}
+                                {activeTab === 'recurrence' && '🔄 Récurrence'}
+                                {activeTab === 'teams' && '🎯 Équipes'}
                             </button>
+                            <div className="relative">
+                                <button
+                                    onClick={() => setShowMobileTabMenu(!showMobileTabMenu)}
+                                    className="px-3 py-3 text-purple-600 hover:bg-purple-50 transition-colors"
+                                >
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                    </svg>
+                                </button>
+
+                                {/* Menu déroulant mobile */}
+                                {showMobileTabMenu && (
+                                    <>
+                                        <div
+                                            className="fixed inset-0 z-40"
+                                            onClick={() => setShowMobileTabMenu(false)}
+                                        />
+                                        <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-gray-300 rounded-lg shadow-xl z-50 overflow-hidden">
+                                            <button
+                                                onClick={() => { setActiveTab('form'); setShowMobileTabMenu(false); }}
+                                                className={`w-full px-4 py-3 text-left font-medium transition-colors flex items-center gap-2 ${
+                                                    activeTab === 'form' ? 'bg-purple-50 text-purple-600' : 'text-gray-700 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                📝 Formulaire
+                                            </button>
+                                            <button
+                                                onClick={() => { setActiveTab('gantt'); setShowMobileTabMenu(false); }}
+                                                className={`w-full px-4 py-3 text-left font-medium transition-colors flex items-center gap-2 ${
+                                                    activeTab === 'gantt' ? 'bg-purple-50 text-purple-600' : 'text-gray-700 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                📊 Gantt
+                                            </button>
+                                            <button
+                                                onClick={() => { setActiveTab('resources'); setShowMobileTabMenu(false); }}
+                                                className={`w-full px-4 py-3 text-left font-medium transition-colors flex items-center gap-2 ${
+                                                    activeTab === 'resources' ? 'bg-purple-50 text-purple-600' : 'text-gray-700 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                👥 Ressources
+                                            </button>
+                                            <button
+                                                onClick={() => { setActiveTab('files'); setShowMobileTabMenu(false); }}
+                                                className={`w-full px-4 py-3 text-left font-medium transition-colors flex items-center gap-2 ${
+                                                    activeTab === 'files' ? 'bg-purple-50 text-purple-600' : 'text-gray-700 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                📎 Fichiers ({(formData.documents?.length || 0) + (formData.photos?.length || 0)})
+                                            </button>
+                                            <button
+                                                onClick={() => { setActiveTab('recurrence'); setShowMobileTabMenu(false); }}
+                                                className={`w-full px-4 py-3 text-left font-medium transition-colors flex items-center gap-2 ${
+                                                    activeTab === 'recurrence' ? 'bg-purple-50 text-purple-600' : 'text-gray-700 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                🔄 Récurrence {formData.recurrence?.active ? '✓' : ''}
+                                            </button>
+                                            <button
+                                                onClick={() => { setActiveTab('teams'); setShowMobileTabMenu(false); }}
+                                                className={`w-full px-4 py-3 text-left font-medium transition-colors flex items-center gap-2 ${
+                                                    activeTab === 'teams' ? 'bg-purple-50 text-purple-600' : 'text-gray-700 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                🎯 Équipes {formData.horaireMode === 'personnalise' ? '⚙️' : ''}
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -3564,13 +3959,27 @@ export function JobModal({
                                                                                         )}
                                                                                     </div>
 
-                                                                                    {/* Progress bar */}
+                                                                                    {/* Progress input et barre */}
                                                                                     {expandedSections.etapes && (
-                                                                                        <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                                                                                            <div
-                                                                                                className="bg-green-500 h-2 rounded-full transition-all"
-                                                                                                style={{ width: `${etape.progress || 0}%` }}
-                                                                                            ></div>
+                                                                                        <div className="flex items-center gap-1">
+                                                                                            <input
+                                                                                                type="number"
+                                                                                                min="0"
+                                                                                                max="100"
+                                                                                                step="5"
+                                                                                                value={etape.progress || 0}
+                                                                                                onChange={(e) => updateEtape(globalIndex, 'progress', parseInt(e.target.value) || 0)}
+                                                                                                className="w-12 p-1 border rounded text-sm text-center focus:ring-2 focus:ring-green-500"
+                                                                                                title="Avancement en %"
+                                                                                            />
+                                                                                            <span className="text-xs text-gray-500">%</span>
+                                                                                            <div className="w-16 bg-gray-200 rounded-full h-2">
+                                                                                                <div
+                                                                                                    className="bg-green-500 h-2 rounded-full transition-all"
+                                                                                                    style={{ width: `${etape.progress || 0}%` }}
+                                                                                                    title={`${etape.progress || 0}% complété`}
+                                                                                                ></div>
+                                                                                            </div>
                                                                                         </div>
                                                                                     )}
 
@@ -3680,8 +4089,9 @@ export function JobModal({
                                                                 <div className="space-y-1 p-2 inline-block" style={{minWidth: '100%'}}>
                                                                     {(() => {
                                                                         const hierarchicalTasks = generateHierarchicalGanttData();
-                                                                        const currentViewMode = formData.ganttViewMode || getDefaultViewMode();
-                                                                        const timeScale = generateTimeScale(currentViewMode);
+                                                                        let effectiveViewMode = formData.ganttViewMode || 'auto';
+                                                                        const currentViewMode = (effectiveViewMode === 'auto') ? getDefaultViewMode() : effectiveViewMode;
+                                                                        const timeScale = generateTimeScale(currentViewMode, ganttViewOffset);
 
                                                                         return (
                                                                             <div className="jsx-fragment-wrapper">
@@ -3706,7 +4116,7 @@ export function JobModal({
 
                                                                                 {/* Barres mini Gantt */}
                                                                                 {hierarchicalTasks.map((task, index) => {
-                                                                                    const taskPosition = calculateTaskPosition(task, timeScale, currentViewMode);
+                                                                                    const taskPosition = calculateTaskPosition(task, timeScale, currentViewMode, ganttViewOffset);
                                                                                     return (
                                                                                         <div
                                                                                             key={task.id}
@@ -3731,7 +4141,8 @@ export function JobModal({
                                                                                                     const projectStart = new Date(formData.dateDebut || new Date());
 
                                                                                                     // Calculer la durée de référence selon le mode de vue sélectionné
-                                                                                                    const currentViewMode = formData.ganttViewMode || getDefaultViewMode();
+                                                                                                    let effectiveViewMode = formData.ganttViewMode || 'auto';
+                                                                                                    const currentViewMode = (effectiveViewMode === 'auto') ? getDefaultViewMode() : effectiveViewMode;
                                                                                                     const getViewDurationHours = (viewMode) => {
                                                                                                         switch(viewMode) {
                                                                                                             case '6h': return 6;
@@ -3799,18 +4210,28 @@ export function JobModal({
                                                                                                     };
 
                                                                                                     const taskColors = getTaskColors(task, hierarchicalTasks);
+                                                                                                    const taskProgress = calculateTaskProgress(task.id, formData.etapes);
 
-                                                                                                    console.log(`🎯 APERÇU [${currentViewMode}] - "${task.text}": ${taskStartHours}h→${taskStartHours + taskDurationHours}h (${startPercent.toFixed(1)}% → ${(startPercent + widthPercent).toFixed(1)}%) [Vue: ${totalViewHours}h]`);
+                                                                                                    console.log(`🎯 APERÇU [${currentViewMode}] - "${task.text}": ${taskStartHours}h→${taskStartHours + taskDurationHours}h (${startPercent.toFixed(1)}% → ${(startPercent + widthPercent).toFixed(1)}%) [Vue: ${totalViewHours}h] Progress: ${taskProgress}%`);
 
                                                                                                     return (
                                                                                                         <div
-                                                                                                            className={`absolute top-0.5 h-3 rounded-sm transition-all ${taskColors.bg} ${task.hasChildren ? 'opacity-80' : ''} ${taskColors.hover}`}
+                                                                                                            className="absolute top-0.5 h-3 rounded-sm overflow-hidden"
                                                                                                             style={{
                                                                                                                 left: `${startPercent}%`,
                                                                                                                 width: `${widthPercent}%`
                                                                                                             }}
-                                                                                                            title={`${task.displayName || task.text} - ${task.duration}h (${taskStartHours.toFixed(1)}h → ${(taskStartHours + taskDurationHours).toFixed(1)}h) ${task.isCritical ? '(Critique)' : ''}`}
-                                                                                                        />
+                                                                                                            title={`${task.displayName || task.text} - ${task.duration}h (${taskStartHours.toFixed(1)}h → ${(taskStartHours + taskDurationHours).toFixed(1)}h) ${taskProgress}% complété ${task.isCritical ? '(Critique)' : ''}`}
+                                                                                                        >
+                                                                                                            {/* Barre de fond */}
+                                                                                                            <div className={`absolute inset-0 ${taskColors.bg} ${task.hasChildren ? 'opacity-40' : 'opacity-30'} transition-all`} />
+
+                                                                                                            {/* Barre de progression */}
+                                                                                                            <div
+                                                                                                                className={`absolute top-0 left-0 bottom-0 ${taskColors.bg} ${taskColors.hover} transition-all`}
+                                                                                                                style={{ width: `${taskProgress}%` }}
+                                                                                                            />
+                                                                                                        </div>
                                                                                                     );
                                                                                                 })()}
                                                                                             </div>
@@ -4074,29 +4495,30 @@ export function JobModal({
 
                         {/* Onglet Gantt */}
                         {activeTab === 'gantt' && (
-                            <div className={`${ganttFullscreen ? 'fixed inset-0 z-50 bg-white overflow-auto p-6' : 'h-full overflow-y-auto p-6'}`}>
-                                <div className="space-y-6">
-                                    {/* Header Gantt */}
-                                    <div className="flex items-center gap-4 p-4 bg-gray-900 rounded-lg">
-                                        <Logo size="normal" showText={false} />
-                                        <div className="flex-1">
-                                            <h3 className="text-lg font-bold text-white flex items-center">
-                                                📊 Diagramme de Gantt et Chronologie
+                            <div className={`${ganttFullscreen ? 'fixed inset-0 z-50 bg-white overflow-auto p-2 sm:p-6' : 'h-full overflow-y-auto p-2 sm:p-6'}`}>
+                                <div className="space-y-3 sm:space-y-6">
+                                    {/* Header Gantt - Responsive */}
+                                    <div className="flex items-center gap-2 sm:gap-4 p-2 sm:p-4 bg-gray-900 rounded-lg">
+                                        <Logo size="normal" showText={false} className="hidden sm:block" />
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="text-sm sm:text-lg font-bold text-white flex items-center truncate">
+                                                📊 <span className="hidden sm:inline">Diagramme de Gantt et Chronologie</span>
+                                                <span className="sm:hidden">Gantt</span>
                                             </h3>
-                                            <p className="text-sm text-gray-300">
-                                                Planification temporelle ({formData.etapes.length} tâche{formData.etapes.length > 1 ? 's' : ''}, {getTotalProjectHours()}h total)
+                                            <p className="text-xs sm:text-sm text-gray-300 truncate">
+                                                {formData.etapes.length} tâche{formData.etapes.length > 1 ? 's' : ''} • {getTotalProjectHours()}h
                                             </p>
                                         </div>
                                         <button
                                             onClick={() => setGanttFullscreen(!ganttFullscreen)}
-                                            className="text-gray-400 hover:text-white transition-colors"
+                                            className="p-2 text-gray-400 hover:text-white transition-colors flex-shrink-0"
                                         >
                                             {ganttFullscreen ? '🗗' : '🗖'}
                                         </button>
                                     </div>
 
-                                    {/* Contrôles Gantt - GRIS MÉTALLIQUE */}
-                                    <div className="bg-gradient-to-r from-gray-700 to-gray-600 p-4 rounded-lg shadow-lg">
+                                    {/* Contrôles Gantt - Desktop */}
+                                    <div className="hidden sm:block bg-gradient-to-r from-gray-700 to-gray-600 p-4 rounded-lg shadow-lg">
                                         {/* Ligne 1: Actions principales */}
                                         <div className="flex items-center gap-2 flex-wrap mb-3">
                                             <button
@@ -4151,6 +4573,7 @@ export function JobModal({
                                                     onChange={(e) => updateField('ganttViewMode', e.target.value)}
                                                     className="bg-gray-900 text-white text-sm rounded px-2 py-1 font-medium border border-gray-600"
                                                 >
+                                                    <option value="auto">🎯 Auto (Adaptatif)</option>
                                                     <option value="6h">⏰ 6 heures</option>
                                                     <option value="12h">🕐 12 heures</option>
                                                     <option value="24h">🕛 24 heures</option>
@@ -4169,6 +4592,45 @@ export function JobModal({
                                                     className="bg-gray-900 text-white text-sm rounded px-2 py-1 font-medium border border-gray-600"
                                                 />
                                             </div>
+
+                                            {/* Navigation temporelle pour gros événements */}
+                                            {(() => {
+                                                const totalHours = formData.etapes.reduce((sum, e) => sum + (e.duration || 0), 0);
+                                                // Afficher seulement pour événements > 24h
+                                                if (totalHours > 24) {
+                                                    return (
+                                                        <div className="flex items-center gap-1 bg-gray-800 rounded-lg px-2 py-1">
+                                                            <button
+                                                                onClick={() => setGanttViewOffset(Math.max(0, ganttViewOffset - 1))}
+                                                                className="px-2 py-1 text-white hover:bg-gray-700 rounded text-sm"
+                                                                title="Période précédente"
+                                                            >
+                                                                ◀
+                                                            </button>
+                                                            <span className="text-xs text-white px-1">
+                                                                {ganttViewOffset > 0 ? `+${ganttViewOffset}` : 'Début'}
+                                                            </span>
+                                                            <button
+                                                                onClick={() => setGanttViewOffset(ganttViewOffset + 1)}
+                                                                className="px-2 py-1 text-white hover:bg-gray-700 rounded text-sm"
+                                                                title="Période suivante"
+                                                            >
+                                                                ▶
+                                                            </button>
+                                                            {ganttViewOffset > 0 && (
+                                                                <button
+                                                                    onClick={() => setGanttViewOffset(0)}
+                                                                    className="px-2 py-1 text-xs text-white hover:bg-gray-700 rounded ml-1"
+                                                                    title="Retour au début"
+                                                                >
+                                                                    ⏮
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            })()}
 
                                             <button
                                                 onClick={() => updateField('showCriticalPath', !formData.showCriticalPath)}
@@ -4205,8 +4667,149 @@ export function JobModal({
                                         </div>
                                     </div>
 
+                                    {/* Contrôles Gantt - Mobile */}
+                                    <div className="sm:hidden">
+                                        <div className="bg-gradient-to-r from-gray-700 to-gray-600 p-3 rounded-lg shadow-lg">
+                                            <div className="flex items-center gap-2">
+                                                {/* Bouton principal: Ajouter tâche */}
+                                                <button
+                                                    onClick={addNewTask}
+                                                    className="flex-1 px-3 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors font-medium flex items-center justify-center gap-2 touch-manipulation active:scale-95"
+                                                >
+                                                    <Icon name="plus" size={16} />
+                                                    <span className="text-sm">Ajouter</span>
+                                                </button>
+
+                                                {/* Menu hamburger pour autres contrôles */}
+                                                <div className="relative">
+                                                    <button
+                                                        onClick={() => setShowGanttMenu(!showGanttMenu)}
+                                                        className="px-3 py-2.5 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors touch-manipulation active:scale-95"
+                                                    >
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                                        </svg>
+                                                    </button>
+
+                                                    {showGanttMenu && (
+                                                        <>
+                                                            <div className="fixed inset-0 z-40" onClick={() => setShowGanttMenu(false)} />
+                                                            <div className="absolute right-0 top-full mt-2 w-72 bg-white border rounded-lg shadow-xl z-50 max-h-[70vh] overflow-y-auto">
+                                                                {/* Vue et Date */}
+                                                                <div className="p-3 border-b bg-gray-50">
+                                                                    <div className="text-xs font-medium text-gray-600 mb-2">Vue Gantt</div>
+                                                                    <select
+                                                                        value={formData.ganttViewMode || getDefaultViewMode()}
+                                                                        onChange={(e) => updateField('ganttViewMode', e.target.value)}
+                                                                        className="w-full px-3 py-2 bg-white border rounded-lg text-sm mb-2"
+                                                                    >
+                                                                        <option value="auto">🎯 Auto (Adaptatif)</option>
+                                                                        <option value="6h">⏰ 6 heures</option>
+                                                                        <option value="12h">🕐 12 heures</option>
+                                                                        <option value="24h">🕛 24 heures</option>
+                                                                        <option value="day">📅 Jour</option>
+                                                                        <option value="week">📋 Semaine</option>
+                                                                        <option value="month">🗓️ Mois</option>
+                                                                    </select>
+                                                                    <input
+                                                                        type="date"
+                                                                        value={formData.dateDebut || ''}
+                                                                        onChange={(e) => updateField('dateDebut', e.target.value)}
+                                                                        className="w-full px-3 py-2 bg-white border rounded-lg text-sm"
+                                                                    />
+                                                                </div>
+
+                                                                {/* Actions */}
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const criticalPath = calculateCriticalPath();
+                                                                        setFormData(prev => ({
+                                                                            ...prev,
+                                                                            criticalPath,
+                                                                            etapes: prev.etapes.map(task => ({
+                                                                                ...task,
+                                                                                isCritical: criticalPath.includes(task.id)
+                                                                            }))
+                                                                        }));
+                                                                        addNotification?.(`Chemin critique: ${criticalPath.length} tâche(s)`, 'info');
+                                                                        setShowGanttMenu(false);
+                                                                    }}
+                                                                    className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b flex items-center gap-3"
+                                                                >
+                                                                    <span>🎯</span>
+                                                                    <span className="text-sm font-medium">Calculer chemin critique</span>
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() => {
+                                                                        updateField('showCriticalPath', !formData.showCriticalPath);
+                                                                        setShowGanttMenu(false);
+                                                                    }}
+                                                                    className={`w-full px-4 py-3 text-left hover:bg-gray-50 border-b flex items-center gap-3 ${formData.showCriticalPath ? 'bg-red-50' : ''}`}
+                                                                >
+                                                                    <span>🚨</span>
+                                                                    <span className="text-sm font-medium">
+                                                                        {formData.showCriticalPath ? 'Masquer chemin critique' : 'Afficher chemin critique'}
+                                                                    </span>
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setGanttCompactMode(!ganttCompactMode);
+                                                                        setShowGanttMenu(false);
+                                                                    }}
+                                                                    className={`w-full px-4 py-3 text-left hover:bg-gray-50 border-b flex items-center gap-3 ${ganttCompactMode ? 'bg-purple-50' : ''}`}
+                                                                >
+                                                                    <span>📄</span>
+                                                                    <span className="text-sm font-medium">
+                                                                        Mode {ganttCompactMode ? 'Normal' : 'Compact'}
+                                                                    </span>
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() => {
+                                                                        saveBaseline();
+                                                                        setShowGanttMenu(false);
+                                                                    }}
+                                                                    className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b flex items-center gap-3"
+                                                                >
+                                                                    <span>💾</span>
+                                                                    <span className="text-sm font-medium">Enregistrer référence</span>
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() => {
+                                                                        toggleGanttFullscreen();
+                                                                        setShowGanttMenu(false);
+                                                                    }}
+                                                                    className="w-full px-4 py-3 text-left hover:bg-gray-50 border-b flex items-center gap-3"
+                                                                >
+                                                                    <span>{ganttFullscreen ? '🗗' : '⛶'}</span>
+                                                                    <span className="text-sm font-medium">
+                                                                        {ganttFullscreen ? 'Quitter plein écran' : 'Plein écran'}
+                                                                    </span>
+                                                                </button>
+
+                                                                <button
+                                                                    onClick={() => {
+                                                                        printGanttAndForms();
+                                                                        setShowGanttMenu(false);
+                                                                    }}
+                                                                    className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3"
+                                                                >
+                                                                    <span>🖨️</span>
+                                                                    <span className="text-sm font-medium">Imprimer</span>
+                                                                </button>
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     {/* Vue Gantt avancée avec hiérarchie - AVEC SCROLL CONTENEUR */}
-                                    <div className={`bg-white border rounded-lg ${ganttFullscreen ? 'h-[calc(100vh-250px)]' : 'h-[600px]'} ${ganttCompactMode ? 'print:overflow-visible print:max-h-none' : ''} overflow-auto`}>
+                                    <div className={`bg-white border rounded-lg ${ganttFullscreen ? 'h-[calc(100vh-250px)]' : 'h-[400px] sm:h-[600px]'} ${ganttCompactMode ? 'print:overflow-visible print:max-h-none' : ''} overflow-auto`}>
                                         {formData.etapes.length === 0 ? (
                                             <div className="text-center py-8 text-gray-500">
                                                 <div className="text-5xl mb-4 opacity-50">📊</div>
@@ -4247,8 +4850,9 @@ export function JobModal({
 
                                                     {/* Grille de l'échelle de temps avec vraies heures/dates */}
                                                     {(() => {
-                                                        const currentViewMode = formData.ganttViewMode || getDefaultViewMode();
-                                                        const timeScale = generateTimeScale(currentViewMode);
+                                                        let effectiveViewMode = formData.ganttViewMode || 'auto';
+                                                        const currentViewMode = (effectiveViewMode === 'auto') ? getDefaultViewMode() : effectiveViewMode;
+                                                        const timeScale = generateTimeScale(currentViewMode, ganttViewOffset);
                                                         if (timeScale.length > 0) {
                                                             return (
                                                                 <div className="flex items-center mb-2 text-xs text-gray-600 border-b pb-1">
@@ -4337,22 +4941,103 @@ export function JobModal({
                                                                 }`}
                                                                 style={{ height: ganttCompactMode ? '24px' : '38px' }}
                                                             >
-                                                                {/* Nom de la tâche avec hiérarchie */}
+                                                                {/* Nom de la tâche avec hiérarchie - ÉDITABLE */}
                                                                 <div
-                                                                    className={`w-1/3 ${ganttCompactMode ? 'text-xs' : 'text-sm'} font-medium truncate flex items-center`}
+                                                                    className={`w-1/3 ${ganttCompactMode ? 'text-xs' : 'text-sm'} font-medium flex items-center gap-1 group`}
                                                                     style={{ paddingLeft: `${task.indent}px` }}
                                                                 >
-                                                                    <span className={`${ganttCompactMode ? 'mr-1 text-xs' : 'mr-2'}`}>
+                                                                    {/* Checkbox de completion */}
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={task.completed || false}
+                                                                        onChange={(e) => {
+                                                                            const etapeIndex = formData.etapes.findIndex(et => et.id === task.id);
+                                                                            if (etapeIndex !== -1) {
+                                                                                updateEtape(etapeIndex, 'completed', e.target.checked);
+                                                                            }
+                                                                        }}
+                                                                        className="w-3 h-3 flex-shrink-0"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    />
+
+                                                                    <span className={`${ganttCompactMode ? 'mr-1 text-xs' : 'mr-1'} flex-shrink-0`}>
                                                                         {task.hasChildren ? '📁' : '📄'}
                                                                     </span>
-                                                                    <span className={`${task.hasChildren ? 'font-bold' : ''} ${task.isCritical ? 'text-red-700' : ''}`}>
-                                                                        {task.displayName || task.text || `Étape ${task.order + 1}`}
-                                                                    </span>
+
+                                                                    {editingGanttTask === task.id ? (
+                                                                        <input
+                                                                            type="text"
+                                                                            value={task.text || ''}
+                                                                            onChange={(e) => {
+                                                                                const etapeIndex = formData.etapes.findIndex(et => et.id === task.id);
+                                                                                if (etapeIndex !== -1) {
+                                                                                    updateEtape(etapeIndex, 'text', e.target.value);
+                                                                                }
+                                                                            }}
+                                                                            onBlur={() => setEditingGanttTask(null)}
+                                                                            onKeyDown={(e) => {
+                                                                                if (e.key === 'Enter') setEditingGanttTask(null);
+                                                                                if (e.key === 'Escape') setEditingGanttTask(null);
+                                                                            }}
+                                                                            autoFocus
+                                                                            className="flex-1 px-1 py-0.5 border rounded text-sm focus:ring-2 focus:ring-blue-500"
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                        />
+                                                                    ) : (
+                                                                        <span
+                                                                            className={`${task.hasChildren ? 'font-bold' : ''} ${task.isCritical ? 'text-red-700' : ''} truncate flex-1 cursor-pointer hover:text-blue-600`}
+                                                                            onDoubleClick={() => setEditingGanttTask(task.id)}
+                                                                            title="Double-cliquer pour éditer"
+                                                                        >
+                                                                            {task.displayName || task.text || `Étape ${task.order + 1}`}
+                                                                        </span>
+                                                                    )}
+
                                                                     {task.autoCalculated && (
-                                                                        <span className="ml-2 text-xs text-blue-600" title="Durée calculée automatiquement">
+                                                                        <span className="text-xs text-blue-600 flex-shrink-0" title="Durée calculée automatiquement">
                                                                             📊
                                                                         </span>
                                                                     )}
+
+                                                                    {/* Boutons d'action - visibles au survol */}
+                                                                    <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                addSubTask(task.id);
+                                                                            }}
+                                                                            className="p-0.5 text-blue-600 hover:bg-blue-100 rounded text-xs"
+                                                                            title="Ajouter une sous-tâche"
+                                                                        >
+                                                                            <Icon name="plus" size={10} />
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                openStepConfigModal(task.id);
+                                                                            }}
+                                                                            className="p-0.5 text-purple-600 hover:bg-purple-100 rounded text-xs"
+                                                                            title="Configuration avancée"
+                                                                        >
+                                                                            <Icon name="settings" size={10} />
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const etapeIndex = formData.etapes.findIndex(et => et.id === task.id);
+                                                                                if (etapeIndex !== -1) {
+                                                                                    removeEtape(etapeIndex);
+                                                                                }
+                                                                            }}
+                                                                            className="p-0.5 text-red-600 hover:bg-red-100 rounded text-xs"
+                                                                            title="Supprimer l'étape"
+                                                                        >
+                                                                            <Icon name="trash" size={10} />
+                                                                        </button>
+                                                                    </div>
                                                                 </div>
 
                                                                 {/* Barre de Gantt avec échelle de temps réaliste */}
@@ -4362,7 +5047,8 @@ export function JobModal({
                                                                         const projectStart = new Date(formData.dateDebut || new Date());
 
                                                                         // Calculer la durée de référence selon le mode de vue sélectionné
-                                                                        const currentViewMode = formData.ganttViewMode || getDefaultViewMode();
+                                                                        let effectiveViewMode = formData.ganttViewMode || 'auto';
+                                                                        const currentViewMode = (effectiveViewMode === 'auto') ? getDefaultViewMode() : effectiveViewMode;
                                                                         const getViewDurationHours = (viewMode) => {
                                                                             switch(viewMode) {
                                                                                 case '6h': return 6;
@@ -4384,11 +5070,25 @@ export function JobModal({
 
                                                                         const totalViewHours = getViewDurationHours(currentViewMode);
 
-                                                                        // Position et largeur de cette tâche - utiliser les heures calculées directement
+                                                                        // Position et largeur de cette tâche - utiliser les heures calculées directement avec offset
                                                                         const taskStartHours = task.startHours || 0;
                                                                         const taskDurationHours = task.duration || 1;
 
-                                                                        const startPercent = Math.max(0, (taskStartHours / totalViewHours) * 100);
+                                                                        // Appliquer l'offset selon le mode de vue
+                                                                        let windowOffsetHours = 0;
+                                                                        switch(currentViewMode) {
+                                                                            case '6h': windowOffsetHours = ganttViewOffset * 6; break;
+                                                                            case '12h': windowOffsetHours = ganttViewOffset * 12; break;
+                                                                            case '24h': windowOffsetHours = ganttViewOffset * 24; break;
+                                                                            case 'day': windowOffsetHours = ganttViewOffset * 7 * 24; break; // fenêtre de 7 jours
+                                                                            case 'week': windowOffsetHours = ganttViewOffset * 4 * 7 * 24; break; // fenêtre de 4 semaines
+                                                                            case 'month': windowOffsetHours = ganttViewOffset * 6 * 30 * 24; break; // fenêtre de 6 mois
+                                                                            case 'year': windowOffsetHours = ganttViewOffset * 3 * 365 * 24; break; // fenêtre de 3 ans
+                                                                            default: windowOffsetHours = 0;
+                                                                        }
+
+                                                                        const adjustedStartHours = taskStartHours - windowOffsetHours;
+                                                                        const startPercent = Math.max(0, (adjustedStartHours / totalViewHours) * 100);
                                                                         const widthPercent = Math.max(1, (taskDurationHours / totalViewHours) * 100);
 
                                                                         // Système de couleurs pour les parents et leurs enfants
@@ -4437,18 +5137,35 @@ export function JobModal({
                                                                         };
 
                                                                         const taskColors = getTaskColors(task, hierarchicalTasks);
+                                                                        const taskProgress = calculateTaskProgress(task.id, formData.etapes);
 
-                                                                        console.log(`🎯 RENDER [${currentViewMode}] - "${task.text}": ${taskStartHours}h→${taskStartHours + taskDurationHours}h (${startPercent.toFixed(1)}% → ${(startPercent + widthPercent).toFixed(1)}%) [Vue: ${totalViewHours}h]`);
+                                                                        console.log(`🎯 RENDER [${currentViewMode}] - "${task.text}": ${taskStartHours}h→${taskStartHours + taskDurationHours}h (${startPercent.toFixed(1)}% → ${(startPercent + widthPercent).toFixed(1)}%) [Vue: ${totalViewHours}h] Progress: ${taskProgress}%`);
 
                                                                         return (
                                                                             <div
-                                                                                className={`absolute top-0 h-full rounded-sm transition-all ${taskColors.bg} ${task.hasChildren ? 'opacity-60' : ''} ${taskColors.hover}`}
+                                                                                className="absolute top-0 h-full rounded-sm overflow-hidden"
                                                                                 style={{
                                                                                     left: `${startPercent}%`,
                                                                                     width: `${widthPercent}%`
                                                                                 }}
-                                                                                title={`${task.displayName} - ${task.duration}h (${taskStartHours.toFixed(1)}h → ${(taskStartHours + taskDurationHours).toFixed(1)}h) ${task.isCritical ? '(Critique)' : ''}`}
-                                                                            />
+                                                                                title={`${task.displayName} - ${task.duration}h (${taskStartHours.toFixed(1)}h → ${(taskStartHours + taskDurationHours).toFixed(1)}h) ${taskProgress}% complété ${task.isCritical ? '(Critique)' : ''}`}
+                                                                            >
+                                                                                {/* Barre de fond (couleur principale) */}
+                                                                                <div className={`absolute inset-0 ${taskColors.bg} ${task.hasChildren ? 'opacity-40' : 'opacity-30'} transition-all`} />
+
+                                                                                {/* Barre de progression (avancement réel) */}
+                                                                                <div
+                                                                                    className={`absolute top-0 left-0 bottom-0 ${taskColors.bg} ${taskColors.hover} transition-all`}
+                                                                                    style={{ width: `${taskProgress}%` }}
+                                                                                />
+
+                                                                                {/* Texte % (affiché si barre assez large) */}
+                                                                                {widthPercent > 8 && (
+                                                                                    <div className="absolute inset-0 flex items-center justify-center text-white text-xs font-bold drop-shadow-lg">
+                                                                                        {taskProgress}%
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
                                                                         );
 
                                                                     })()}
@@ -4463,14 +5180,55 @@ export function JobModal({
                                                                     )}
                                                                 </div>
 
-                                                                {/* Durée */}
-                                                                <div className={`${ganttCompactMode ? 'w-16' : 'w-20'} ${ganttCompactMode ? 'text-xs' : 'text-xs'} text-gray-600 text-center`}>
-                                                                    <div className={task.autoCalculated ? 'text-blue-600 font-medium' : ''}>
-                                                                        {task.duration}h
+                                                                {/* Durée - ÉDITABLE */}
+                                                                <div className={`${ganttCompactMode ? 'w-24' : 'w-32'} ${ganttCompactMode ? 'text-xs' : 'text-xs'} text-gray-600 flex flex-col items-center justify-center gap-0.5 px-1`}>
+                                                                    <div className="flex items-center gap-1">
+                                                                        <input
+                                                                            type="number"
+                                                                            step="0.25"
+                                                                            min="0.25"
+                                                                            value={task.duration || 1}
+                                                                            onChange={(e) => {
+                                                                                const etapeIndex = formData.etapes.findIndex(et => et.id === task.id);
+                                                                                if (etapeIndex !== -1) {
+                                                                                    updateEtape(etapeIndex, 'duration', parseFloat(e.target.value));
+                                                                                }
+                                                                            }}
+                                                                            readOnly={task.autoCalculated}
+                                                                            className={`w-12 p-0.5 border rounded text-xs text-center ${
+                                                                                task.autoCalculated
+                                                                                    ? 'bg-blue-50 border-blue-300 text-blue-700 cursor-default'
+                                                                                    : 'focus:ring-1 focus:ring-blue-500'
+                                                                            }`}
+                                                                            title={task.autoCalculated ? "Durée calculée automatiquement depuis les sous-tâches" : "Durée en heures"}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                        />
+                                                                        <span className="text-xs">h</span>
                                                                     </div>
+                                                                    {!ganttCompactMode && (
+                                                                        <div className="flex items-center gap-1 w-full">
+                                                                            <input
+                                                                                type="number"
+                                                                                min="0"
+                                                                                max="100"
+                                                                                step="5"
+                                                                                value={task.progress || 0}
+                                                                                onChange={(e) => {
+                                                                                    const etapeIndex = formData.etapes.findIndex(et => et.id === task.id);
+                                                                                    if (etapeIndex !== -1) {
+                                                                                        updateEtape(etapeIndex, 'progress', parseInt(e.target.value) || 0);
+                                                                                    }
+                                                                                }}
+                                                                                className="w-10 p-0.5 border rounded text-xs text-center focus:ring-1 focus:ring-green-500"
+                                                                                title="Avancement en %"
+                                                                                onClick={(e) => e.stopPropagation()}
+                                                                            />
+                                                                            <span className="text-xs">%</span>
+                                                                        </div>
+                                                                    )}
                                                                     {task.hasChildren && !ganttCompactMode && (
                                                                         <div className="text-xs text-gray-400">
-                                                                            ({formData.etapes.filter(e => e.parentId === task.id).length} sous-tâches)
+                                                                            ({formData.etapes.filter(e => e.parentId === task.id).length} sub)
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -4537,42 +5295,42 @@ export function JobModal({
                                         );
                                     })()}
 
-                                    {/* Statistiques avancées - VERSION OLD */}
+                                    {/* Statistiques avancées - Responsive */}
                                     {formData.etapes.length > 0 && (
-                                        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 text-sm">
-                                            <div className="bg-blue-50 p-3 rounded-lg">
-                                                <div className="font-medium text-blue-800">📋 Total tâches</div>
-                                                <div className="text-blue-600 text-lg font-bold">{formData.etapes.length}</div>
+                                        <div className="mt-3 sm:mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4 text-xs sm:text-sm">
+                                            <div className="bg-blue-50 p-2 sm:p-3 rounded-lg">
+                                                <div className="font-medium text-blue-800 text-xs sm:text-sm">📋 <span className="hidden sm:inline">Total </span>Tâches</div>
+                                                <div className="text-blue-600 text-base sm:text-lg font-bold">{formData.etapes.length}</div>
                                             </div>
-                                            <div className="bg-green-50 p-3 rounded-lg">
-                                                <div className="font-medium text-green-800">✅ Complétées</div>
-                                                <div className="text-green-600 text-lg font-bold">
+                                            <div className="bg-green-50 p-2 sm:p-3 rounded-lg">
+                                                <div className="font-medium text-green-800 text-xs sm:text-sm">✅ <span className="hidden sm:inline">Complétées</span><span className="sm:hidden">OK</span></div>
+                                                <div className="text-green-600 text-base sm:text-lg font-bold">
                                                     {formData.etapes.filter(t => t.completed).length}
                                                 </div>
                                             </div>
-                                            <div className="bg-yellow-50 p-3 rounded-lg">
-                                                <div className="font-medium text-yellow-800">⏰ Durée totale</div>
-                                                <div className="text-yellow-600 text-lg font-bold">
+                                            <div className="bg-yellow-50 p-2 sm:p-3 rounded-lg">
+                                                <div className="font-medium text-yellow-800 text-xs sm:text-sm">⏰ <span className="hidden sm:inline">Durée</span><span className="sm:hidden">Temps</span></div>
+                                                <div className="text-yellow-600 text-base sm:text-lg font-bold">
                                                     {formData.etapes.reduce((sum, t) => sum + (t.duration || 0), 0)}h
                                                 </div>
                                             </div>
-                                            <div className="bg-purple-50 p-3 rounded-lg">
-                                                <div className="font-medium text-purple-800">📊 Progression</div>
-                                                <div className="text-purple-600 text-lg font-bold">
+                                            <div className="bg-purple-50 p-2 sm:p-3 rounded-lg">
+                                                <div className="font-medium text-purple-800 text-xs sm:text-sm">📊 <span className="hidden sm:inline">Progression</span><span className="sm:hidden">%</span></div>
+                                                <div className="text-purple-600 text-base sm:text-lg font-bold">
                                                     {formData.etapes.length > 0
                                                         ? Math.round((formData.etapes.filter(t => t.completed).length / formData.etapes.length) * 100)
                                                         : 0}%
                                                 </div>
                                             </div>
-                                            <div className="bg-red-50 p-3 rounded-lg">
-                                                <div className="font-medium text-red-800">🚨 Tâches critiques</div>
-                                                <div className="text-red-600 text-lg font-bold">
+                                            <div className="bg-red-50 p-2 sm:p-3 rounded-lg">
+                                                <div className="font-medium text-red-800 text-xs sm:text-sm">🚨 <span className="hidden sm:inline">Critiques</span><span className="sm:hidden">!</span></div>
+                                                <div className="text-red-600 text-base sm:text-lg font-bold">
                                                     {formData.etapes.filter(t => t.isCritical).length}
                                                 </div>
                                             </div>
-                                            <div className="bg-indigo-50 p-3 rounded-lg">
-                                                <div className="font-medium text-indigo-800">🔗 Dépendances</div>
-                                                <div className="text-indigo-600 text-lg font-bold">
+                                            <div className="bg-indigo-50 p-2 sm:p-3 rounded-lg">
+                                                <div className="font-medium text-indigo-800 text-xs sm:text-sm">🔗 <span className="hidden sm:inline">Dépendances</span><span className="sm:hidden">Liens</span></div>
+                                                <div className="text-indigo-600 text-base sm:text-lg font-bold">
                                                     {formData.etapes.reduce((sum, t) => sum + (t.dependencies?.length || 0), 0)}
                                                 </div>
                                             </div>
