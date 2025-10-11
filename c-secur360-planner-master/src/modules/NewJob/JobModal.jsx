@@ -3337,6 +3337,16 @@ export function JobModal({
                                 📊 Gantt
                             </button>
                             <button
+                                onClick={() => setActiveTab('customization')}
+                                className={`px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors whitespace-nowrap ${
+                                    activeTab === 'customization'
+                                        ? 'text-purple-600 border-b-2 border-purple-600 bg-white'
+                                        : 'text-gray-600 hover:text-gray-900'
+                                }`}
+                            >
+                                ⚙️ <span className="hidden md:inline">Personnalisation</span> {formData.horaireMode === 'personnalise' ? '✓' : ''}
+                            </button>
+                            <button
                                 onClick={() => setActiveTab('resources')}
                                 className={`px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors whitespace-nowrap ${
                                     activeTab === 'resources'
@@ -3366,16 +3376,6 @@ export function JobModal({
                             >
                                 🔄 <span className="hidden md:inline">Récurrence</span> {formData.recurrence?.active ? '✓' : ''}
                             </button>
-                            <button
-                                onClick={() => setActiveTab('customization')}
-                                className={`px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors whitespace-nowrap ${
-                                    activeTab === 'customization'
-                                        ? 'text-purple-600 border-b-2 border-purple-600 bg-white'
-                                        : 'text-gray-600 hover:text-gray-900'
-                                }`}
-                            >
-                                ⚙️ <span className="hidden md:inline">Personnalisation</span> {formData.horaireMode === 'personnalise' ? '✓' : ''}
-                            </button>
                         </div>
                         {/* Mode mobile - Menu hamburger avec onglet actif */}
                         <div className="flex sm:hidden w-full items-center border-b-2 border-purple-600 bg-white">
@@ -3385,10 +3385,10 @@ export function JobModal({
                             >
                                 {activeTab === 'form' && '📝 Formulaire'}
                                 {activeTab === 'gantt' && '📊 Gantt'}
+                                {activeTab === 'customization' && '⚙️ Personnalisation'}
                                 {activeTab === 'resources' && '👥 Ressources'}
                                 {activeTab === 'files' && `📎 Fichiers (${(formData.documents?.length || 0) + (formData.photos?.length || 0)})`}
                                 {activeTab === 'recurrence' && '🔄 Récurrence'}
-                                {activeTab === 'customization' && '⚙️ Personnalisation'}
                             </button>
                             <div className="relative">
                                 <button
@@ -3425,6 +3425,14 @@ export function JobModal({
                                                 📊 Gantt
                                             </button>
                                             <button
+                                                onClick={() => { setActiveTab('customization'); setShowMobileTabMenu(false); }}
+                                                className={`w-full px-4 py-3 text-left font-medium transition-colors flex items-center gap-2 ${
+                                                    activeTab === 'customization' ? 'bg-purple-50 text-purple-600' : 'text-gray-700 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                ⚙️ Personnalisation {formData.horaireMode === 'personnalise' ? '✓' : ''}
+                                            </button>
+                                            <button
                                                 onClick={() => { setActiveTab('resources'); setShowMobileTabMenu(false); }}
                                                 className={`w-full px-4 py-3 text-left font-medium transition-colors flex items-center gap-2 ${
                                                     activeTab === 'resources' ? 'bg-purple-50 text-purple-600' : 'text-gray-700 hover:bg-gray-50'
@@ -3447,14 +3455,6 @@ export function JobModal({
                                                 }`}
                                             >
                                                 🔄 Récurrence {formData.recurrence?.active ? '✓' : ''}
-                                            </button>
-                                            <button
-                                                onClick={() => { setActiveTab('customization'); setShowMobileTabMenu(false); }}
-                                                className={`w-full px-4 py-3 text-left font-medium transition-colors flex items-center gap-2 ${
-                                                    activeTab === 'customization' ? 'bg-purple-50 text-purple-600' : 'text-gray-700 hover:bg-gray-50'
-                                                }`}
-                                            >
-                                                ⚙️ Personnalisation {formData.horaireMode === 'personnalise' ? '✓' : ''}
                                             </button>
                                         </div>
                                     </>
