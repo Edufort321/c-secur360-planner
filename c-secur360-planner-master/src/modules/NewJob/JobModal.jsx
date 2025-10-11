@@ -955,6 +955,37 @@ export function JobModal({
     // ============== FONCTIONS GANTT HIÉRARCHIQUE AVANCÉ ==============
     // Restauré depuis OLD - Gestion complète du Gantt avec dépendances MS Project
 
+    // ============== CONVERSION HEURES TRAVAIL → DATES RÉELLES ==============
+    // Convertit des heures de travail en date réelle en tenant compte des horaires configurés
+    const convertWorkHoursToRealDate = (workHours, baseDate, workStartHour, workEndHour) => {
+        // Extraire les heures de travail configurées (ex: "08:00" → 8)
+        const [startH, startM] = (workStartHour || '08:00').split(':').map(Number);
+        const [endH, endM] = (workEndHour || '17:00').split(':').map(Number);
+
+        const workDayStart = startH + (startM / 60); // ex: 8.0
+        const workDayEnd = endH + (endM / 60);       // ex: 17.0
+        const hoursPerDay = workDayEnd - workDayStart; // ex: 9h
+
+        // Calculer combien de jours complets et heures restantes
+        const fullDays = Math.floor(workHours / hoursPerDay);
+        const remainingHours = workHours % hoursPerDay;
+
+        // Créer la date de début (baseDate à l'heure de début de journée)
+        const resultDate = new Date(baseDate);
+        resultDate.setHours(startH, startM, 0, 0);
+
+        // Ajouter les jours complets
+        resultDate.setDate(resultDate.getDate() + fullDays);
+
+        // Ajouter les heures restantes
+        resultDate.setHours(resultDate.getHours() + Math.floor(remainingHours));
+        resultDate.setMinutes(resultDate.getMinutes() + Math.round((remainingHours % 1) * 60));
+
+        console.log(`⏰ CONVERT - ${workHours}h travail = ${fullDays}j + ${remainingHours.toFixed(1)}h → ${resultDate.toLocaleString('fr-FR')}`);
+
+        return resultDate;
+    };
+
     // Fonction pour calculer les dates d'une tâche selon ses dépendances
     const calculateTaskDates = (task, processedTasks, allTasksSorted, projectStart) => {
         const taskDuration = task.duration || 1;
@@ -970,8 +1001,8 @@ export function JobModal({
             task.dependencies.forEach(dep => {
                 const depTask = processedTasks.find(t => t.id === dep.id);
                 if (depTask) {
-                    const depStartHours = (depTask.calculatedStart.getTime() - projectStart.getTime()) / (1000 * 60 * 60);
-                    const depEndHours = (depTask.calculatedEnd.getTime() - projectStart.getTime()) / (1000 * 60 * 60);
+                    const depStartHours = depTask.startHours || 0;
+                    const depEndHours = depTask.endHours || 0;
                     const lag = dep.lag || 0;
 
                     switch (dep.type || 'FS') {
@@ -1000,9 +1031,7 @@ export function JobModal({
             const parallelTasks = processedTasks.filter(t => task.parallelWith.includes(t.id));
             if (parallelTasks.length > 0) {
                 // Démarrer en même temps que la première tâche parallèle
-                const firstParallelStart = Math.min(...parallelTasks.map(t =>
-                    (t.calculatedStart.getTime() - projectStart.getTime()) / (1000 * 60 * 60)
-                ));
+                const firstParallelStart = Math.min(...parallelTasks.map(t => t.startHours || 0));
                 calculatedStartHours = firstParallelStart;
                 console.log(`🔄 PARALLEL - "${task.text}" démarre en parallèle à ${calculatedStartHours}h`);
             }
@@ -1041,10 +1070,14 @@ export function JobModal({
 
         calculatedEndHours = calculatedStartHours + taskDuration;
 
-        const calculatedStart = new Date(projectStart.getTime() + (calculatedStartHours * 60 * 60 * 1000));
-        const calculatedEnd = new Date(projectStart.getTime() + (calculatedEndHours * 60 * 60 * 1000));
+        // NOUVEAU : Convertir les heures de travail en dates réelles selon la configuration
+        const workStartTime = formData.heuresDebutJour || '08:00';
+        const workEndTime = formData.heuresFinJour || '17:00';
 
-        console.log(`✅ FINAL - "${task.text}": ${calculatedStartHours}h → ${calculatedEndHours}h`);
+        const calculatedStart = convertWorkHoursToRealDate(calculatedStartHours, projectStart, workStartTime, workEndTime);
+        const calculatedEnd = convertWorkHoursToRealDate(calculatedEndHours, projectStart, workStartTime, workEndTime);
+
+        console.log(`✅ FINAL - "${task.text}": ${calculatedStartHours}h → ${calculatedEndHours}h (${calculatedStart.toLocaleString('fr-FR')} → ${calculatedEnd.toLocaleString('fr-FR')})`);
 
         return {
             calculatedStart,
@@ -1157,6 +1190,23 @@ export function JobModal({
             autoPersonalizeEventForConflicts();
         }
     }, [currentConflicts.length, formData.dateDebut, formData.dateFin]);
+
+    // ============== AUTO-AJUSTEMENT DATE FIN ==============
+    // Calculer automatiquement la date de fin selon les étapes et la config horaire
+    useEffect(() => {
+        if (formData.dateDebut && formData.etapes.length > 0) {
+            const calculatedEndDate = calculateProjectEndDate();
+            if (calculatedEndDate) {
+                const currentEndDate = new Date(formData.dateFin);
+
+                // Ne mettre à jour que si la date calculée est différente de l'actuelle
+                if (Math.abs(calculatedEndDate - currentEndDate) > 60000) { // Plus de 1 minute de différence
+                    console.log('🔄 AUTO-UPDATE dateFin:', calculatedEndDate.toLocaleString('fr-FR'));
+                    updateField('dateFin', calculatedEndDate.toISOString().slice(0, 16));
+                }
+            }
+        }
+    }, [formData.etapes, formData.dateDebut, formData.heuresDebutJour, formData.heuresFinJour]);
 
     // Fonction utilitaire pour calculer le niveau hiérarchique d'une tâche
     const calculateTaskLevel = (taskId, allTasks, level = 0) => {
@@ -1342,6 +1392,28 @@ export function JobModal({
 
         console.log('✅ GANTT - Génération terminée:', finalTasks.length, 'tâches');
         return finalTasks;
+    };
+
+    // ============== CALCUL AUTO DATE FIN PROJET ==============
+    // Calcule la date de fin réelle du projet basée sur les étapes et la configuration horaire
+    const calculateProjectEndDate = () => {
+        if (!formData.dateDebut || formData.etapes.length === 0) {
+            return null;
+        }
+
+        const hierarchicalTasks = generateHierarchicalGanttData();
+
+        // Trouver la date de fin la plus tardive parmi toutes les tâches
+        let latestEndDate = new Date(formData.dateDebut);
+
+        hierarchicalTasks.forEach(task => {
+            if (task.calculatedEnd && task.calculatedEnd > latestEndDate) {
+                latestEndDate = task.calculatedEnd;
+            }
+        });
+
+        console.log('📅 AUTO DATE FIN - Calculée:', latestEndDate.toLocaleString('fr-FR'));
+        return latestEndDate;
     };
 
     // Fonction pour dessiner les flèches de dépendances
@@ -2687,13 +2759,19 @@ export function JobModal({
         console.log('🐛 DEBUG auto view mode:', autoViewMode);
         console.log('🐛 DEBUG currentViewMode selected:', currentViewMode);
 
+        // NOUVEAU : Aligner la date de début avec l'heure de travail configurée
+        const workStartTime = formData.heuresDebutJour || '08:00';
+        const [startH, startM] = workStartTime.split(':').map(Number);
+
         const startDate = new Date(formData.dateDebut);
+        startDate.setHours(startH, startM, 0, 0); // Définir l'heure de début de journée
+
         const scale = [];
 
         switch (currentViewMode) {
             case '6h':
                 // Vue 6 heures fixe - toujours 6 cellules d'1h chacune (avec offset)
-                console.log('🐛 DEBUG - Generating 6h fixed view with offset:', offset);
+                console.log('🐛 DEBUG - Generating 6h fixed view with offset:', offset, 'starting at', workStartTime);
                 for (let hour = 0; hour < 6; hour++) {
                     const actualHour = hour + (offset * 6); // Décaler par fenêtre de 6h
                     const currentTime = new Date(startDate.getTime() + (actualHour * 60 * 60 * 1000));
@@ -2712,7 +2790,7 @@ export function JobModal({
 
             case '12h':
                 // Vue 12 heures fixe - toujours 12 cellules d'1h chacune (avec offset)
-                console.log('🐛 DEBUG - Generating 12h fixed view with offset:', offset);
+                console.log('🐛 DEBUG - Generating 12h fixed view with offset:', offset, 'starting at', workStartTime);
                 for (let hour = 0; hour < 12; hour++) {
                     const actualHour = hour + (offset * 12); // Décaler par fenêtre de 12h
                     const currentTime = new Date(startDate.getTime() + (actualHour * 60 * 60 * 1000));
@@ -2731,7 +2809,7 @@ export function JobModal({
 
             case '24h':
                 // Vue 24 heures fixe - toujours 24 cellules d'1h chacune (avec offset)
-                console.log('🐛 DEBUG - Generating 24h fixed view with offset:', offset);
+                console.log('🐛 DEBUG - Generating 24h fixed view with offset:', offset, 'starting at', workStartTime);
                 for (let hour = 0; hour < 24; hour++) {
                     const actualHour = hour + (offset * 24); // Décaler par fenêtre de 24h
                     const currentTime = new Date(startDate.getTime() + (actualHour * 60 * 60 * 1000));
@@ -2845,11 +2923,18 @@ export function JobModal({
         }
 
         const currentViewMode = viewMode || formData.ganttViewMode || getDefaultViewMode();
+
+        // NOUVEAU : Aligner projectStart avec l'heure de début configurée
+        const workStartTime = formData.heuresDebutJour || '08:00';
+        const [startH, startM] = workStartTime.split(':').map(Number);
+
         const projectStart = new Date(formData.dateDebut);
+        projectStart.setHours(startH, startM, 0, 0);
+
         const taskStart = task.calculatedStart;
         const taskEnd = task.calculatedEnd;
 
-        // Position en heures depuis le début du projet
+        // Position en heures depuis le début du projet (aligné sur heures de travail)
         const taskStartHours = Math.floor((taskStart - projectStart) / (1000 * 60 * 60));
         const taskDurationHours = Math.ceil((taskEnd - taskStart) / (1000 * 60 * 60));
 
