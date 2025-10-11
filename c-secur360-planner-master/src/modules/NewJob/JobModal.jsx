@@ -754,6 +754,27 @@ export function JobModal({
         setSelectedStep(null);
     };
 
+    // Fonction pour générer les options hiérarchiques du select (dépendances, jalons, parallélisme)
+    const generateHierarchicalSelectOptions = (currentStep) => {
+        const renderOptions = (parentId = null, level = 0) => {
+            return formData.etapes
+                .filter(etape => etape.parentId === parentId && etape.id !== currentStep?.id)
+                .map(etape => {
+                    const indent = '\u00A0\u00A0'.repeat(level); // Espaces insécables pour indentation
+                    const icon = formData.etapes.some(e => e.parentId === etape.id) ? '📁' : '📄';
+                    return (
+                        <>
+                            <option key={etape.id} value={etape.id}>
+                                {indent}{icon} {etape.text || `Étape ${etape.order + 1}`}
+                            </option>
+                            {renderOptions(etape.id, level + 1)}
+                        </>
+                    );
+                });
+        };
+        return renderOptions();
+    };
+
     // ============== FONCTIONS POUR LA PRÉPARATION ==============
 
     const addPreparation = () => {
