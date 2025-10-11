@@ -179,11 +179,15 @@ export function JobModal({
     const getDefaultViewMode = () => {
         const totalTaskHours = formData.etapes.reduce((sum, etape) => sum + (etape.duration || 0), 0);
 
-        if (totalTaskHours <= 6) return '6h';
-        if (totalTaskHours <= 12) return '12h';
-        if (totalTaskHours <= 24) return '24h';
-        if (totalTaskHours <= 168) return 'day'; // 1 semaine
-        return 'week';
+        // Auto-ajustement intelligent selon la durée du projet
+        if (totalTaskHours === 0) return '6h'; // Par défaut si pas d'étapes
+        if (totalTaskHours <= 6) return '6h'; // 0-6h → vue 6h
+        if (totalTaskHours <= 12) return '12h'; // 6-12h → vue 12h
+        if (totalTaskHours <= 24) return '24h'; // 12-24h → vue 24h (1 jour)
+        if (totalTaskHours <= 168) return 'day'; // 24h-168h (1 semaine) → vue par jour
+        if (totalTaskHours <= 720) return 'week'; // 1 semaine - 1 mois → vue par semaine
+        if (totalTaskHours <= 8760) return 'month'; // 1 mois - 1 an → vue par mois
+        return 'year'; // Plus d'1 an → vue annuelle
     };
 
     // Effect pour forcer l'onglet Gantt en mode mobile
@@ -2857,26 +2861,26 @@ export function JobModal({
 
     return (
         <div className="job-modal-wrapper">
-            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[95vh] flex flex-col overflow-hidden">
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4">
+                <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[98vh] sm:max-h-[95vh] flex flex-col overflow-hidden">
                     {/* Header */}
-                    <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 bg-gray-900 border-b border-gray-700 rounded-t-xl">
-                        <div className="flex items-center gap-4">
-                            <Logo size="normal" showText={true} />
+                    <div className="flex-shrink-0 flex items-center justify-between px-3 sm:px-6 py-2 sm:py-4 bg-gray-900 border-b border-gray-700 rounded-t-xl">
+                        <div className="flex items-center gap-2 sm:gap-4">
+                            <Logo size="normal" showText={false} className="sm:block" />
                             <div>
-                                <h2 className="text-xl font-bold text-white">
+                                <h2 className="text-base sm:text-xl font-bold text-white">
                                     {job ? 'Modifier le Job' : 'Nouveau Job'}
                                 </h2>
-                                <p className="text-gray-300 text-sm">
+                                <p className="text-gray-300 text-xs sm:text-sm hidden sm:block">
                                     Planification des travaux C-Secur360
                                 </p>
                             </div>
                         </div>
                         <button
                             onClick={onClose}
-                            className="text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg p-2 transition-colors"
+                            className="text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg p-1 sm:p-2 transition-colors"
                         >
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
@@ -2888,7 +2892,7 @@ export function JobModal({
                         <div className="hidden sm:flex w-full overflow-x-auto">
                             <button
                                 onClick={() => setActiveTab('form')}
-                                className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+                                className={`px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors whitespace-nowrap ${
                                     activeTab === 'form'
                                         ? 'text-purple-600 border-b-2 border-purple-600 bg-white'
                                         : 'text-gray-600 hover:text-gray-900'
@@ -2898,7 +2902,7 @@ export function JobModal({
                             </button>
                             <button
                                 onClick={() => setActiveTab('gantt')}
-                                className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+                                className={`px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors whitespace-nowrap ${
                                     activeTab === 'gantt'
                                         ? 'text-purple-600 border-b-2 border-purple-600 bg-white'
                                         : 'text-gray-600 hover:text-gray-900'
@@ -2908,7 +2912,7 @@ export function JobModal({
                             </button>
                             <button
                                 onClick={() => setActiveTab('resources')}
-                                className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+                                className={`px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors whitespace-nowrap ${
                                     activeTab === 'resources'
                                         ? 'text-purple-600 border-b-2 border-purple-600 bg-white'
                                         : 'text-gray-600 hover:text-gray-900'
@@ -2918,33 +2922,33 @@ export function JobModal({
                             </button>
                             <button
                                 onClick={() => setActiveTab('files')}
-                                className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+                                className={`px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors whitespace-nowrap ${
                                     activeTab === 'files'
                                         ? 'text-purple-600 border-b-2 border-purple-600 bg-white'
                                         : 'text-gray-600 hover:text-gray-900'
                                 }`}
                             >
-                                📎 Fichiers ({(formData.documents?.length || 0) + (formData.photos?.length || 0)})
+                                📎 <span className="hidden sm:inline">Fichiers</span> ({(formData.documents?.length || 0) + (formData.photos?.length || 0)})
                             </button>
                             <button
                                 onClick={() => setActiveTab('recurrence')}
-                                className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+                                className={`px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors whitespace-nowrap ${
                                     activeTab === 'recurrence'
                                         ? 'text-purple-600 border-b-2 border-purple-600 bg-white'
                                         : 'text-gray-600 hover:text-gray-900'
                                 }`}
                             >
-                                🔄 Récurrence {formData.recurrence?.active ? '(Activé)' : ''}
+                                🔄 <span className="hidden md:inline">Récurrence</span> {formData.recurrence?.active ? '✓' : ''}
                             </button>
                             <button
                                 onClick={() => setActiveTab('teams')}
-                                className={`px-6 py-3 font-medium transition-colors whitespace-nowrap ${
+                                className={`px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base font-medium transition-colors whitespace-nowrap ${
                                     activeTab === 'teams'
                                         ? 'text-purple-600 border-b-2 border-purple-600 bg-white'
                                         : 'text-gray-600 hover:text-gray-900'
                                 }`}
                             >
-                                🎯 Équipes {formData.horaireMode === 'personnalise' ? '(Avancé)' : ''}
+                                🎯 <span className="hidden md:inline">Équipes</span> {formData.horaireMode === 'personnalise' ? '⚙️' : ''}
                             </button>
                         </div>
                         {/* Mode mobile - Seulement l'onglet actif */}
@@ -2962,7 +2966,7 @@ export function JobModal({
                     <div className="flex-1 overflow-y-auto">
                         {/* Onglet Formulaire */}
                         {activeTab === 'form' && (
-                            <div className="p-6">
+                            <div className="p-3 sm:p-6">
                                 {/* ============== UI ALERTES DE CONFLITS ============== */}
                                 {currentConflicts.length > 0 && (
                                     <div className="mb-6 space-y-3">
@@ -3445,22 +3449,31 @@ export function JobModal({
 
                                         {/* Affichage différent selon l'état d'expansion */}
                                         {expandedSections.etapes ? (
-                                            /* Vue élargie avec Gantt côte à côte */
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[80vh]">
-                                                {/* Colonne gauche - Étapes */}
-                                                <div className="flex flex-col h-full min-h-0">
-                                                    <div className="flex items-center justify-between mb-2 flex-shrink-0">
-                                                        <span className="font-medium text-gray-700">📝 Configuration</span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => addEtape()}
-                                                            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                                                        >
-                                                            <Icon name="plus" size={14} className="mr-1" />
-                                                            Ajouter
-                                                        </button>
+                                            <div className="flex flex-col h-[80vh]">
+                                                {/* Header standardisé avec logo */}
+                                                <div className="flex items-center gap-4 p-4 bg-gray-900 border-b border-gray-700 rounded-t-lg mb-4 flex-shrink-0">
+                                                    <Logo size="normal" showText={false} />
+                                                    <div className="flex-1">
+                                                        <h3 className="text-xl font-bold text-white">Gestion des étapes du projet</h3>
+                                                        <p className="text-sm text-gray-300">Configuration et visualisation Gantt</p>
                                                     </div>
-                                                    <div className="flex-1 min-h-0 overflow-y-auto border border-gray-300 rounded bg-white p-3">
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4 flex-1 min-h-0">
+                                                    {/* Colonne gauche - Étapes */}
+                                                    <div className="flex flex-col h-full min-h-0 border border-gray-300 rounded-lg bg-white shadow-sm">
+                                                        <div className="flex items-center justify-between p-3 border-b bg-gray-50 flex-shrink-0">
+                                                            <span className="font-medium text-gray-700">📝 Configuration des étapes</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => addEtape()}
+                                                                className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                                                            >
+                                                                <Icon name="plus" size={14} className="mr-1" />
+                                                                Ajouter
+                                                            </button>
+                                                        </div>
+                                                    <div className="flex-1 min-h-0 overflow-y-auto p-3">
                                                         {(() => {
                                                             // Fonction pour rendre les étapes avec structure WBS
                                                             // Filtrer et organiser les étapes selon la hiérarchie WBS
@@ -3654,16 +3667,16 @@ export function JobModal({
                                                 </div>
 
                                                 {/* Colonne droite - Aperçu Gantt */}
-                                                <div className="flex flex-col h-full min-h-0">
+                                                <div className="flex flex-col h-full min-h-0 border border-gray-300 rounded-lg bg-white shadow-sm">
                                                     {formData.etapes && formData.etapes.length > 0 ? (
                                                         <div className="flex flex-col h-full min-h-0">
-                                                            <div className="flex items-center justify-between mb-2 flex-shrink-0">
+                                                            <div className="flex items-center justify-between p-3 border-b bg-gray-50 flex-shrink-0">
                                                                 <span className="font-medium text-gray-700">📊 Aperçu Gantt</span>
                                                                 <div className="text-xs text-gray-500">
                                                                     {formData.etapes.length} étape{formData.etapes.length > 1 ? 's' : ''}
                                                                 </div>
                                                             </div>
-                                                            <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto border border-gray-300 rounded bg-white">
+                                                            <div className="flex-1 min-h-0 overflow-x-auto overflow-y-auto">
                                                                 <div className="space-y-1 p-2 inline-block" style={{minWidth: '100%'}}>
                                                                     {(() => {
                                                                         const hierarchicalTasks = generateHierarchicalGanttData();
@@ -3674,9 +3687,9 @@ export function JobModal({
                                                                             <div className="jsx-fragment-wrapper">
                                                                                 {/* En-tête mini échelle avec vraies heures/dates */}
                                                                                 {timeScale.length > 0 && (
-                                                                                    <div className="flex text-xs text-gray-500 mb-1 bg-gray-100 sticky top-0 z-20 py-1 border-b min-w-max overflow-x-auto">
-                                                                                        <div className="w-32 text-left font-medium bg-gray-100 sticky left-0 z-10 border-r border-gray-400 pr-2">Tâche</div>
-                                                                                        <div className="flex border-l border-gray-400 overflow-x-auto">
+                                                                                    <div className="flex text-xs text-gray-500 mb-1 bg-gray-100 sticky top-0 z-20 py-1 border-b">
+                                                                                        <div className="w-32 text-left font-medium bg-gray-100 sticky left-0 z-10 border-r border-gray-400 pr-2 flex-shrink-0">Tâche</div>
+                                                                                        <div className="flex border-l border-gray-400 flex-shrink-0" style={{ width: `${timeScale.length * 64}px` }}>
                                                                                             {timeScale.map(period => (
                                                                                                 <div
                                                                                                     key={period.key}
@@ -3687,7 +3700,7 @@ export function JobModal({
                                                                                                 </div>
                                                                                             ))}
                                                                                         </div>
-                                                                                        <div className="w-12 text-center font-medium bg-gray-100 sticky right-0 z-10 border-l border-gray-400 pl-1">Dur</div>
+                                                                                        <div className="w-12 text-center font-medium bg-gray-100 sticky right-0 z-10 border-l border-gray-400 pl-1 flex-shrink-0">Dur</div>
                                                                                     </div>
                                                                                 )}
 
@@ -3697,10 +3710,10 @@ export function JobModal({
                                                                                     return (
                                                                                         <div
                                                                                             key={task.id}
-                                                                                            className="flex items-center text-xs hover:bg-blue-50 transition-colors py-0.5 min-w-max"
+                                                                                            className="flex items-center text-xs hover:bg-blue-50 transition-colors py-0.5"
                                                                                         >
                                                                                             <div
-                                                                                                className="w-32 truncate text-left bg-white sticky left-0 z-10 border-r border-gray-300 pr-2"
+                                                                                                className="w-32 truncate text-left bg-white sticky left-0 z-10 border-r border-gray-300 pr-2 flex-shrink-0"
                                                                                                 style={{ paddingLeft: `${task.level * 8}px` }}
                                                                                                 title={task.displayName || task.text || `Étape ${index + 1}`}
                                                                                             >
@@ -3712,7 +3725,7 @@ export function JobModal({
                                                                                                 </span>
                                                                                             </div>
 
-                                                                                            <div className="flex-1 relative h-4 bg-gray-100 border-l border-gray-400">
+                                                                                            <div className="relative h-4 bg-gray-100 border-l border-gray-400 flex-shrink-0" style={{ width: `${timeScale.length * 64}px` }}>
                                                                                                 {(() => {
                                                                                                     // Utiliser la même logique que le Gantt complet qui fonctionne
                                                                                                     const projectStart = new Date(formData.dateDebut || new Date());
@@ -3802,7 +3815,7 @@ export function JobModal({
                                                                                                 })()}
                                                                                             </div>
 
-                                                                                            <div className="w-12 text-center text-gray-600 font-mono bg-white sticky right-0 z-10 border-l border-gray-300 pl-1">
+                                                                                            <div className="w-12 text-center text-gray-600 font-mono bg-white sticky right-0 z-10 border-l border-gray-300 pl-1 flex-shrink-0">
                                                                                                 {task.duration}h
                                                                                             </div>
                                                                                         </div>
@@ -3875,7 +3888,7 @@ export function JobModal({
                                                             </div>
                                                         </div>
                                                     ) : (
-                                                        <div className="flex-1 flex items-center justify-center text-gray-500 border border-gray-300 rounded bg-gray-50">
+                                                        <div className="flex-1 flex items-center justify-center text-gray-500 bg-gray-50">
                                                             <div className="text-center">
                                                                 <div className="text-2xl mb-2">📊</div>
                                                                 <div className="text-sm">L'aperçu Gantt</div>
@@ -3885,8 +3898,8 @@ export function JobModal({
                                                     )}
                                                 </div>
                                             </div>
+                                        </div>
                                         ) : (
-                                            /* Vue compacte normale avec scroll adaptatif */
                                             <div className="max-h-96 overflow-y-auto space-y-2 mb-3 border rounded-lg p-3 bg-gray-50">
                                                 {(() => {
                                                     // Fonction pour rendre les étapes avec structure WBS
@@ -4147,6 +4160,16 @@ export function JobModal({
                                                 </select>
                                             </div>
 
+                                            <div className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
+                                                <span className="text-xs text-white font-medium">📆 Date:</span>
+                                                <input
+                                                    type="date"
+                                                    value={formData.dateDebut || ''}
+                                                    onChange={(e) => updateField('dateDebut', e.target.value)}
+                                                    className="bg-gray-900 text-white text-sm rounded px-2 py-1 font-medium border border-gray-600"
+                                                />
+                                            </div>
+
                                             <button
                                                 onClick={() => updateField('showCriticalPath', !formData.showCriticalPath)}
                                                 className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
@@ -4228,19 +4251,24 @@ export function JobModal({
                                                         const timeScale = generateTimeScale(currentViewMode);
                                                         if (timeScale.length > 0) {
                                                             return (
-                                                                <div className="flex items-center mb-2 text-xs text-gray-600 border-b pb-1 overflow-x-auto">
+                                                                <div className="flex items-center mb-2 text-xs text-gray-600 border-b pb-1">
                                                                     <div className="w-1/3 flex-shrink-0"></div>
                                                                     <div className="flex-1 flex overflow-x-auto">
-                                                                        {timeScale.map(period => (
-                                                                            <div
-                                                                                key={period.key}
-                                                                                className="flex-1 text-center border-r border-gray-200 py-1 flex-shrink-0"
-                                                                                style={{ minWidth: '60px' }}
-                                                                                title={currentViewMode === 'weeks' && period.longLabel ? period.longLabel : period.label}
-                                                                            >
-                                                                                {period.label}
-                                                                            </div>
-                                                                        ))}
+                                                                        <div className="flex" style={{ minWidth: '100%' }}>
+                                                                            {timeScale.map(period => (
+                                                                                <div
+                                                                                    key={period.key}
+                                                                                    className="text-center border-r border-gray-200 py-1 flex-shrink-0"
+                                                                                    style={{
+                                                                                        width: `${100 / timeScale.length}%`,
+                                                                                        minWidth: '80px'
+                                                                                    }}
+                                                                                    title={currentViewMode === 'weeks' && period.longLabel ? period.longLabel : period.label}
+                                                                                >
+                                                                                    {period.label}
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
                                                                     </div>
                                                                     <div className="w-20 flex-shrink-0"></div>
                                                                 </div>

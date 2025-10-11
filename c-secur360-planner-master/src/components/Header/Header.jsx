@@ -6,6 +6,7 @@ import { Icon } from '../UI/Icon';
 import { Logo } from '../UI/Logo';
 import { MenuDropdown } from '../UI/MenuDropdown';
 import { LanguageSelector } from '../UI/LanguageSelector';
+import { ThemeToggle } from '../UI/ThemeSelector';
 
 export function Header({
     utilisateurConnecte,
@@ -48,13 +49,15 @@ export function Header({
         setDeferredPrompt(null);
     };
     return (
-        <header className="bg-gray-900 border-b border-gray-700 px-4 py-3">
+        <header className="bg-gray-900 border-b border-gray-700 px-2 sm:px-4 py-2 sm:py-3 sticky top-0 z-40">
             <div className="flex items-center justify-between">
                 {/* Logo et titre */}
-                <Logo size="normal" showText={true} />
+                <div className="flex items-center gap-2">
+                    <Logo size="normal" showText={true} />
+                </div>
 
                 {/* Actions droite */}
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 sm:gap-4">
                     {/* Bouton installation PWA */}
                     {showInstallButton && (
                         <button
@@ -67,8 +70,23 @@ export function Header({
                         </button>
                     )}
 
-                    {/* Sélecteur de langue */}
+                    {/* Utilisateur connecté - caché sur mobile */}
+                    {utilisateurConnecte && (
+                        <div className="text-right hidden sm:block">
+                            <div className="text-sm font-medium text-white">
+                                {utilisateurConnecte.nom}
+                            </div>
+                            <div className="text-xs text-gray-300">
+                                {utilisateurConnecte.poste}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Sélecteur de langue - compact */}
                     <LanguageSelector showLabel={false} size="normal" />
+
+                    {/* Sélecteur de thème - compact */}
+                    <ThemeToggle className="hidden sm:flex" />
 
                     {/* Menu hamburger avec fonctions principales */}
                     <MenuDropdown
@@ -76,23 +94,6 @@ export function Header({
                         onManageConges={onManageConges}
                         onManageResources={onManageResources}
                     />
-
-                    {/* Utilisateur connecté */}
-                    {utilisateurConnecte && (
-                        <div className="flex items-center gap-3">
-                            <div className="text-right">
-                                <div className="text-sm font-medium text-white">
-                                    {utilisateurConnecte.nom}
-                                </div>
-                                <div className="text-xs text-gray-300">
-                                    {utilisateurConnecte.poste}
-                                </div>
-                            </div>
-                            <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center">
-                                <Icon name="user" size={16} className="text-white" />
-                            </div>
-                        </div>
-                    )}
 
                     {/* Bouton déconnexion */}
                     {utilisateurConnecte && onLogout && (

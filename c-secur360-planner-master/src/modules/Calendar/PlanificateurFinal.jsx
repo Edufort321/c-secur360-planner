@@ -51,6 +51,20 @@ export function PlanificateurFinal({
     const [conflictJob, setConflictJob] = useState(null); // Job en conflit ouvert en parallèle
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
 
+    // Auto-sélectionner l'utilisateur connecté en mode mobile personnel
+    useEffect(() => {
+        if (isMobile && filterType === 'personnel' && utilisateurConnecte) {
+            const currentUserPersonnel = personnel.find(p =>
+                p.nom === utilisateurConnecte.nom ||
+                p.id === utilisateurConnecte.id
+            );
+            if (currentUserPersonnel) {
+                setModeVueIndividuel(true);
+                setTravailleurSelectionne(currentUserPersonnel.id);
+            }
+        }
+    }, [isMobile, filterType, utilisateurConnecte, personnel]);
+
     // Effet pour ajuster numberOfDays selon la vue temporelle
     useEffect(() => {
         if (timeView.startsWith('period-')) {
@@ -864,19 +878,19 @@ export function PlanificateurFinal({
                 </div>
 
                 {/* Filtres et recherche */}
-                <div className="flex flex-col lg:flex-row gap-4 mt-4">
+                <div className="flex flex-col lg:flex-row gap-2 sm:gap-4 mt-2 sm:mt-4">
                     <div className="flex flex-1 gap-2">
                         {/* Menu hamburger avec titre */}
-                        <div className="relative flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-700">{t('filter.filters')}</span>
+                        <div className="relative flex items-center gap-1 sm:gap-2">
+                            <span className="text-xs sm:text-sm font-medium text-gray-700 hidden sm:inline">{t('filter.filters')}</span>
                             <button
                                 onClick={() => setShowFilterMenu(!showFilterMenu)}
-                                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border"
+                                className="p-2 sm:p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors border touch-manipulation"
                                 title={t('filter.menuFilters')}
                             >
                                 <svg
-                                    width="20"
-                                    height="20"
+                                    width="18"
+                                    height="18"
                                     viewBox="0 0 24 24"
                                     fill="none"
                                     stroke="currentColor"
@@ -892,11 +906,11 @@ export function PlanificateurFinal({
                             {/* Menu déroulant avec onglets */}
                             {showFilterMenu && (
                                 <>
-                                    <div className="absolute top-full left-0 mt-2 w-96 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
-                                        <div className="p-4">
+                                    <div className="absolute top-full left-0 mt-2 w-80 sm:w-96 bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-[80vh] overflow-y-auto">
+                                        <div className="p-3 sm:p-4">
                                             {/* Header du menu */}
-                                            <div className="border-b border-gray-200 pb-3 mb-4">
-                                                <h3 className="text-sm font-semibold text-gray-900">
+                                            <div className="border-b border-gray-200 pb-2 sm:pb-3 mb-3 sm:mb-4">
+                                                <h3 className="text-xs sm:text-sm font-semibold text-gray-900">
                                                     {t('filter.filtersAndOptions')}
                                                 </h3>
                                             </div>
@@ -919,9 +933,9 @@ export function PlanificateurFinal({
                                                     setSelectedJob(newJob);
                                                     setShowFilterMenu(false);
                                                 }}
-                                                className="w-full mb-4 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 font-medium"
+                                                className="w-full mb-3 sm:mb-4 px-3 sm:px-4 py-2.5 sm:py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 font-medium text-sm sm:text-base touch-manipulation active:scale-95"
                                             >
-                                                <span className="text-xl">➕</span>
+                                                <span className="text-lg sm:text-xl">➕</span>
                                                 <span>{t ? t('event.createEvent') : 'Créer un événement'}</span>
                                             </button>
 
@@ -1392,12 +1406,12 @@ export function PlanificateurFinal({
                     )}
 
                     <div className="bg-white rounded-lg shadow-sm overflow-hidden max-h-[calc(100vh-200px)] overflow-y-auto">
-                    <div className="flex">
+                    <div className={`flex ${isMobile && filterType === 'personnel' ? 'flex-col' : 'flex-row'}`}>
                         {/* Colonnes fixes pour noms et postes */}
-                        <div className="flex-shrink-0 border-r-2 border-gray-300">
+                        <div className={`${isMobile && filterType === 'personnel' ? 'w-full border-b-2' : 'flex-shrink-0 border-r-2'} border-gray-300`}>
                             <table className="border-collapse w-full">
                                 <thead className="bg-gray-900 sticky top-0">
-                                    <tr className="h-20">
+                                    <tr className={isMobile && filterType === 'personnel' ? 'h-12' : 'h-20'}>
                                         <th className={`px-3 py-4 text-left font-semibold text-white bg-gray-900 border-r border-gray-600 ${isMobile ? 'w-[120px]' : 'w-[180px]'}`}>
                                             {filterType === 'global' ? "Ressource" :
                                              filterType === 'personnel' ? (isMobile ? "Nom" : "Nom / Prénom") :
@@ -1413,6 +1427,7 @@ export function PlanificateurFinal({
                                         )}
                                     </tr>
                                 </thead>
+                                {!(isMobile && filterType === 'personnel') && (
                                 <tbody>
                                     {filteredResources.map((resource) => (
                                         <tr key={resource.id} className={`border-b hover:bg-gray-50 ${
@@ -1461,69 +1476,140 @@ export function PlanificateurFinal({
                                         </tr>
                                     ))}
                                 </tbody>
+                                )}
                             </table>
                         </div>
 
                         {/* Section scrollable pour les dates */}
-                        <div className="flex-1 overflow-x-auto">
-                            <table className="w-full min-w-max border-collapse">
-                                <thead className="bg-gray-900 sticky top-0">
-                                    {/* En-tête avec dates - UNE seule ligne synchronisée */}
-                                    <tr className="h-20">
-                                        {continuousDays.map((day, index) => (
-                                            <th
-                                                key={index}
-                                                className={`px-1 py-4 text-center text-xs border-r border-gray-600 w-20 bg-gray-900 ${
-                                                    day.isToday ? 'text-yellow-400 font-bold' : 'text-white'
-                                                } cursor-pointer hover:bg-gray-700 transition-colors`}
-                                                onDoubleClick={() => handleDateDoubleClick(day.date)}
-                                                title={t('calendar.doubleClickFullDate')}
-                                            >
-                                                <div className="font-medium leading-tight">{day.displayShort}</div>
-                                                <div className={`${isMobile ? 'text-xs' : 'text-sm'} leading-tight ${day.isToday ? 'font-bold' : ''}`}>
-                                                    {day.dayNumber}
-                                                </div>
-                                            </th>
-                                        ))}
-                                    </tr>
-
-                                </thead>
-
-                                <tbody>
+                        <div className={`flex-1 ${isMobile && filterType === 'personnel' ? 'overflow-y-auto' : 'overflow-x-auto'}`}>
+                            {isMobile && filterType === 'personnel' ? (
+                                /* Vue mobile verticale pour personnel */
+                                <div className="space-y-2 p-2">
                                     {filteredResources.map((resource) => (
-                                        <tr key={`dates-${resource.id}`} className="border-b hover:bg-gray-50 h-20">
-                                            {continuousDays.map((day, dayIndex) => {
-                                                const allJobs = getAllJobsForCell(resource.id, day, resource.type);
+                                        <div key={resource.id} className="bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden">
+                                            {/* En-tête de la ressource */}
+                                            <div className="bg-gray-100 px-3 py-2 border-b border-gray-300">
+                                                <div className="flex items-center gap-2">
+                                                    <div
+                                                        className="w-3 h-3 rounded-full flex-shrink-0"
+                                                        style={{ backgroundColor: getSuccursaleColor(resource.succursale) }}
+                                                    />
+                                                    <div className="font-semibold text-sm">
+                                                        {resource.nom} {resource.prenom || ''}
+                                                    </div>
+                                                </div>
+                                                <div className="text-xs text-gray-600">{resource.succursale}</div>
+                                            </div>
 
-                                                return (
-                                                    <td
-                                                        key={dayIndex}
-                                                        className={`relative p-1 border-r w-20 cursor-pointer hover:bg-blue-50 ${
-                                                            day.isToday ? 'bg-gray-300' :
-                                                            day.isWeekend ? 'bg-gray-200' : 'bg-white'
-                                                        }`}
-                                                        onClick={() => handleCellClick(resource.id, day, resource.type)}
-                                                    >
-                                                        {allJobs.length > 0 ? (
-                                                            <TimelineCell
-                                                                jobs={allJobs}
-                                                                day={day}
-                                                                onJobClick={(job) => setSelectedJob(job)}
-                                                                resourceId={resource.id}
-                                                                resourceType={resource.type}
-                                                            />
-                                                        ) : (
-                                                            <div className="w-full h-20 flex items-center justify-center text-gray-400 text-xs">
-                                                                {/* Cellule vide */}
+                                            {/* Liste des journées */}
+                                            <div className="divide-y divide-gray-200">
+                                                {continuousDays.map((day, dayIndex) => {
+                                                    const allJobs = getAllJobsForCell(resource.id, day, resource.type);
+
+                                                    return (
+                                                        <div
+                                                            key={dayIndex}
+                                                            className={`flex items-stretch ${
+                                                                day.isToday ? 'bg-yellow-50' :
+                                                                day.isWeekend ? 'bg-gray-100' : 'bg-white'
+                                                            }`}
+                                                        >
+                                                            {/* Date */}
+                                                            <div className="w-20 flex-shrink-0 px-2 py-3 border-r border-gray-300 text-center">
+                                                                <div className={`text-xs font-medium ${day.isToday ? 'text-yellow-700' : 'text-gray-700'}`}>
+                                                                    {day.displayShort}
+                                                                </div>
+                                                                <div className={`text-sm ${day.isToday ? 'font-bold text-yellow-800' : 'text-gray-900'}`}>
+                                                                    {day.dayNumber}
+                                                                </div>
                                                             </div>
-                                                        )}
-                                                    </td>
-                                                );
-                                            })}
-                                        </tr>
+
+                                                            {/* Job cell */}
+                                                            <div
+                                                                className="flex-1 p-2 cursor-pointer hover:bg-blue-50 min-h-[60px]"
+                                                                onClick={() => handleCellClick(resource.id, day, resource.type)}
+                                                            >
+                                                                {allJobs.length > 0 ? (
+                                                                    <TimelineCell
+                                                                        jobs={allJobs}
+                                                                        day={day}
+                                                                        onJobClick={(job) => setSelectedJob(job)}
+                                                                        resourceId={resource.id}
+                                                                        resourceType={resource.type}
+                                                                    />
+                                                                ) : (
+                                                                    <div className="flex items-center justify-center h-full text-gray-400 text-xs">
+                                                                        {/* Vide */}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
                                     ))}
-                                </tbody>
-                            </table>
+                                </div>
+                            ) : (
+                                /* Vue normale horizontale */
+                                <table className="w-full min-w-max border-collapse">
+                                    <thead className="bg-gray-900 sticky top-0">
+                                        {/* En-tête avec dates - UNE seule ligne synchronisée */}
+                                        <tr className="h-20">
+                                            {continuousDays.map((day, index) => (
+                                                <th
+                                                    key={index}
+                                                    className={`px-1 py-4 text-center text-xs border-r border-gray-600 w-20 bg-gray-900 ${
+                                                        day.isToday ? 'text-yellow-400 font-bold' : 'text-white'
+                                                    } cursor-pointer hover:bg-gray-700 transition-colors`}
+                                                    onDoubleClick={() => handleDateDoubleClick(day.date)}
+                                                    title={t('calendar.doubleClickFullDate')}
+                                                >
+                                                    <div className="font-medium leading-tight">{day.displayShort}</div>
+                                                    <div className={`${isMobile ? 'text-xs' : 'text-sm'} leading-tight ${day.isToday ? 'font-bold' : ''}`}>
+                                                        {day.dayNumber}
+                                                    </div>
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+
+                                    <tbody>
+                                        {filteredResources.map((resource) => (
+                                            <tr key={`dates-${resource.id}`} className="border-b hover:bg-gray-50 h-20">
+                                                {continuousDays.map((day, dayIndex) => {
+                                                    const allJobs = getAllJobsForCell(resource.id, day, resource.type);
+
+                                                    return (
+                                                        <td
+                                                            key={dayIndex}
+                                                            className={`relative p-1 border-r w-20 cursor-pointer hover:bg-blue-50 ${
+                                                                day.isToday ? 'bg-gray-300' :
+                                                                day.isWeekend ? 'bg-gray-200' : 'bg-white'
+                                                            }`}
+                                                            onClick={() => handleCellClick(resource.id, day, resource.type)}
+                                                        >
+                                                            {allJobs.length > 0 ? (
+                                                                <TimelineCell
+                                                                    jobs={allJobs}
+                                                                    day={day}
+                                                                    onJobClick={(job) => setSelectedJob(job)}
+                                                                    resourceId={resource.id}
+                                                                    resourceType={resource.type}
+                                                                />
+                                                            ) : (
+                                                                <div className="w-full h-20 flex items-center justify-center text-gray-400 text-xs">
+                                                                    {/* Cellule vide */}
+                                                                </div>
+                                                            )}
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
                         </div>
                     </div>
                 </div>

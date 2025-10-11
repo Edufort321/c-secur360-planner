@@ -290,28 +290,28 @@ export function ResourcesModal({
         <>
             {/* Modal avec header noir personnalisé */}
             {isOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[95vh] flex flex-col">
+                <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-2 sm:p-4">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[98vh] sm:max-h-[95vh] flex flex-col">
                         {/* Header noir comme le principal */}
-                        <div className="flex-shrink-0 flex items-center justify-between p-6 bg-gray-900 rounded-t-xl">
-                            <div className="flex items-center gap-4">
+                        <div className="flex-shrink-0 flex items-center justify-between p-3 sm:p-6 bg-gray-900 rounded-t-xl">
+                            <div className="flex items-center gap-2 sm:gap-4">
                                 <Logo size="normal" showText={false} />
                                 <div>
-                                    <h2 className="text-xl font-bold text-white">{t('admin.resource.title')}</h2>
-                                    <p className="text-sm text-gray-300">{t('admin.resource.subtitle')}</p>
+                                    <h2 className="text-base sm:text-xl font-bold text-white">{t('admin.resource.title')}</h2>
+                                    <p className="text-xs sm:text-sm text-gray-300 hidden sm:block">{t('admin.resource.subtitle')}</p>
                                 </div>
                             </div>
                             <button
                                 onClick={handleClose}
-                                className="p-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+                                className="p-1 sm:p-2 text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
                                 title={t('action.close')}
                             >
-                                <Icon name="close" size={20} />
+                                <Icon name="close" size={18} />
                             </button>
                         </div>
 
                         {/* Contenu scrollable */}
-                        <div className="flex-1 p-6 overflow-y-auto min-h-0">
+                        <div className="flex-1 p-3 sm:p-6 overflow-y-auto min-h-0">
                             <div className="space-y-6">
                     {/* Message d'accès refusé si permissions insuffisantes */}
                     {!peutAccederRessources() && (
@@ -336,39 +336,41 @@ export function ResourcesModal({
                         <>
                             {/* Onglets et contrôles */}
                             <div className="border-b border-gray-200 space-y-4">
-                                <nav className="-mb-px flex space-x-8">
+                                <nav className="-mb-px flex overflow-x-auto space-x-4 sm:space-x-8">
                                     <button
                                         onClick={() => handleTabChange('succursales')}
-                                        className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                                        className={`py-2 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                                             activeTab === 'succursales'
                                                 ? 'border-blue-600 text-blue-700'
                                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                         }`}
                                     >
-                                        <Icon name="building" size={16} className="inline mr-2" />
-                                        Succursales/Départements ({succursales.length})
+                                        <Icon name="building" size={14} className="inline mr-1 sm:mr-2" />
+                                        <span className="hidden sm:inline">Succursales/Départements</span>
+                                        <span className="sm:hidden">Bureaux</span> ({succursales.length})
                                     </button>
                                     <button
                                         onClick={() => handleTabChange('postes')}
-                                        className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                                        className={`py-2 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                                             activeTab === 'postes'
                                                 ? 'border-indigo-500 text-indigo-600'
                                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                         }`}
                                     >
-                                        <Icon name="briefcase" size={16} className="inline mr-2" />
+                                        <Icon name="briefcase" size={14} className="inline mr-1 sm:mr-2" />
                                         {t('admin.position.title')} ({postes.length})
                                     </button>
                                     <button
                                         onClick={() => handleTabChange('filtres')}
-                                        className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                                        className={`py-2 px-2 sm:px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                                             activeTab === 'filtres'
                                                 ? 'border-purple-500 text-purple-600'
                                                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                         }`}
                                     >
-                                        <Icon name="filter" size={16} className="inline mr-2" />
-                                        {t('admin.filter.management')} ({filtresSauvegardes.length})
+                                        <Icon name="filter" size={14} className="inline mr-1 sm:mr-2" />
+                                        <span className="hidden sm:inline">{t('admin.filter.management')}</span>
+                                        <span className="sm:hidden">Filtres</span> ({filtresSauvegardes.length})
                                     </button>
                                 </nav>
                             </div>
