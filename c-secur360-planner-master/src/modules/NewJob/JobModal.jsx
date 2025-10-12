@@ -7352,10 +7352,10 @@ export function JobModal({
                                 <div className="space-y-6">
                                     {/* Header Récurrence */}
                                     <div className="flex items-center gap-4 px-6 py-4 bg-gray-900 border-b border-gray-700 rounded-lg">
-                                        <div className="text-4xl">🔄</div>
-                                        <div>
-                                            <h3 className="text-lg font-bold text-white flex items-center">
-                                                Récurrence des Tâches
+                                        <Logo size="normal" showText={false} />
+                                        <div className="flex-1">
+                                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                                🔄 Récurrence des Tâches
                                             </h3>
                                             <p className="text-sm text-gray-300">
                                                 Configuration des tâches récurrentes et programmation automatique
@@ -7726,13 +7726,13 @@ export function JobModal({
                             <div className="h-full overflow-y-auto p-6">
                                 <div className="space-y-6">
                                     {/* Header Personnalisation */}
-                                    <div className="flex items-center gap-4 px-6 py-4 bg-gradient-to-r from-purple-900 to-indigo-900 border-b border-purple-700 rounded-lg">
-                                        <div className="text-4xl">⚙️</div>
-                                        <div>
-                                            <h3 className="text-lg font-bold text-white flex items-center">
-                                                Personnalisation Avancée
+                                    <div className="flex items-center gap-4 px-6 py-4 bg-gray-900 border-b border-gray-700 rounded-lg">
+                                        <Logo size="normal" showText={false} />
+                                        <div className="flex-1">
+                                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                                                ⚙️ Personnalisation Avancée
                                             </h3>
-                                            <p className="text-sm text-gray-200">
+                                            <p className="text-sm text-gray-300">
                                                 Horaires personnalisés et dates multiples pour votre projet
                                             </p>
                                         </div>
